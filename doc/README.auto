@@ -1,0 +1,12 @@
+How to build:
+=============
+If autoconf/automake/autogen .... are installed on your system, installing
+should be straightforward.
+
+1. For the very first time, you probably want to run "autogen.sh" in
+   the top directory. This should end up producing a ./configure script.
+2. Run ./configure with what ever args you might need (e.g. --prefix)
+   The configure script should end up generating Makefiles in each directory.
+3. If steps 1&2 worked, you can just run 'make'.
+
+Done!
