@@ -1,0 +1,111 @@
+The following is an informal specification of the Matrix framework
+
+There are some basic sections: (subtasks are to define these)
+
+1. Configuration file format and conventions.
+2. Component interface for requesting/subscribing to control commands/events (Keymaster I/F)
+3. Component states for initialization, starting, stopping, and reconfiguring. (the base Controller)
+4. Data path configuration. [e.g. Configuration conventions, Strategy based interface]
+
+
+Configuration File Format and Convention: <needs work>
+=========================================
+The configration file uses the YAML format. (See http://www.yaml.org) The file is read by the Keymaster, and made available through a query interface to all other components and entities in the system. In essense, the Keymaster is the local datastore for shared control, configuration and status information. An example file is shown below. One concept to note is that much of the file is 'free format' in the sense that it may contain any legal YAML text, however there are a few keywords which have semantics defined.  Comments are denoted with the '#' character.
+<An explanation of YAML would be good here>
+
+Keywords: At the top level, the keyword 'components' begins the section which describes each 
+component. An example would be:
+```
+...
+components:
+	my_component_name:
+		type="MyComponentType"  # Note required keyword
+		sources:
+			outVarname1: [ipc, inproc, tcp]
+			outVarname2: [ipc]
+		sinks:
+			inputVarname1: ipc
+			inputVarname2: tcp
+...
+connections:
+	# This section is application defined, but typically follows the form:
+	- [my_component_name, outVarname2,  my_other_component, inVarname]
+...
+```
+
+Where components indicates the enclosed information relates to the instantiation of 
+individual components. The next level headings are names of components (which can 
+be any legal YAML scalar symbol). For each component name, a required keyword is type. 
+The type keyword indicates what type of component is to be created.
+
+So a typical controller would iterate though the entries under components and look 
+for the required 'component.<component_name>.type' entry and use the associated 
+factory method to create the component.  Component outputs are denoted in the 
+component.<component_name>.sources section. Each entry lists the source (output) name, 
+followed by a list of available protocols which the component will bind the 
+source's publisher. Likewise, component inputs or sinks are listed under the 
+'component.<component_name>.sinks' section.
+
+The connection section lists source to sink connections between Components. The 
+connections are listed under sections which describe a particular system 'mode'. 
+Application which are not multi-modal should list their more static connections 
+under some default heading.  For example:
+```
+connections:
+	Default:
+		- [Comp1, outputA, Comp2, inputB]
+		- [Comp3, outputC, Comp2, inputA]    
+	Configuration_One: 
+		- [Comp1, specialoutput, Comp2, specialinput]
+		- [Comp1, outputA, Comp2, inputB]
+		# Component Comp3 has no connections in this mode
+...
+```
+
+Component Keymaster Interface
+=============================
+The keymaster set/get interface, how to subscribe etc. URL definition?
+
+Component States and Status
+===========================
+This section describes the required states and events for any component. 
+The motivation toward defining standard required states is component reuse. 
+As long as a component knows how to handle and respond to a stardard set of 
+events/states, then it should be compatible with components from another application.
+The set of standard required states are:
+* **Standby** - The component is in a quiesent state, and all sinks are in a disconnected.
+  * Connections are made to the Keymaster
+  * The component sources have bound to the protocols listed in the respective configuration 
+    entries.
+  * Any other internal initialization which does not depend upon other components.
+  * If the component is entering the Standby state in response to a stand_down event, 
+    then connections to other component sources should be closed.
+* **Ready** -  The component is fully initialized and connected and ready to process data
+  * Sinks are connected to their respective sources
+* **Running** - Components are processing data
+
+The set of standard events are:
+* **Initialize** - Cause the components to make their sink to source connections and conduct and other application specific initialization required to become 'ready to go'. The successful completion of the Initialize event should place the component into the Ready state. This event is only actionable when components are in the Standby state.
+* **Stand_down** - Reverses the effect of the Initialize event, disconnecting sinks from sources.
+* **Start** - Begin processing data. This should cause the component to enter the Running state.
+* **Stop** - Stop processing data and enter the Ready state. Actionable only in the Running state.
+
+One should note that while the events and states listed above are really just a minimal set, 
+and mostly apply to inter-component communication setup. It is completely sane to reconfigure 
+a component while *not* in the Standby state, as long as other components are not negatively 
+impacted. In addition, the application defined Controller may define additional custom 
+events, which components may ignore if they do not handle them.
+
+As might be obvious, the state changes noted above are reported back to the Keymaster, 
+which in turn publishes the state change to the Controller. There should be a summary 
+'component status' for the component which the Controller can access to verify the health 
+of each component. <TBD.>
+
+
+Data Path Configuration
+=======================
+Configuration of the inter-component data paths are the responsibility of the respective Components, based on the connection information provided in the Keymaster's copy of the configuration file.
+
+
+
+
