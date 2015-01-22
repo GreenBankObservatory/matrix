@@ -33,7 +33,7 @@ AC_PREREQ([2.59])
 # required - args are: Project name, version, contacts
 AC_INIT([Matrix], [0.1], [jbrandt AT nrao.edu, rcreager AT nrao.edu])
 
-# unique source file --- primitive safety check 
+# unique source file --- primitive safety check
 AC_CONFIG_SRCDIR([src/Controller.cc])
 
 # place to put some extra build scripts installed
@@ -55,10 +55,67 @@ AC_PROG_LIBTOOL
 
 # This macro is defined in check.m4 and tests if check.h and
 # libcheck.a are installed in your system. It sets CHECK_CFLAGS and
-# CHECK_LIBS accordingly.  
+# CHECK_LIBS accordingly.
 #  AM_PATH_CHECK([MINIMUM-VERSION,
 #                [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
 AM_PATH_CHECK()
+
+# Check for zeromq library
+zeromq_prefix=detect
+AC_ARG_WITH([zeromq],
+    [AS_HELP_STRING([--with-zeromq=PREFIX],
+        [build with ZeroMQ library installed in PREFIX [default=autodetect]])],
+    [case "x$withval" in
+        xno)
+            AC_MSG_ERROR([matrix requires the ZeroMQ library])
+            ;;
+        xyes|x)
+            ;;
+        *)
+            CPPFLAGS="$CPPFLAGS -I${withval}/include"
+            LDFLAGS="$LDFLAGS -L${withval}/lib"
+            zeromq_prefix=${withval}
+            ;;
+    esac ]
+)
+if test "x$zeromq_prefix" = "xdetect"; then
+    PKG_CHECK_MODULES(
+        [ZeroMQ], [libzmq], [zeromq_prefix=pkgconfig], [zeromq_prefix=])
+        if test "x$zeromq_prefix" = "xpkgconfig"; then
+            CPPFLAGS="$CPPFLAGS ${ZeroMQ_CFLAGS}"
+            LDFLAGS="$LDFLAGS ${ZeroMQ_LIBS}"
+        fi
+fi
+
+AC_ARG_ENABLE([version],
+              [AS_HELP_STRING([--enable-version],
+                              [builds with version information embedded [default=yes]])])
+AM_CONDITIONAL(DISABLE_VERSION, test "x$enable_version" = "xno")
+
+AC_CHECK_HEADER([zmq.h], [],
+    [AC_MSG_ERROR([cannot find zmq.h])])
+
+AC_ARG_ENABLE([self-contained],
+              [AS_HELP_STRING([--enable-self-contained],
+                              [generates a library that embeds all its external dependencies [default=no]])])
+
+AC_ARG_ENABLE([self-contained-uuid],
+              [AS_HELP_STRING([--enable-self-contained-uuid],
+              [embeds the libuuid dependency in the shared object [default=no]])])
+
+AC_CHECK_LIB([zmq], [zmq_init],
+             [
+             if test "x$enable_self_contained" = "xyes"; then
+                    LDFLAGS="$LDFLAGS -Wl,-Bstatic -Wl,-lzmq -Wl,-Bdynamic"
+             else
+                     LIBS="-lzmq $LIBS"
+             fi
+             if test "x$enable_self_contained_uuid" = "xyes"; then
+                     LDFLAGS="$LDFLAGS -Wl,-luuid"
+             fi
+             ],
+    [AC_MSG_ERROR([cannot link with -lzmq])])
+
 
 # Checks for header files.
 AC_HEADER_STDC

@@ -25,20 +25,40 @@
 #
 #===============================================================================
 
-SUBDIRS = . 
+SUBDIRS = .
 
 lib_LTLIBRARIES = libmatrix.la
 
 headersdir = $(includedir)
-headers_HEADERS = 
+headers_HEADERS = \
+    Controller.h \
+    FiniteStateMachine.h \
+    Mutex.h \
+    Publisher.h \
+    TCondition.h \
+    Thread.h \
+    ThreadLock.h \
+    Time.h \
+    ZMQContext.h \
+    netUtils.h \
+    tsemfifo.h \
+    zmq_ephemeral_bind.h \
+    zmq_util.h
 
-libmatrix_la_SOURCES = Controller.h \
-                       Controller.cc  \
-                       FiniteStateMachine.cc \
-                       Time.h \
-                       Time.cc
+libmatrix_la_SOURCES = \
+    Controller.cc \
+    FiniteStateMachine.cc \
+    Mutex.cc \
+    Publisher.cc \
+    Time.cc \
+    ZMQContext.cc \
+    netUtils.cc \
+    zmq_ephemeral_bind.cc \
+    zmq_util.cc
 
-libmatrix_la_CXXFLAGS =  -pthread -std=c++0x
+
+libmatrix_la_CXXFLAGS = $(LIBGPIB_CFLAGS) -pthread -std=c++0x
+libmatrix_la_CFLAGS = $(LIBGPIB_CFLAGS) -pthread
 libmatrix_la_LDFLAGS = -lpthread
 
 distclean-local:
@@ -46,5 +66,3 @@ distclean-local:
 
 dist-hook:
 	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
-
-
