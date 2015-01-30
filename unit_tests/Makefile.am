@@ -27,7 +27,12 @@
 
 noinst_PROGRAMS = matrix_unittest
 
-matrix_unittest_SOURCES = matrix_unittest.cc
-matrix_unittest_CFLAGS = 
-matrix_unittest_LDADD = 
+matrix_unittest_SOURCES = matrix_unittest.cc StateTransitionTest.cc
+matrix_unittest_CXXFLAGS = -std=c++0x -I/home/gbt1/RH564/cppunit-1.12.1/include
+matrix_unittest_LDADD = -L../src/.libs -lmatrix /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a
 
+distclean-local:
+	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
+
+dist-hook:
+	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
