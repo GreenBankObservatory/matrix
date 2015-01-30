@@ -29,8 +29,10 @@
 SUBDIRS = src unit_tests 
 
 distclean-local:
-	$(RM) $(srcdir)/src/*.o
+	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess 
+	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache 
 
 dist-hook:
-	$(RM) $(distdir)/src/*.o
+	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess 
+	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache 
 

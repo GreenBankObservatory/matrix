@@ -33,9 +33,15 @@ headersdir = $(includedir)
 headers_HEADERS = 
 
 libmatrix_la_SOURCES = \
-    Controller.h Controller.cc
+    Controller.h Controller.cc  FiniteStateMachine.cc
 
-libmatrix_la_CFLAGS = $(LIBGPIB_CFLAGS) -pthread
+libmatrix_la_CXXFLAGS =  -pthread -std=c++0x
 libmatrix_la_LDFLAGS = -lpthread
+
+distclean-local:
+	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
+
+dist-hook:
+	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
 
 
