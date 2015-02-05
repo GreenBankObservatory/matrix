@@ -21,25 +21,22 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#ifndef StateTransitionTest_h
-#define StateTransitionTest_h
+#ifndef TimeTest_h
+#define TimeTest_h
 
 #include <cppunit/extensions/HelperMacros.h>
 
-class StateTransitionTest : public CppUnit::TestCase
+class TimeTest : public CppUnit::TestCase
 {
-    CPPUNIT_TEST_SUITE(StateTransitionTest);
-    CPPUNIT_TEST(test_cbs);
-    CPPUNIT_TEST(test_simple_fsm);
-    CPPUNIT_TEST(test_medium_fsm);
-    CPPUNIT_TEST(test_fancy_fsm);
+    CPPUNIT_TEST_SUITE(TimeTest);
+    CPPUNIT_TEST(test_getUTC);
+    CPPUNIT_TEST(test_conversions);
     CPPUNIT_TEST_SUITE_END();
     
     public:
-    void test_cbs();
-    void test_simple_fsm();
-    void test_medium_fsm();
-    void test_fancy_fsm();
+    void test_getUTC();
+    void test_conversions();
+
 };
 
 

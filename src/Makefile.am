@@ -32,8 +32,11 @@ lib_LTLIBRARIES = libmatrix.la
 headersdir = $(includedir)
 headers_HEADERS = 
 
-libmatrix_la_SOURCES = \
-    Controller.h Controller.cc  FiniteStateMachine.cc
+libmatrix_la_SOURCES = Controller.h \
+                       Controller.cc  \
+                       FiniteStateMachine.cc \
+                       Time.h \
+                       Time.cc
 
 libmatrix_la_CXXFLAGS =  -pthread -std=c++0x
 libmatrix_la_LDFLAGS = -lpthread
