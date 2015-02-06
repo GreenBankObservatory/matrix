@@ -31,11 +31,7 @@
 #ifndef MUTEX_H
 #define MUTEX_H
 
-#if defined(WIN32)
-#include <windows.h>
-#else
 #include <pthread.h>
-#endif
 
 class Mutex
 {
@@ -48,11 +44,7 @@ class Mutex
     int lock();
 
   protected:
-#if defined(WIN32)
-    HANDLE mutex;
-#else
     pthread_mutex_t mutex;
-#endif
 };
 
 #endif

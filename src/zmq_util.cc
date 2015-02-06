@@ -33,17 +33,18 @@
 
 using namespace std;
 
-/********************************************************************
- * z_send(zmq::socket_t &sock, std::string data, int flags = 0)
- *
+namespace mxutils
+{
+
+/****************************************************************//**
  * A simple utility to send stat from within a std::string over a 0MQ
  * connection.  The data could be a binary buffer, or ASCII strings.
  * 0MQ treats them the same.  The null terminator on a string will be
  * ignored.
  *
- * @param zmq::socket_t &sock: the socket to send over
- * @param zmq::std::string data: the data buffer to send
- * @param int flags: Socket options, such as ZMQ_SNDMORE.
+ * @param sock: the socket to send over
+ * @param data: the data buffer to send
+ * @param flags: Socket options, such as ZMQ_SNDMORE.
  *
  *******************************************************************/
 
@@ -62,9 +63,7 @@ void z_send(zmq::socket_t &sock, std::string data, int flags)
     }
 }
 
-/********************************************************************
- * z_recv(zmq::socket_t &sock, std::string &data)
- *
+/****************************************************************//**
  * Simple utility to receive C++ string types over a 0MQ socket.  0MQ
  * sends strings by encoding the size, followed by the string, no null
  * terminator.  It is not desirable to send the string with a
@@ -75,11 +74,9 @@ void z_send(zmq::socket_t &sock, std::string data, int flags)
  * NOTE: This should ONLY be used if what is expected is an ASCII
  * string.
  *
- * @param zmq::socket_t &sock: The socket that will be receiving the
- *        string.
- * @param std::string &data: the received string.
+ * @param sock: The socket that will be receiving the string.
  *
- * @return A proper C++ string.
+ * @param data: the received string.
  *
  *******************************************************************/
 
@@ -93,19 +90,17 @@ void z_recv(zmq::socket_t &sock, std::string &data)
     data.resize(msg.size());
 }
 
-/********************************************************************
- * z_send(zmq::socket_t &sock, char const *buf, size_t sze, int flags)
- *
- * A simple utility to send stat from within a char buffer over a 0MQ
+/****************************************************************//**
+ * A simple utility to send data from within a char buffer over a 0MQ
  * connection.  The data could be a binary, or ASCII strings.  0MQ
  * treats them the same.  The null terminator on a string will be
  * ignored.  If the buffer is *NOT* ASCII, 'sze' must be > 0.
  *
- * @param zmq::socket_t &sock: the socket to send over
- * @param const char *buf: the data buffer to send
- * @param size_t sze: the (optional) size of the buffer.  Not needed
+ * @param sock: the socket to send over
+ * @param buf: the data buffer to send
+ * @param sze: the (optional) size of the buffer.  Not needed
  *        if the buffer contains ASCII data.
- * @param int flags: Socket options, such as ZMQ_SNDMORE.
+ * @param flags: Socket options, such as ZMQ_SNDMORE.
  *
  *******************************************************************/
 
@@ -129,9 +124,7 @@ void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags)
     }
 }
 
-/********************************************************************
- * z_recv(zmq::socket_t &sock, char *buf, size_t &sze)
- *
+/****************************************************************//**
  * Simple utility to receive data into a C++ traditional buffer from a
  * 0MQ socket.  0MQ sends strings by encoding the size, followed by
  * the string, no null terminator.  It is not desirable to send the
@@ -139,12 +132,13 @@ void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags)
  * could be confused by it. Thus, in C++, where a terminator is
  * expected, one must be provided.
  *
- * @param zmq::socket_t &sock: The socket that will be receiving the
- *        data.
- * @param char *buf: the received data.
- * @param size_t &sze: The size of the given buffer, and upon return,
- *        the size of the received data.  If the size of the buffer is
- *        smaller than the received data, the difference will be lost.
+ * @param sock: The socket that will be receiving the data.
+ *
+ * @param buf: the received data.
+ *
+ * @param sze: The size of the given buffer, and upon return, the size
+ *        of the received data.  If the size of the buffer is smaller
+ *        than the received data, the difference will be lost.
  *
  *******************************************************************/
 
@@ -154,15 +148,9 @@ void z_recv(zmq::socket_t &sock, char *buf, size_t &sze)
     size_t size;
     sock.recv(&msg);
     size = std::min(sze, msg.size());
+    memset(buf, 0, sze);
     memcpy(buf, msg.data(), size);
     sze = size;
+}
 
-    // If there is room, terminate the buffer with a null.  This will
-    // do no harm if the data is binary, since the data buffer
-    // contains all the data and there is room for the superfluous
-    // null, but is needed if the data is ASCII.
-    if (size < sze)
-    {
-        buf[size + 1] = 0;
-    }
 }

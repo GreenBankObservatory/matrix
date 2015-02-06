@@ -34,6 +34,10 @@
 #include "zmq.hpp"
 #include <string>
 
+namespace mxutils
+{
+
 int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries = 1);
 
+}
 #endif // _ZMQ_EPHEMERAL_BIND_H_

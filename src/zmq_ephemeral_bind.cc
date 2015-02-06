@@ -40,21 +40,22 @@
 
 #include <boost/algorithm/string.hpp>
 
+namespace mxutils
+{
+
 static bool _get_min_max_ephems(int &min, int &max);
 
-/********************************************************************
- * zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries)
- *
+/****************************************************************//**
  * Tries to bind a ZMQ socked to an ephemeral address. The function
- * first checks the ZeroMQ version; in versions 3.2 this is directly
- * supported. If the version is less than 3.2, an attempt is made to
- * obtain an ephemeral port by looking at the range of ephemeral ports,
- * choosing one at random, and binding to it. If the bind fails, this
- * process is repeated 'retries' times.
+ * first checks the ZeroMQ version; in versions 3.2 and above this is
+ * directly supported. If the version is less than 3.2, an attempt is
+ * made to obtain an ephemeral port by looking at the range of ephemeral
+ * ports, choosing one at random, and binding to it. If the bind fails,
+ * this process is repeated 'retries' times.
  *
- * @param zmq::socket &s: The ZeroMQ socket.
- * @param std::string t: The URL.
- * @param int retries: the number of times this function should try to
+ * @param s: The ZeroMQ socket.
+ * @param t: The URL.
+ * @param retries: the number of times this function should try to
  * bind to an ephemeral port before declaring failure.
  *
  * @return An int, the port number bound, or an error:
@@ -161,4 +162,6 @@ bool _get_min_max_ephems(int &min, int &max)
     fscanf(feph, "%i %i", &min, &max);
     fclose(feph);
     return true;
+}
+
 }

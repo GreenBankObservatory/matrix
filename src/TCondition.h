@@ -1,19 +1,5 @@
 /*******************************************************************
- ** TCondition.h - A condition variable template class useful for
- *                 simple (for now) condition variable applications.
- *  For more complex applications requiring finer grained control of the
- *  condition and the action to be taken, use ConditionVar or bare
- *  pthread_cond_t.
- *
- *  Typical use:
- *
- *      TCondition<int> tc(0);
- *
- *      // in thread A, wait for tc to become 5
- *      tc.wait(5);  // or tc.wait(5, 50000), time out after 50000 microseconds
- *
- *      // in thread B, set the condition and signal/broadcast it:
- *      tc.signal(5);  // or tc.broadcast(5)
+ ** TCondition.h - A condition variable template class
  *
  *  Copyright (C) 2004 Associated Universities, Inc. Washington DC, USA.
  *
@@ -50,11 +36,31 @@
 
 #include "Mutex.h"
 
+/****************************************************************//**
+ * \class TCondition
+ *
+ *  This class is useful for simple (for now) condition variable
+ *  applications.  For more complex applications requiring finer grained
+ *  control of the condition and the action to be taken, use
+ *  bare `pthread_cond_t`.
+ *
+ *  Typical use::
+ *
+ *      TCondition<int> tc(0);
+ *
+ *      // in thread A, wait for tc to become 5
+ *      tc.wait(5);  // or tc.wait(5, 50000), time out after 50000 microseconds
+ *
+ *      // in thread B, set the condition and signal/broadcast it:
+ *      tc.signal(5);  // or tc.broadcast(5)
+ *
+ *******************************************************************/
+
 template <typename T> class TCondition : public Mutex
 
 {
   public:
-  
+
     TCondition(T const &val);
     virtual ~TCondition();
 
@@ -65,7 +71,7 @@ template <typename T> class TCondition : public Mutex
     void wait(T const &s);
     bool wait(T const &s, int usecs);
     void wait_with_lock(T const &s);
-    
+
     void signal();
     void signal(T const &s);
     void broadcast();
@@ -81,16 +87,14 @@ template <typename T> class TCondition : public Mutex
 
 };
 
-/*********************************************************************
- * TCondition::TCondition(T const &val)
+/*****************************************************************//**
+ * Constructor, sets the initial condition value and initializes
+ * the internal pthread_cond_t object.
  *
- ** Constructor, sets the initial condition value and initializes
- *  the internal pthread_cond_t object.
- *
- * @param T const &val: The initial value, must be provided.
+ * @param val: The initial value, must be provided.
  *
  *********************************************************************/
- 
+
 template <typename T> TCondition<T>::TCondition(T const &val)
                                       : _value(val)
 
@@ -99,13 +103,11 @@ template <typename T> TCondition<T>::TCondition(T const &val)
 
 }
 
-/*********************************************************************
- * TCondition::~TCondition()
- *
- ** Destroys the internal data member pthread_cond_t.
+/*****************************************************************//**
+ * Destroys the internal data member pthread_cond_t.
  *
  *********************************************************************/
- 
+
 template <typename T> TCondition<T>::~TCondition()
 
 {
@@ -114,13 +116,10 @@ template <typename T> TCondition<T>::~TCondition()
 }
 
 
-/********************************************************************
- * TCondition::get_value(T &v)
+/****************************************************************//**
+ * Allows a caller to get the value of the underlying condition variable.
  *
- ** Allows a caller to get the value of the underlying condition variable.
- *
- *  @param T &v: The value buffer passed in by the caller.
- *
+ *  @param v: The value buffer passed in by the caller.
  *
  *******************************************************************/
 
@@ -133,9 +132,7 @@ template <typename T> void TCondition<T>::get_value(T &v)
 
 }
 
-/********************************************************************
- * TCondition<T>::value()
- *
+/****************************************************************//**
  * Returns a reference to the value data member.
  *
  * @return A reference to _value.
@@ -148,14 +145,11 @@ template <typename T> T &TCondition<T>::value()
     return _value;
 }
 
-/********************************************************************
- * TCondition::set_value(T &v)
+/****************************************************************//**
+ * Allows a caller to set the value of the underlying condition
+ * variable, without doing a broadcast/signal.
  *
- ** Allows a caller to set the value of the underlying condition variable,
- *  without doing a broadcast/signal.
- *
- *  @param T v: The value
- *
+ *  @param v: The value
  *
  *******************************************************************/
 
@@ -168,13 +162,11 @@ template <typename T> void TCondition<T>::set_value(T v)
 
 }
 
-/********************************************************************
- * TCondition::signal()
- *
- ** Signals that state parameter has been updated.  This releases
- *  exactly one thread waiting for the condition.  If no threads
- *  are waiting, nothing happens.  If many threads are waiting,
- *  the one that is released is not specified.
+/****************************************************************//**
+ * Signals that state parameter has been updated.  This releases exactly
+ * one thread waiting for the condition.  If no threads are waiting,
+ * nothing happens.  If many threads are waiting, the one that is
+ * released is not specified.
  *
  *******************************************************************/
 
@@ -184,16 +176,13 @@ template <typename T> void TCondition<T>::signal()
     pthread_cond_signal(&_cond);
 }
 
-/********************************************************************
- * TCondition::signal()
+/****************************************************************//**
+ * Signals that state parameter has been updated.  This releases exactly
+ * one thread waiting for the condition.  If no threads are waiting,
+ * nothing happens.  If many threads are waiting, the one that is
+ * released is not specified.
  *
- ** Signals that state parameter has been updated.  This releases
- *  exactly one thread waiting for the condition.  If no threads
- *  are waiting, nothing happens.  If many threads are waiting,
- *  the one that is released is not specified.
- *
- *  @param T const &s: Updates the condition value and signals the
- *
+ *  @param s: Updates the condition value and signals the
  *
  *******************************************************************/
 
@@ -207,12 +196,10 @@ template <typename T> void TCondition<T>::signal(T const &s)
 
 }
 
-/********************************************************************
- ** TCondition::broadcast()
- *
- *  @mfunc Broadcasts that state parameter has been updated.  Releases
- *         all threads waiting for this condition.  If no threads are
- *         waiting, nothing happens.
+/****************************************************************//**
+ * Broadcasts that state parameter has been updated.  Releases all
+ * threads waiting for this condition.  If no threads are waiting,
+ * nothing happens.
  *
  *******************************************************************/
 
@@ -222,12 +209,10 @@ template <typename T> void TCondition<T>::broadcast()
     pthread_cond_broadcast(&_cond);
 }
 
-/********************************************************************
- ** TCondition::broadcast()
- *
- *  @mfunc Broadcasts that state parameter has been updated.  Releases
- *         all threads waiting for this condition.  If no threads are
- *         waiting, nothing happens.
+/****************************************************************//**
+ * Broadcasts that state parameter has been updated.  Releases all
+ * threads waiting for this condition.  If no threads are waiting,
+ * nothing happens.
  *
  *******************************************************************/
 
@@ -241,13 +226,11 @@ template <typename T> void TCondition<T>::broadcast(T const &s)
 
 }
 
-/********************************************************************
- * TCondition::wait(T const &s, int usecs)
+/****************************************************************//**
+ * Waits for a corresponding signal or broadcast.
  *
- ** Waits for a corresponding signal or broadcast.
- *
- * @param T const &s: The condition value we are waiting for.
- * @param int usecs: The timeout in microseconds.
+ * @param s: The condition value we are waiting for.
+ * @param usecs: The timeout in microseconds.
  *
  * @return true if wait succeeded for the particular value.  false if it
  *         timed out.
@@ -286,12 +269,10 @@ template <typename T> bool TCondition<T>::wait(T const &s, int usecs)
 
 }
 
-/********************************************************************
- * TCondition::wait(T const &s)
+/****************************************************************//**
+ * Waits for a corresponding signal or broadcast.
  *
- ** Waits for a corresponding signal or broadcast.
- *
- * @param T const &s: The condition value we are waiting for.
+ * @param s: The condition value we are waiting for.
  *
  * @return true if wait succeeded for the particular value.  false if it
  *         timed out.
@@ -305,6 +286,16 @@ template <typename T> void TCondition<T>::wait(T const &s)
     unlock();
 
 }
+
+/****************************************************************//**
+ * Waits for a corresponding signal or broadcast, but does not unlock
+ * itself. Allows the waiter to perform an action prior to
+ * unlocking. Doing this allows the TCondition to be used in a fashion
+ * similar to a raw POSIX condition variable.
+ *
+ * @param s: The condition value we are waiting for.
+ *
+ *******************************************************************/
 
 template <typename T> void TCondition<T>::wait_with_lock(T const &s)
 

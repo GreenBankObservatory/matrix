@@ -30,38 +30,46 @@
 
 #include "Mutex.h"
 
+/****************************************************************//**
+ * \class Mutex
+ *
+ * A simple encapsulation of Posix mutexes.
+ *
+ *******************************************************************/
+
+
 Mutex::~Mutex()
 {
-#if defined(WIN32)
-    CloseHandle(mutex);
-#else
     pthread_mutex_destroy(&mutex);
-#endif
 }
 
 Mutex::Mutex()
 {
-#if defined(WIN32)
-    mutex = CreateMutex(0, FALSE, 0);
-#else
     pthread_mutex_init(&mutex, 0);
-#endif
 }
+
+/****************************************************************//**
+ * Locks the mutex.
+ *
+ * @return 0 on success, error code otherwise (see man
+ * pthread_mutex_lock())
+ *
+ *******************************************************************/
 
 int Mutex::lock()
 {
-#if defined(WIN32)
-    return (WaitForSingleObject(mutex, INFINITE) != WAIT_FAILED) ? 0 : 1;
-#else
     return pthread_mutex_lock(&mutex);
-#endif
 }
+
+/****************************************************************//**
+ * Unlocks the mutex.
+ *
+ * @return 0 on success, error code otherwise (se man
+ * pthread_mutex_unlock())
+ *
+ *******************************************************************/
 
 int Mutex::unlock()
 {
-#if defined(WIN32)
-    return (ReleaseMutex(mutex) != 0) ? 0 : 1;
-#else
     return pthread_mutex_unlock(&mutex);
-#endif
 }
