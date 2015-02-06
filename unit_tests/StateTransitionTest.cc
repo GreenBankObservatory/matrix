@@ -58,6 +58,7 @@ void StateTransitionTest::test_simple_fsm()
     fsm.addTransition("On", "hold", "Off"); 
     fsm.addTransition("On", "mpress", "On");   
     fsm.setInitialState("Off");
+    CPPUNIT_ASSERT(fsm.run_consistency_check());
     
     CPPUNIT_ASSERT(fsm.getState() == "Off");
     fsm.handle_event("mpress");
@@ -116,6 +117,7 @@ void StateTransitionTest::test_medium_fsm()
     fsm.addEnterAction("Off", new Action<MyEasyCheck>(&my, &MyEasyCheck::enterOff) );
     fsm.addLeaveAction("On", new Action<MyEasyCheck>(&my, &MyEasyCheck::exitOn) );
     fsm.addEnterAction("On", new Action<MyEasyCheck>(&my, &MyEasyCheck::enterOn) );
+    CPPUNIT_ASSERT(fsm.run_consistency_check());
     
     CPPUNIT_ASSERT(fsm.getState() == "Off");
     fsm.handle_event("mpress");
@@ -171,7 +173,7 @@ void StateTransitionTest::test_fancy_fsm()
     fsm.addEnterAction("Off", new Action<MyEasyCheck>(my.get(), &MyEasyCheck::enterOff) );
     fsm.addLeaveAction("On", new Action<MyEasyCheck>(my.get(), &MyEasyCheck::exitOn) );
     fsm.addEnterAction("On", new Action<MyEasyCheck>(my.get(), &MyEasyCheck::enterOn) );
-    
+    CPPUNIT_ASSERT(fsm.run_consistency_check());
     
     CPPUNIT_ASSERT(fsm.getState() == "Off");
     fsm.handle_event("mpress");
@@ -184,6 +186,28 @@ void StateTransitionTest::test_fancy_fsm()
     
     CPPUNIT_ASSERT(fsm.handle_event("hold") == true);
     CPPUNIT_ASSERT(fsm.getState() == "Off");       
+}
+
+void StateTransitionTest::test_consistency_check()
+{
+    FiniteStateMachine fsm;
+    fsm.addState("S1");
+    fsm.addState("S0");
+    fsm.setInitialState("S0");
+    // should fail with 3 notices:
+    // * No exit transitions for both states
+    // * S1 is unreachable
+    CPPUNIT_ASSERT(fsm.run_consistency_check() == false);
+    // Add a transition into S1
+    fsm.addTransition("S0", "E1", "S1");
+    // should still fail since we cant leave S1
+    CPPUNIT_ASSERT(fsm.run_consistency_check() == false);
+    fsm.addTransition("S1", "E2", "S0");
+    // now it should be ok
+    CPPUNIT_ASSERT(fsm.run_consistency_check() == true);
+    fsm.addTransition("S1", "E3", "S1");
+    CPPUNIT_ASSERT(fsm.run_consistency_check() == true);
+    
 }
 
 

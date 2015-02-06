@@ -67,7 +67,7 @@ void TimeTest::test_conversions()
     double secs;
     
     calendarDate(T1, yr, month, dayom, hour, mins, secs);
-    printf("%d / %d / %d  %d:%d:%f\n", yr, month, dayom, hour, mins, secs);
+    // printf("%d / %d / %d  %d:%d:%f\n", yr, month, dayom, hour, mins, secs);
     CPPUNIT_ASSERT(yr == 1973);
     CPPUNIT_ASSERT(month == 2);
     CPPUNIT_ASSERT(dayom == 5);
@@ -75,7 +75,7 @@ void TimeTest::test_conversions()
     CPPUNIT_ASSERT(mins == 0);
     CPPUNIT_ASSERT(0.5 == secs);
     
-    // Compare calendarDate against gmtime
+    // Compare calendarDate against gmtime for right now
     T1 = getUTC();
     time2timeval(T1, tv);
     

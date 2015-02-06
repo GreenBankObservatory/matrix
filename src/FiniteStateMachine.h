@@ -32,7 +32,7 @@
 
 ///
 /// Documentation for the FiniteStateMachine. This provides a simple yet extensible
-/// way to express a State machine.
+/// way to express a State machine. Code examples are given in the unit tests.
 ///
 namespace FSM 
 {
@@ -52,6 +52,17 @@ public:
 
 
 /// A wrapper template to register callbacks for State change predicates or Actions.
+/// User callback method signature should match the ActionMethod typedef below.
+/// e.g. bool MyClass::mycallback(void)
+///
+/// Example Use:
+/// ------------
+///
+///       class MyClass { bool mycallback() { cout << "hello" << end; } };
+///       Action<MyClass> *p = new Action<MyClass>(&myobj, &MyClass::mycallback);
+///
+/// Note: The object instance must remain valid for the lifetime of the Action.
+
 template <typename T>
 class Action : public ActionBase
 {
@@ -138,6 +149,8 @@ public:
     std::string getName() { return state_name; }
     void call_enter_action();
     void call_exit_action();
+    const std::map<std::string, StateTransition> & getTransitions() 
+    { return transitionmap; }
 protected:
     std::map<std::string, StateTransition> transitionmap;
     std::shared_ptr<ActionBase> enterAction, leaveAction; 
@@ -150,25 +163,26 @@ class FiniteStateMachine
 {
 ///
 /// FiniteStateMachine (FSM) Implementation
-///
+/// =======================================
 /// Concepts are the following:
-/// \li an FSM contains a number of possible states
-/// \li each State contains a mapping of input events to possible StateTransitions
-/// \li each StateTransition contains a list of user-defined predicates to be tested
+/// * a FSM contains a number of possible states
+/// * each State contains a mapping of input events to possible StateTransitions
+/// * each StateTransition contains a list of user-defined predicates to be tested
 /// to decide whether or not the transition should proceed. The predicates are contained
 /// within the Action template.
-/// \li When a StateTransition causes a change of State, the user-defined enter/exit
+/// * When a StateTransition causes a change of State, the user-defined enter/exit
 /// actions are called to process the State change.
 /// 
 /// States and Events are denoted as strings.
 ///
 /// Concrete Example:
+/// -----------------
 /// 
 /// Consider a FSM model of a PC power supply controlled by a simple pushbutton. 
 /// It has three States:
-/// \li Off 
-/// \li On
-/// \li Standby
+/// * Off 
+/// * On
+/// * Standby
 ///
 /// Just like on a real PC, pushing the button when the PC is off causes the power to come on.
 /// But once on, a quick button press places the PC in a 'hibernating' mode, with the power
@@ -176,15 +190,15 @@ class FiniteStateMachine
 /// supply to turn off all voltage.
 ///
 /// So already we have described some behavior and transitions:
-/// \li While in state:  Given the event: Change state to:
-/// \li "Off":      "short_press":          "On"
-/// \li "Off":      "long_press":          "On"
-/// \li "On":       "long_press":          "Off"
-/// \li "On":      "short_press":          "Standby"
-/// \li "Standby":  "long_press":          "Off"
-/// \li "Standby":  "short_press":          "On"
+/// * While in state:  Given the event: Change state to:
+/// * "Off":      "short_press":          "On"
+/// * "Off":      "long_press":          "On"
+/// * "On":       "long_press":          "Off"
+/// * "On":      "short_press":          "Standby"
+/// * "Standby":  "long_press":          "Off"
+/// * "Standby":  "short_press":          "On"
 ///
-/// See unit tests for the implementation of the example above. <BR><BR>
+/// See unit tests for the implementation of the example above.
 
 public:
     FiniteStateMachine() : current_state("unknown"),
@@ -212,6 +226,12 @@ public:
         
     /// Returns the name of the current state    
     std::string getState() { return current_state; }
+    
+    /// Run checks on a fully built state machine to verify there
+    /// are no "dead ends" (states with an entry but no exit)
+    /// or unreachable states (states which can never be entered).
+    /// Sort of like an filesystem check, but for the state machine.
+    bool run_consistency_check();
   
 protected:
     typedef std::map<std::string, State> Statemap;

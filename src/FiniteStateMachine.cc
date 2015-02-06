@@ -22,6 +22,8 @@
 //  Green Bank, WV 24944-0002 USA
 
 #include "FiniteStateMachine.h"
+#include <iostream>
+#include <algorithm>
 
 using namespace FSM;
 using namespace std;
@@ -119,6 +121,62 @@ void FiniteStateMachine::setInitialState(std::string init)
     initial_state = init;
     current_state = init;
 }
+
+// Do some consistency checks on the configured state machine.
+// * Look for states with no exit path
+// * Look for eventless states
+// * Look for states which cannot be reached
+
+// foreach state:
+//     foreach transition:
+//         check target state exists
+//         check for zero transitions
+//         compile list of target states
+// verify list of target states matches the list of states
+// any extras will be unreachable states.
+bool FiniteStateMachine::run_consistency_check()
+{
+    bool check_passed = true;
+    vector<string> targetlist;
+    // Check for eventless states.
+    for (auto s = states.begin(); s != states.end(); ++s)
+    {
+        auto transitionmap = s->second.getTransitions();
+        if (transitionmap.size() == 0)
+        {
+            cerr << "Note: State " << s->second.getName() << " has no events"
+                 << " and therefore cannot be exited" << endl;
+            check_passed = false;
+        }
+        // In each state, check the transitionmap for valid target states
+        for (auto tm = transitionmap.begin(); tm != transitionmap.end(); ++tm)
+        {
+            string target_state = tm->second.getNextState();
+            if (states.find(target_state) == states.end())
+            {
+                cerr << "Note: State " << s->second.getName() << " event "
+                     << tm->first << " has target state "
+                     << target_state << " which does not exist" << endl;
+                check_passed = false;
+            }
+            targetlist.push_back(target_state);
+        }
+    }
+    for (auto s = states.begin(); s != states.end(); ++s)
+    {
+        // verify every state is in the targetlist
+        if (find(targetlist.begin(), targetlist.end(), s->second.getName()) == targetlist.end() &&
+            s->second.getName() != initial_state)
+        {
+            cerr << "Note: State " << s->second.getName() << " is unreachable by any event"
+                 << endl;
+            check_passed = false;
+        }     
+    }
+    
+    return check_passed;
+}
+
 
 
 State::State(std::string statename) :
