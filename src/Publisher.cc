@@ -34,7 +34,6 @@
 #include "ThreadLock.h"
 #include "tsemfifo.h"
 #include "Thread.h"
-#include "zmq_ephemeral_bind.h"
 #include "zmq_util.h"
 #include "netUtils.h"
 

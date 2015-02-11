@@ -42,7 +42,6 @@ headers_HEADERS = \
     ZMQContext.h \
     netUtils.h \
     tsemfifo.h \
-    zmq_ephemeral_bind.h \
     zmq_util.h
 
 libmatrix_la_SOURCES = \
@@ -53,7 +52,6 @@ libmatrix_la_SOURCES = \
     Time.cc \
     ZMQContext.cc \
     netUtils.cc \
-    zmq_ephemeral_bind.cc \
     zmq_util.cc
 
 

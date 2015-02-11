@@ -30,6 +30,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <sstream>
+#include <boost/algorithm/string.hpp>
 
 using namespace std;
 
@@ -151,6 +153,127 @@ void z_recv(zmq::socket_t &sock, char *buf, size_t &sze)
     memset(buf, 0, sze);
     memcpy(buf, msg.data(), size);
     sze = size;
+}
+
+static bool _get_min_max_ephems(int &min, int &max);
+
+/****************************************************************//**
+ * Tries to bind a ZMQ socked to an ephemeral address. The function
+ * first checks the ZeroMQ version; in versions 3.2 and above this is
+ * directly supported. If the version is less than 3.2, an attempt is
+ * made to obtain an ephemeral port by looking at the range of ephemeral
+ * ports, choosing one at random, and binding to it. If the bind fails,
+ * this process is repeated 'retries' times.
+ *
+ * @param s: The ZeroMQ socket.
+ * @param t: The URL.
+ * @param retries: the number of times this function should try to
+ * bind to an ephemeral port before declaring failure.
+ *
+ * @return An int, the port number bound, or an error:
+ *         -1: Could not open the ephem proc file
+ *         -2: Could not bind in 'retries' retries.
+ *         -3: Malformed URL in was passed in in 't'.
+ *
+ *******************************************************************/
+
+int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries)
+{
+    int i, k, min, max, range;
+    int major, minor, patch;
+
+    zmq_version(&major, &minor, &patch);
+
+    if (major >= 3 && minor >= 2)
+    {
+        try
+        {
+            s.bind(t.c_str());
+            std::string port(1024, 0);
+            size_t size = port.size();
+
+            s.getsockopt(ZMQ_LAST_ENDPOINT, (void *)port.data(), &size);
+            std::vector<std::string> components;
+            boost::split(components, port, boost::is_any_of(":"));
+            // port number will be the last element
+            i = atoi(components.back().c_str());
+            return i;
+        }
+        catch (zmq::error_t e)
+        {
+            // Didn't work; drop into manual way below.
+        }
+    }
+
+    // Here because version < 3.2, or the above failed, try the manual way.
+    if (!_get_min_max_ephems(min, max))
+    {
+        return -1; // couldn't open the proc file
+    }
+
+    range = max - min;
+    // URL passed in in 't' is '<transport>://*:*, for example
+    // 'tcp://*:*'. This is to accomodate later versions of ZMQ. For
+    // earlier versions, where we must get the ephem port ourselves, we
+    // need just the 'tcp://*' part. Split on ":" and leave out the last
+    // component (if it exists; the first two should be there or it is a
+    // malformed URL).
+    std::vector<std::string> components;
+    std::string base_url;
+    boost::split(components, t, boost::is_any_of(":"));
+
+    if (components.size() >= 2)
+    {
+        base_url = components[0] + ":" + components[1];
+    }
+    else
+    {
+        return -3; // malformed URL
+    }
+
+    if (retries)
+    {
+        // Grab a number in the ephemeral range, construct the URL,
+        // and try. Keep trying for 'retries', or until success.
+
+        for (k = 0; k < retries; ++k)
+        {
+            std::ostringstream url;
+            i = min + (rand() % range + 1);
+            url << base_url << ":" << i;
+
+            try
+            {
+                s.bind(url.str().c_str());
+            }
+            catch (zmq::error_t e)
+            {
+                continue;
+            }
+
+            return i; // i bound, if we got this far.
+        }
+    }
+
+    return -2; // looped through the entire range without success.
+}
+
+bool _get_min_max_ephems(int &min, int &max)
+{
+    FILE *feph = NULL;
+    std::string fname("/proc/sys/net/ipv4/ip_local_port_range");
+
+    feph = fopen(fname.c_str(), "r");
+
+    if (feph == NULL)
+    {
+	perror("zmq_ephemeral_bind()");
+	return false;
+    }
+
+    fscanf(feph, "%i %i", &min, &max);
+    fclose(feph);
+    return true;
 }
 
 }
