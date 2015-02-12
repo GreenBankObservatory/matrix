@@ -42,6 +42,7 @@ headers_HEADERS = \
     ZMQContext.h \
     netUtils.h \
     tsemfifo.h \
+    yaml_util.h \
     zmq_util.h
 
 libmatrix_la_SOURCES = \
@@ -52,6 +53,7 @@ libmatrix_la_SOURCES = \
     Time.cc \
     ZMQContext.cc \
     netUtils.cc \
+    yaml_util.cc \
     zmq_util.cc
 
 
