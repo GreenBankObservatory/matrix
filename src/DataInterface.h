@@ -1,19 +1,19 @@
 //# Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
-//# 
+//#
 //# This program is free software; you can redistribute it and/or modify
 //# it under the terms of the GNU General Public License as published by
 //# the Free Software Foundation; either version 2 of the License, or
 //# (at your option) any later version.
-//# 
+//#
 //# This program is distributed in the hope that it will be useful, but
 //# WITHOUT ANY WARRANTY; without even the implied warranty of
 //# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 //# General Public License for more details.
-//# 
+//#
 //# You should have received a copy of the GNU General Public License
 //# along with this program; if not, write to the Free Software
 //# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-//# 
+//#
 //# Correspondence concerning GBT software should be addressed as follows:
 //#     GBT Operations
 //#     National Radio Astronomy Observatory
@@ -25,7 +25,7 @@
 
 #include<string>
 #include<memory>
-#include<yaml.h>
+#include<yaml-cpp/yaml.h>
 
 
 /// A strategy pattern class for the source-->sink data interface data between Components.
@@ -36,7 +36,7 @@
 DataSources:
 ------------
 A Component data source specification which specifies a DataSource
-binding (using the derived ZMQDataSource) to the tcp and inproc transport 
+binding (using the derived ZMQDataSource) to the tcp and inproc transport
 transport will contain keymaster keys from the configuration file:
 
       components:
@@ -63,7 +63,7 @@ Thus indicating to DataSources exactly how to bind to the desired
 transport. DataSinks, given the path to the DataSource and which
 transport to use can then easily locate the (optionally) dynamically
 assigned tranport port number or address.
- 
+
 ***/
 
 class DataSource
@@ -71,7 +71,7 @@ class DataSource
 public:
     DataSource();
     virtual ~DataSource();
-    
+
     bool register_urn(std::string urn_to_keymaster)
     {
         return _register_urn(urn_to_keymaster);
@@ -123,14 +123,14 @@ bound DataSource 'A' would be:
 The configuration file for various Components includes a *connections.mode*
 section, which has the syntax:
 
-   * [<Component name>, <source name>, <Component name>, <sink name>, transport] 
-   
+   * [<Component name>, <source name>, <Component name>, <sink name>, transport]
+
 So provided a hypothetical entry for the connections section:
 
         connections:
             VEGAS_1:
                 - [myProducer, A, myLogger, input_data, tcp]
-   
+
 The myLogger Component input_data DataSink wanting to get data from the DataSource noted above
 would generate and query for the key:
 
@@ -152,12 +152,12 @@ class DataSink
 public:
     DataSink();
     virtual ~DataSink();
-    
+
     bool connect(std::string urn_from_keymaster)
     {
         return _connect(urn_from_keymaster);
     }
-    
+
     bool subscribe(std::string urn_from_keymaster)
     {
         return _subscribe(urn_from_keymaster);
@@ -165,7 +165,7 @@ public:
     bool unsubscribe(std::string urn_from_keymaster)
     {
         return _unsubscribe(urn_from_keymaster);
-    }    
+    }
     bool get(void *v, size_t &size_of_data)
     {
         return _get(v, size_of_data);
@@ -174,14 +174,14 @@ public:
     {
         return _get(data);
     }
-    
+
 protected:
     virtual bool _connect(std::string urn_from_keymaster);
     virtual bool _subscribe(std::string urn_from_keymaster);
     virtual bool _unsubscribe(std::string urn_from_keymaster);
     virtual bool _get(void *v, size_t &size_of_data);
     virtual bool _get(std::string &data);
-         
+
 };
 
 

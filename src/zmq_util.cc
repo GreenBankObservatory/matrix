@@ -38,7 +38,7 @@ using namespace std;
 namespace mxutils
 {
 
-/****************************************************************//**
+/**
  * A simple utility to send stat from within a std::string over a 0MQ
  * connection.  The data could be a binary buffer, or ASCII strings.
  * 0MQ treats them the same.  The null terminator on a string will be
@@ -48,24 +48,24 @@ namespace mxutils
  * @param data: the data buffer to send
  * @param flags: Socket options, such as ZMQ_SNDMORE.
  *
- *******************************************************************/
+ */
 
-void z_send(zmq::socket_t &sock, std::string data, int flags)
-{
-    zmq::message_t msg(data.size());
-    memcpy((char *)msg.data(), data.data(), data.size());
-
-    if (flags)
+    void z_send(zmq::socket_t &sock, std::string data, int flags)
     {
-        sock.send(msg, flags);
-    }
-    else
-    {
-        sock.send(msg);
-    }
-}
+        zmq::message_t msg(data.size());
+        memcpy((char *)msg.data(), data.data(), data.size());
 
-/****************************************************************//**
+        if (flags)
+        {
+            sock.send(msg, flags);
+        }
+        else
+        {
+            sock.send(msg);
+        }
+    }
+
+/**
  * Simple utility to receive C++ string types over a 0MQ socket.  0MQ
  * sends strings by encoding the size, followed by the string, no null
  * terminator.  It is not desirable to send the string with a
@@ -80,19 +80,19 @@ void z_send(zmq::socket_t &sock, std::string data, int flags)
  *
  * @param data: the received string.
  *
- *******************************************************************/
+ */
 
-void z_recv(zmq::socket_t &sock, std::string &data)
-{
-    zmq::message_t msg;
-    sock.recv(&msg);
-    data.clear();
-    data.resize(msg.size() + 1, 0);
-    memcpy((char *)data.data(), msg.data(), msg.size());
-    data.resize(msg.size());
-}
+    void z_recv(zmq::socket_t &sock, std::string &data)
+    {
+        zmq::message_t msg;
+        sock.recv(&msg);
+        data.clear();
+        data.resize(msg.size() + 1, 0);
+        memcpy((char *)data.data(), msg.data(), msg.size());
+        data.resize(msg.size());
+    }
 
-/****************************************************************//**
+/**
  * A simple utility to send data from within a char buffer over a 0MQ
  * connection.  The data could be a binary, or ASCII strings.  0MQ
  * treats them the same.  The null terminator on a string will be
@@ -104,29 +104,29 @@ void z_recv(zmq::socket_t &sock, std::string &data)
  *        if the buffer contains ASCII data.
  * @param flags: Socket options, such as ZMQ_SNDMORE.
  *
- *******************************************************************/
+ */
 
-void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags)
-{
-    if (!sze)
+    void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags)
     {
-        sze = strlen(buf);
+        if (!sze)
+        {
+            sze = strlen(buf);
+        }
+
+        zmq::message_t msg(sze);
+        memcpy((char *)msg.data(), buf, sze);
+
+        if (flags)
+        {
+            sock.send(msg, flags);
+        }
+        else
+        {
+            sock.send(msg);
+        }
     }
 
-    zmq::message_t msg(sze);
-    memcpy((char *)msg.data(), buf, sze);
-
-    if (flags)
-    {
-        sock.send(msg, flags);
-    }
-    else
-    {
-        sock.send(msg);
-    }
-}
-
-/****************************************************************//**
+/**
  * Simple utility to receive data into a C++ traditional buffer from a
  * 0MQ socket.  0MQ sends strings by encoding the size, followed by
  * the string, no null terminator.  It is not desirable to send the
@@ -142,22 +142,53 @@ void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags)
  *        of the received data.  If the size of the buffer is smaller
  *        than the received data, the difference will be lost.
  *
- *******************************************************************/
+ */
 
-void z_recv(zmq::socket_t &sock, char *buf, size_t &sze)
-{
-    zmq::message_t msg;
-    size_t size;
-    sock.recv(&msg);
-    size = std::min(sze, msg.size());
-    memset(buf, 0, sze);
-    memcpy(buf, msg.data(), size);
-    sze = size;
-}
+    void z_recv(zmq::socket_t &sock, char *buf, size_t &sze)
+    {
+        zmq::message_t msg;
+        size_t size;
+        sock.recv(&msg);
+        size = std::min(sze, msg.size());
+        memset(buf, 0, sze);
+        memcpy(buf, msg.data(), size);
+        sze = size;
+    }
 
-static bool _get_min_max_ephems(int &min, int &max);
+/**
+ * Receives a multipart message all in one call, storing each frame of
+ * the message as a raw string buffer in the provided vector of
+ * strings. This should be called after a poll indicates that the socket
+ * is ready to read. Used this way the function will return 0 or more
+ * frames without hanging.
+ *
+ * @param sock: the socket to read.
+ *
+ * @param data: the vector of strings where the frames are stored. Each
+ * element is a string representing the raw bytes of the frame.
+ *
+ */
 
-/****************************************************************//**
+    void z_recv_multipart(zmq::socket_t &sock, std::vector<std::string> &data)
+    {
+        int more;
+        size_t more_size = sizeof(more);
+
+        sock.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+        data.clear();
+
+        while (more)
+        {
+            string frame;
+            z_recv(sock, frame);
+            data.push_back(frame);
+            sock.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+        }
+    }
+
+    static bool _get_min_max_ephems(int &min, int &max);
+
+/**
  * Tries to bind a ZMQ socked to an ephemeral address. The function
  * first checks the ZeroMQ version; in versions 3.2 and above this is
  * directly supported. If the version is less than 3.2, an attempt is
@@ -175,105 +206,105 @@ static bool _get_min_max_ephems(int &min, int &max);
  *         -2: Could not bind in 'retries' retries.
  *         -3: Malformed URL in was passed in in 't'.
  *
- *******************************************************************/
+ */
 
-int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries)
-{
-    int i, k, min, max, range;
-    int major, minor, patch;
-
-    zmq_version(&major, &minor, &patch);
-
-    if (major >= 3 && minor >= 2)
+    int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries)
     {
-        try
+        int i, k, min, max, range;
+        int major, minor, patch;
+
+        zmq_version(&major, &minor, &patch);
+
+        if (major >= 3 && minor >= 2)
         {
-            s.bind(t.c_str());
-            std::string port(1024, 0);
-            size_t size = port.size();
-
-            s.getsockopt(ZMQ_LAST_ENDPOINT, (void *)port.data(), &size);
-            std::vector<std::string> components;
-            boost::split(components, port, boost::is_any_of(":"));
-            // port number will be the last element
-            i = atoi(components.back().c_str());
-            return i;
-        }
-        catch (zmq::error_t e)
-        {
-            // Didn't work; drop into manual way below.
-        }
-    }
-
-    // Here because version < 3.2, or the above failed, try the manual way.
-    if (!_get_min_max_ephems(min, max))
-    {
-        return -1; // couldn't open the proc file
-    }
-
-    range = max - min;
-    // URL passed in in 't' is '<transport>://*:*, for example
-    // 'tcp://*:*'. This is to accomodate later versions of ZMQ. For
-    // earlier versions, where we must get the ephem port ourselves, we
-    // need just the 'tcp://*' part. Split on ":" and leave out the last
-    // component (if it exists; the first two should be there or it is a
-    // malformed URL).
-    std::vector<std::string> components;
-    std::string base_url;
-    boost::split(components, t, boost::is_any_of(":"));
-
-    if (components.size() >= 2)
-    {
-        base_url = components[0] + ":" + components[1];
-    }
-    else
-    {
-        return -3; // malformed URL
-    }
-
-    if (retries)
-    {
-        // Grab a number in the ephemeral range, construct the URL,
-        // and try. Keep trying for 'retries', or until success.
-
-        for (k = 0; k < retries; ++k)
-        {
-            std::ostringstream url;
-            i = min + (rand() % range + 1);
-            url << base_url << ":" << i;
-
             try
             {
-                s.bind(url.str().c_str());
+                s.bind(t.c_str());
+                std::string port(1024, 0);
+                size_t size = port.size();
+
+                s.getsockopt(ZMQ_LAST_ENDPOINT, (void *)port.data(), &size);
+                std::vector<std::string> components;
+                boost::split(components, port, boost::is_any_of(":"));
+                // port number will be the last element
+                i = atoi(components.back().c_str());
+                return i;
             }
             catch (zmq::error_t e)
             {
-                continue;
+                // Didn't work; drop into manual way below.
             }
-
-            return i; // i bound, if we got this far.
         }
+
+        // Here because version < 3.2, or the above failed, try the manual way.
+        if (!_get_min_max_ephems(min, max))
+        {
+            return -1; // couldn't open the proc file
+        }
+
+        range = max - min;
+        // URL passed in in 't' is '<transport>://*:*, for example
+        // 'tcp://*:*'. This is to accomodate later versions of ZMQ. For
+        // earlier versions, where we must get the ephem port ourselves, we
+        // need just the 'tcp://*' part. Split on ":" and leave out the last
+        // component (if it exists; the first two should be there or it is a
+        // malformed URL).
+        std::vector<std::string> components;
+        std::string base_url;
+        boost::split(components, t, boost::is_any_of(":"));
+
+        if (components.size() >= 2)
+        {
+            base_url = components[0] + ":" + components[1];
+        }
+        else
+        {
+            return -3; // malformed URL
+        }
+
+        if (retries)
+        {
+            // Grab a number in the ephemeral range, construct the URL,
+            // and try. Keep trying for 'retries', or until success.
+
+            for (k = 0; k < retries; ++k)
+            {
+                std::ostringstream url;
+                i = min + (rand() % range + 1);
+                url << base_url << ":" << i;
+
+                try
+                {
+                    s.bind(url.str().c_str());
+                }
+                catch (zmq::error_t e)
+                {
+                    continue;
+                }
+
+                return i; // i bound, if we got this far.
+            }
+        }
+
+        return -2; // looped through the entire range without success.
     }
 
-    return -2; // looped through the entire range without success.
-}
-
-bool _get_min_max_ephems(int &min, int &max)
-{
-    FILE *feph = NULL;
-    std::string fname("/proc/sys/net/ipv4/ip_local_port_range");
-
-    feph = fopen(fname.c_str(), "r");
-
-    if (feph == NULL)
+    bool _get_min_max_ephems(int &min, int &max)
     {
-	perror("zmq_ephemeral_bind()");
-	return false;
-    }
+        FILE *feph = NULL;
+        std::string fname("/proc/sys/net/ipv4/ip_local_port_range");
 
-    fscanf(feph, "%i %i", &min, &max);
-    fclose(feph);
-    return true;
-}
+        feph = fopen(fname.c_str(), "r");
+
+        if (feph == NULL)
+        {
+            perror("zmq_ephemeral_bind()");
+            return false;
+        }
+
+        fscanf(feph, "%i %i", &min, &max);
+        fclose(feph);
+        return true;
+    }
 
 }

@@ -36,7 +36,7 @@
 namespace mxutils
 {
 
-    /****************************************************************//**
+    /**
      * A send function for simple data types.  These data types must be
      * contiguous in memory: ints, doubles, bools, and structs of these
      * types, etc.
@@ -45,7 +45,7 @@ namespace mxutils
      * @param data: the data to send
      * @param flags: socket flags, such as ZMQ_SNDMORE
      *
-     *******************************************************************/
+     */
 
     template <class T> void z_send(zmq::socket_t &sock, T data, int flags = 0)
 
@@ -63,7 +63,7 @@ namespace mxutils
         }
     }
 
-    /****************************************************************//**
+    /**
      * A receive function template for simple data types.  These data types must
      * meet the same requirements for the basic z_send(), i.e. be
      * contiguous in memory.
@@ -71,7 +71,7 @@ namespace mxutils
      * @param sock: the socket to receive from
      * @param data: the data received.
      *
-     *******************************************************************/
+     */
 
     template <class T> void z_recv(zmq::socket_t &sock, T &data)
     {
@@ -84,6 +84,9 @@ namespace mxutils
 
     void z_send(zmq::socket_t &sock, std::string data, int flags = 0);
     void z_recv(zmq::socket_t &sock, std::string &data);
+
+    // receives multiple frames in one call.
+    void z_recv_multipart(zmq::socket_t &sock, std::vector<std::string> &data);
 
     // and for traditional strings/buffers.  (Set 'sze' to 0 if 'buf' is ASCII)
     void z_send(zmq::socket_t &sock, const char *buf, size_t sze = 0, int flags = 0);

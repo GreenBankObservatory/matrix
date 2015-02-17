@@ -1,19 +1,19 @@
 // Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
-// 
+//
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation; either version 2 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful, but
 // WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 // General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-// 
+//
 // Correspondence concerning GBT software should be addressed as follows:
 //       GBT Operations
 //       National Radio Astronomy Observatory
@@ -65,9 +65,9 @@ void WTF(const YAML::Node &n)
     else if (n.IsDefined() == false)
     {
         cout << "is a undefined" << endl;
-    }    
+    }
     else
-    { 
+    {
         cout << "WTF" << endl;
     }
 }
@@ -78,14 +78,14 @@ void DataInterfaceTest::test_basic_zmq()
     // "components.myc.source.ABC.protocol[inproc]",
     YAML::Node abc_node = YAML::Load("component:\n"
                                      "  nettask:\n"
-                                     "    source:\n"   
+                                     "    source:\n"
                                      "      A_src:\n"
                                      "        protocol: [inproc, tcp]");
 
     cout << abc_node << endl;
     cout << endl;
 
-    yaml_result protoqry = get_yaml_node("component.nettask.source.A_src", abc_node);
+    yaml_result protoqry = get_yaml_node(abc_node, "component.nettask.source.A_src");
     if (protoqry.result != true)
     {
         cout << "bad query?" << endl;
@@ -108,7 +108,7 @@ void DataInterfaceTest::test_basic_zmq()
     #if 0
     ZMQDataSource src;
     src.bind(abc_node); // in/out after abc_node has urn binding entries
-    
+
     ZMQDataSink   dst;
     string some_data;
     string data;
@@ -119,8 +119,3 @@ void DataInterfaceTest::test_basic_zmq()
     dst.get(data);
     #endif
 }
-
-
-
-
-

@@ -1,7 +1,7 @@
 /*******************************************************************
- *  Publisher.h - Declares a ZMQ publisher (PUB/SUB model)
+ *  utility_test.h - Tests functions in the mxutil namespace.
  *
- *  Copyright (C) 2012 Associated Universities, Inc. Washington DC, USA.
+ *  Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,42 +25,24 @@
  *
  *******************************************************************/
 
-#if !defined(_PUBLISHER_H_)
-#define _PUBLISHER_H_
+#if !defined(_UTILITY_TEST_H_)
+#define _UTILITY_TEST_H_
 
-#include <memory>
-#include "Mutex.h"
+#include <cppunit/extensions/HelperMacros.h>
 
-#include <string>
-#include <set>
-#include <map>
-#include <string>
-#include <boost/shared_ptr.hpp>
-
-class Publisher
-
+class UtilityTest : public CppUnit::TestCase
 {
-  public:
+    CPPUNIT_TEST_SUITE(UtilityTest);
+    CPPUNIT_TEST(test_get_yaml_node);
+    CPPUNIT_TEST(test_put_yaml_node);
+    CPPUNIT_TEST(test_delete_yaml_node);
 
-    enum
-    {
-        INPROC = 0x01,
-        IPC    = 0x02,
-        TCP    = 0x04
-    };
+    CPPUNIT_TEST_SUITE_END();
 
-    Publisher(std::string component, int transports = INPROC,
-              int portnum = 0, std::string keymaster = "");
-    ~Publisher();
-
-    bool publish_data(std::string key, std::string data);
-
-  private:
-
-    bool _load_config_file(std::string config);
-
-    struct PubImpl;
-    boost::shared_ptr<PubImpl> _impl;
+public:
+    void test_get_yaml_node();
+    void test_put_yaml_node();
+    void test_delete_yaml_node();
 };
 
-#endif // _PUBLISHER_H_
+#endif

@@ -55,7 +55,7 @@ Mutex ZMQContext::_instance_lock;
  *   * Use the context. Obtain the underlying `zmq::context` first, then
  *     use as usual:
  *
- *         zmq::context &ctx = ZMQContext::Instance()->get_context();
+ *         zmq::context_t &ctx = ZMQContext::Instance()->get_context();
  *         zmq::socket_t pipe(ctx, ZMQ_PAIR);
  *         // etc.
  *

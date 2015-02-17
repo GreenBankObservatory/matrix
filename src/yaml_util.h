@@ -53,21 +53,57 @@ namespace mxutils
 
     struct yaml_result
     {
-        yaml_result(bool r, YAML::Node n)
+        yaml_result(bool r = true, YAML::Node n = YAML::Node(), std::string k = "", std::string em = "")
         {
             result = r;
             node = n;
-            key = "";
-
+            key = k;
+            err = em;
         }
+
+        yaml_result(YAML::Node yr)
+        {
+            from_yaml_node(yr);
+        }
+
+        YAML::Node to_yaml_node() const;
+        void from_yaml_node(YAML::Node yr);
 
         bool result;      //!< Result of the function, 'true' is success
         std::string key;  //!< Last good key
+        std::string err;  //!< any error message (from exception, etc.)
         YAML::Node node;  //!< Last good node
+
+        friend std::ostream &operator<<(std::ostream &os, const yaml_result &yr);
     };
 
-    yaml_result get_yaml_node(std::string key, YAML::Node node);
+    yaml_result get_yaml_node(YAML::Node node, std::string keychain);
+    yaml_result put_yaml_node(YAML::Node node, std::string keychain,
+                              YAML::Node val,  bool create = false);
+    yaml_result delete_yaml_node(YAML::Node node, std::string keychain);
 
+/**
+ * This template will insert a YAML::Node containing any type that is
+ * supported by the YAML::Node() templated constructor. These are all
+ * the types supported by YAML (POD types, vectors, maps).
+ *
+ * @param node: the root node to update
+ *
+ * @param keychain: the string of keys leading to the desired node
+ *
+ * @param val: the value to set
+ *
+ * @param create: if true, will create the needed node(s).
+ *
+ * @return `yaml_result`, set to 'true' on success, 'false' otherwise.
+ *
+ */
+
+    template <typename T>
+    yaml_result put_yaml_val(YAML::Node node, std::string keychain, T val, bool create = false)
+    {
+        return put_yaml_node(node, keychain, YAML::Node(val), create);
+    }
 }
 
 #endif

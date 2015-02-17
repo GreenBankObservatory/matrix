@@ -90,9 +90,13 @@ struct Publisher::PubImpl
 
     Thread<PubImpl> _server_thread;
     Thread<PubImpl> _state_manager_thread;
+    TCondition<bool> _server_thread_ready;
+    TCondition<bool> _state_manager_thread_ready;
+
     std::string _component;
     std::string _keymaster;
     int _port;
+    int _transports;
     int _state_port_used;
     int _pub_port_used;
     bool _state_manager_done;
@@ -102,7 +106,6 @@ struct Publisher::PubImpl
     bool _state_task_quit;
     std::string _ns_reg_url;
     std::string _ns_pub_url;
-    int _transports;
     std::string _hostname;
 
 
@@ -158,9 +161,12 @@ Publisher::PubImpl::PubImpl(string component, int transports, int portnum, strin
 :
     _server_thread(this, &Publisher::PubImpl::server_task),
     _state_manager_thread(this, &Publisher::PubImpl::state_manager_task),
+    _server_thread_ready(false),
+    _state_manager_thread_ready(false),
     _component(component),
     _keymaster(keymaster),
     _port(portnum),
+    _transports(transports),
     _state_manager_done(false),
     _data_queue(1000),
     _state_task_url("inproc://state_manager_task"),
@@ -194,6 +200,9 @@ Publisher::PubImpl::PubImpl(string component, int transports, int portnum, strin
                  << endl;
         }
     }
+
+    _server_thread_ready.wait(true, 1000000);
+    _state_manager_thread_ready.wait(true, 1000000);
 }
 
 /****************************************************************//**
@@ -208,10 +217,10 @@ Publisher::PubImpl::~PubImpl()
     zmq::socket_t sock(_ctx, ZMQ_PAIR);
     sock.connect(_state_task_url.c_str());
     z_send(sock, _state_task_quit);
+    sock.close();
     _data_queue.release();
     _server_thread.stop_without_cancel();
     _state_manager_thread.stop_without_cancel();
-    sock.close();
 }
 
 /****************************************************************//**
@@ -372,7 +381,7 @@ void Publisher::PubImpl::server_task()
 
         // bind using tcp. If port is not given (port == 0), then use ephemeral port.
 
-        if (_transports | TCP == TCP)
+        if ((_transports | TCP) == TCP)
         {
             if (_port)
             {
@@ -399,7 +408,7 @@ void Publisher::PubImpl::server_task()
         // transport. For this the first subdevice will be used, which
         // is normally the same name as the device.
 
-        if (_transports | IPC == IPC)
+        if ((_transports | IPC) == IPC)
         {
             string ipc_url = string("ipc:///tmp/") + _component + ".publisher.XXXXXX";
 
@@ -417,7 +426,7 @@ void Publisher::PubImpl::server_task()
             data_publisher.bind(ipc_url.c_str());
         }
 
-        if (_transports | INPROC == INPROC)
+        if ((_transports | INPROC) == INPROC)
         {
             string inproc_url = string("inproc://") + _component + ".publisher";
             data_publisher.bind(inproc_url.c_str());
@@ -432,7 +441,8 @@ void Publisher::PubImpl::server_task()
     }
 
     // register this with the keymaster
-    register_service(_publish_service_url, PUBLISH);
+    // register_service(_publish_service_url, PUBLISH);
+    _server_thread_ready.signal(true); // Allow constructor to move on
 
     while (_data_queue.get(dp))
     {
@@ -480,7 +490,6 @@ void Publisher::PubImpl::server_task()
     int zero = 0;
     data_publisher.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
     data_publisher.close();
-    cout << "publisher server task ended..." << endl;
 }
 
 /****************************************************************//**
@@ -497,7 +506,6 @@ void Publisher::PubImpl::state_manager_task()
     zmq::context_t &ctx = ZMQContext::Instance()->get_context();
     zmq::socket_t initial_state(ctx, ZMQ_REP);
     zmq::socket_t pipe(ctx, ZMQ_PAIR);  // mostly to tell this task to go away
-    zmq::socket_t ns_subscriber(ctx, ZMQ_SUB); // update ns if it comes back up
     std::string ns_key = "Keymaster:SERVER_UP";
 
     _state_service_urls.clear();
@@ -505,10 +513,8 @@ void Publisher::PubImpl::state_manager_task()
     try
     {
         pipe.bind(_state_task_url.c_str());
-        ns_subscriber.setsockopt(ZMQ_SUBSCRIBE, ns_key.c_str(), ns_key.length());
-        ns_subscriber.connect(_ns_pub_url.c_str());
 
-        if (_transports | TCP == TCP)
+        if ((_transports | TCP) == TCP)
         {
             if (_port)
             {
@@ -523,8 +529,6 @@ void Publisher::PubImpl::state_manager_task()
                 _state_port_used = zmq_ephemeral_bind(initial_state, "tcp://*:*", 1000);
             }
 
-            cout << "State service port_used = " << _state_port_used << endl;
-
             ostringstream tcp_url;
             tcp_url << "tcp://" << _hostname << ":" << _state_port_used;
             _state_service_urls.push_back(tcp_url.str());
@@ -532,7 +536,7 @@ void Publisher::PubImpl::state_manager_task()
 
         // Bind IPC and INPROC. See commentary in 'server_task()' for more.
 
-        if (_transports | IPC == IPC)
+        if ((_transports | IPC) == IPC)
         {
             string ipc_url = string("ipc:///tmp/") + _component + ".snapshot.XXXXXX";
             mktemp((char *)ipc_url.data());
@@ -540,7 +544,7 @@ void Publisher::PubImpl::state_manager_task()
             _state_service_urls.push_back(ipc_url);
         }
 
-        if (_transports | INPROC == INPROC)
+        if ((_transports | INPROC) == INPROC)
         {
             string inproc_url = string("inproc://") + _component + ".snapshot";
             initial_state.bind(inproc_url.c_str());
@@ -559,10 +563,11 @@ void Publisher::PubImpl::state_manager_task()
     zmq::pollitem_t items [] =
         {
             { pipe, 0, ZMQ_POLLIN, 0 },
-            { ns_subscriber, 0, ZMQ_POLLIN, 0 },
             { initial_state, 0, ZMQ_POLLIN, 0 }
         };
 
+    _state_manager_thread_ready.signal(true); // allow constructor to
+                                              // move on
     while (1)
     {
         try
@@ -581,24 +586,6 @@ void Publisher::PubImpl::state_manager_task()
             }
 
             if (items[1].revents & ZMQ_POLLIN)
-            {
-                string key;
-                z_recv(ns_subscriber, key);
-
-                // Directory Server is telling us that it is back
-                // up. Re-register all services.
-                if (ns_key == key)
-                {
-                    string val;
-                    z_recv(ns_subscriber, val);
-
-                    cout << "Name server reports: " << val << endl;
-                    register_service(_state_service_urls, STATE);
-                    register_service(_publish_service_url, PUBLISH);
-                }
-            }
-
-            if (items[2].revents & ZMQ_POLLIN)
             {
 		string key;
 		z_recv(initial_state, key);
@@ -630,14 +617,13 @@ void Publisher::PubImpl::state_manager_task()
         }
         catch (zmq::error_t e)
         {
-            cout << "State manager task, main loop: " << e.what() << endl;
+            cerr << "State manager task, main loop: " << e.what() << endl;
         }
     }
 
     int zero = 0;
     initial_state.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
     initial_state.close();
-    cout << "Publisher state manager task ended..." << endl;
 }
 
 /****************************************************************//**
@@ -853,7 +839,6 @@ Publisher::Publisher(std::string component, int transports,
     _impl(new Publisher::PubImpl(component, transports, portnum, keymaster))
 
 {
-    cout << "Publisher::Publisher(): constructor" << endl;
 }
 
 /****************************************************************//**

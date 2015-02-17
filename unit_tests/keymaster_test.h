@@ -1,7 +1,7 @@
 /*******************************************************************
- *  Publisher.h - Declares a ZMQ publisher (PUB/SUB model)
+ *  keymaster_test.h - Tests the keymaster interface
  *
- *  Copyright (C) 2012 Associated Universities, Inc. Washington DC, USA.
+ *  Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,42 +25,20 @@
  *
  *******************************************************************/
 
-#if !defined(_PUBLISHER_H_)
-#define _PUBLISHER_H_
+#if !defined(_KEYMASTER_TEST_H_)
+#define _KEYMASTER_TEST_H_
 
-#include <memory>
-#include "Mutex.h"
+#include <cppunit/extensions/HelperMacros.h>
 
-#include <string>
-#include <set>
-#include <map>
-#include <string>
-#include <boost/shared_ptr.hpp>
-
-class Publisher
-
+class KeymasterTest : public CppUnit::TestCase
 {
-  public:
+    CPPUNIT_TEST_SUITE(KeymasterTest);
+    CPPUNIT_TEST(test_keymaster);
 
-    enum
-    {
-        INPROC = 0x01,
-        IPC    = 0x02,
-        TCP    = 0x04
-    };
+    CPPUNIT_TEST_SUITE_END();
 
-    Publisher(std::string component, int transports = INPROC,
-              int portnum = 0, std::string keymaster = "");
-    ~Publisher();
-
-    bool publish_data(std::string key, std::string data);
-
-  private:
-
-    bool _load_config_file(std::string config);
-
-    struct PubImpl;
-    boost::shared_ptr<PubImpl> _impl;
+public:
+    void test_keymaster();
 };
 
-#endif // _PUBLISHER_H_
+#endif

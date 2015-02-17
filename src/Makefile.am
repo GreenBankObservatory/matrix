@@ -37,6 +37,7 @@ headers_HEADERS = \
     Component.h \
     DataInterface.h \
     FiniteStateMachine.h \
+    Keymaster.h \
     Semaphore.h \
     Thread.h \
     ThreadLock.h \
@@ -55,6 +56,7 @@ libmatrix_la_SOURCES = \
     Component.cc \
     DataInterface.cc \
     FiniteStateMachine.cc \
+    Keymaster.cc \
     Semaphore.cc \
     Time.cc \
     Publisher.cc \
