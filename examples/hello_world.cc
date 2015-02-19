@@ -1,9 +1,9 @@
-
 #include <string>
 #include <iostream>
+#include <yaml-cpp/yaml.h>
+
 #include "Controller.h"
 #include "Component.h"
-#include "yaml.h"
 
 using namespace std;
 using namespace YAML;
@@ -14,19 +14,19 @@ class HelloWorld : public Component
 {
 public:
     HelloWorld(string name) : Component(name) {}
-    static Component *factory(string myname) 
-    { cout << "Hello World ctor" << endl; return new HelloWorld(myname); } 
+    static Component *factory(string myname)
+    { cout << "Hello World ctor" << endl; return new HelloWorld(myname); }
 };
 
 int main(int argc, char **argv)
 {
-    
+
     Controller simple("hello_world.yaml");
     // The controller needs a dictionary of components names to static factory methods
     simple.add_factory_method("HelloWorld", &HelloWorld::factory);
 
     // first step is to create the keymaster and subscribe to its events
-    if (!simple.create_the_keymaster()) 
+    if (!simple.create_the_keymaster())
     {
         cerr << "Error creating Keymaster" << endl;
     }
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     // Now components have been instanced. Tell everyone to initialize. This
     // should leave all components in the "Standby" state.
     simple.initialize();
-    
+
     // wait for the keymaster events which report components in the Standby state.
     // Probably should return if any component reports and error state????
     while (!simple.check_all_in_state("Standby"))

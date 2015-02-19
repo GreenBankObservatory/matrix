@@ -22,14 +22,14 @@
 //  Green Bank, WV 24944-0002 USA
 
 #include "Component.h"
-#include "yaml.h"
+#include <yaml-cpp/yaml.h>
 #include <iostream>
 
 using namespace std;
 using namespace YAML;
 using namespace FSM;
 
-/// The arg 'myname' is the so called instance name from the 
+/// The arg 'myname' is the so called instance name from the
 /// configuration file.
 Component::Component(string myname) :
     my_instance_name(myname)
@@ -73,4 +73,3 @@ string Component::get_state()
 {
     return fsm.getState();
 }
-
