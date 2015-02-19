@@ -1,0 +1,62 @@
+---
+
+# Components in the system
+#
+# Each component has a name by which it is known. Some components have 0
+# or more data sources, and 0 or more data sinks. The sources are known
+# by their URLs. The sinks are just listed by name (for now).
+
+components:
+  nettask:
+    type: NetTask
+    source:
+      A: ["inproc://nettask_output", "ipc://nettask_output", "tcp://127.0.0.1:5555"]
+
+  gputask:
+    type: GPUComponent
+    source:
+      A: ["inproc://gputask_output", "ipc://gputask_output", "tcp://127.0.0.1:5556"]
+    sink:
+      A: inproc
+
+  cputask:
+    type: CPUComponent
+    source:
+      A: ["inproc://cputask_output", "ipc://cputask_output", "tcp://127.0.0.1:5557"]
+    sink:
+      A: inproc
+
+  guppitask:
+    type: GuppiTask
+    source:
+      A: ["inproc://guppi_task_output", "ipc://guppi_task_output", "tcp://127.0.0.1:5558"]
+    sink:
+      A: inproc
+
+  vegas_disk:
+    type: DiskTask
+    sink:
+      A: inproc
+
+  guppi_disk:
+    type: DiskTask
+    sink:
+      A: inproc
+
+# Connection mapping for the various configurations. The mapping is a
+# list of lists, which each element of the outer list being a 4-element
+# inner list: [source_component, source_name, sink_component, sink_name]
+
+connections:
+  VEGAS_HBW:
+    - [nettask, A, cputask, A]
+    - [cputask, A, vegas_disk, A]
+
+  VEGAS_LBW:
+    - [nettask, A, gputask, A]
+    - [gputask, A, cputask, A]
+    - [cputask, A, vegas_disk, A]
+
+  GUPPI:
+    - [nettask, A, guppitask, A]
+    - [guppitask, A, guppi_disk, A]
