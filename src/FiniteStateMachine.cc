@@ -31,7 +31,7 @@ using namespace std;
 
 void FiniteStateMachine::addState(string statename)
 {
-    states[statename] = *(new State(statename));
+    states[statename] = State(statename);
 }
 
 void FiniteStateMachine::addTransition(std::string from_state,
@@ -43,8 +43,7 @@ void FiniteStateMachine::addTransition(std::string from_state,
     if (s1 == states.end())
     {
         // state doesn't exist, create one.
-        auto ns=make_pair<std::string, State>(from_state, State(from_state));
-        states.insert(ns);
+        states[from_state] = State(from_state);
         s1 = states.find(from_state);       
     }
     s1->second.addTransition(event_name, to_state, p);
@@ -92,7 +91,7 @@ bool FiniteStateMachine::handle_event(std::string ev)
         // event unrecognized, or predicate failed
         return false;
     }
-    // make sure the nxtstate is valid -- this shouldn't be possible
+    // make sure the nxtstate is invalid -- this shouldn't be possible
     if (states.find(nxtstate) == states.end())
     {
         printf("Error event %s while in state %s places fsm in unknown state -- ignored\n",
@@ -227,7 +226,7 @@ void State::addTransition(std::string event, std::string nxt_state, ActionBase *
     auto st = transitionmap.find(event);
     if (st == transitionmap.end())
     {
-        auto nt = make_pair<string, StateTransition>(event, StateTransition(event, nxt_state));
+        auto nt = std::pair<string, StateTransition>(event, StateTransition(event, nxt_state));
         nt.second.addPredicate(p);
         transitionmap.insert(nt);
     }

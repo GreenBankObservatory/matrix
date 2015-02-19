@@ -60,6 +60,7 @@ AC_PROG_LIBTOOL
 #                [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
 AM_PATH_CHECK()
 
+############################## ZEROMQ ###################################
 # Check for zeromq library
 zeromq_prefix=detect
 AC_ARG_WITH([zeromq],
@@ -116,6 +117,66 @@ AC_CHECK_LIB([zmq], [zmq_init],
              ],
     [AC_MSG_ERROR([cannot link with -lzmq])])
 
+############################## YAML ###################################
+
+# Check for yaml-cpp library
+yamlcpp_prefix=detect
+AC_ARG_WITH([yamlcpp],
+    [AS_HELP_STRING([--with-yamlcpp=PREFIX],
+        [build with yaml-cpp library installed in PREFIX [default=autodetect]])],
+    [case "x$withval" in
+        xno)
+            AC_MSG_ERROR([matrix requires the yaml-cpp library])
+            ;;
+        xyes|x)
+            ;;
+        *)
+            CPPFLAGS="$CPPFLAGS -I${withval}/include/yaml-cpp -I${withval}/include"
+            LDFLAGS="$LDFLAGS -L${withval}/lib"
+            yamlcpp_prefix=${withval}
+            ;;
+    esac ]
+)
+if test "x$yamlcpp_prefix" = "xdetect"; then
+    PKG_CHECK_MODULES(
+        [Yamlcpp], [libyamlcpp], [yamlcpp_prefix=pkgconfig], [yamlcpp_prefix=])
+        if test "x$yamlcpp_prefix" = "xpkgconfig"; then
+            CPPFLAGS="$CPPFLAGS ${Yamlcpp_CFLAGS}"
+            LDFLAGS="$LDFLAGS ${Yamlcpp_LIBS}"
+        fi
+fi
+
+AC_ARG_ENABLE([version],
+              [AS_HELP_STRING([--enable-version],
+                              [builds with version information embedded [default=yes]])])
+AM_CONDITIONAL(DISABLE_VERSION, test "x$enable_version" = "xno")
+
+AC_LANG_PUSH([C++])
+AC_CHECK_HEADER([yaml-cpp/yaml.h], [],
+    [AC_MSG_ERROR([cannot find yaml-cpp/yaml.h])])
+
+AC_ARG_ENABLE([self-contained],
+              [AS_HELP_STRING([--enable-self-contained],
+                              [generates a library that embeds all its external dependencies [default=no]])])
+
+AC_ARG_ENABLE([self-contained-uuid],
+              [AS_HELP_STRING([--enable-self-contained-uuid],
+              [embeds the libuuid dependency in the shared object [default=no]])])
+
+AC_CHECK_LIB([yaml-cpp], [_init],
+             [
+             if test "x$enable_self_contained" = "xyes"; then
+                    LDFLAGS="$LDFLAGS -Wl,-Bstatic -Wl,-lyaml-cpp -Wl,-Bdynamic"
+             else
+                     LIBS="-lyaml-cpp $LIBS"
+             fi
+             if test "x$enable_self_contained_uuid" = "xyes"; then
+                     LDFLAGS="$LDFLAGS -Wl,-luuid"
+             fi
+             ],
+    [AC_MSG_ERROR([cannot link with -lyaml-cpp])])
+AC_LANG_POP([C++])
+
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -132,6 +193,7 @@ AC_CONFIG_HEADERS([include/config.h])
 # One entry for each subdirectory
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-                 unit_tests/Makefile])
+                 unit_tests/Makefile
+                 examples/Makefile])
 
 AC_OUTPUT

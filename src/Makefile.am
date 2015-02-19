@@ -31,14 +31,16 @@ lib_LTLIBRARIES = libmatrix.la
 
 headersdir = $(includedir)
 headers_HEADERS = \
-    Controller.h \
-    FiniteStateMachine.h \
     Mutex.h \
-    Publisher.h \
     TCondition.h \
+    Controller.h \
+    Component.h \
+    FiniteStateMachine.h \
+    Semaphore.h \
     Thread.h \
     ThreadLock.h \
     Time.h \
+    Publisher.h \
     ZMQContext.h \
     netUtils.h \
     tsemfifo.h \
@@ -46,11 +48,13 @@ headers_HEADERS = \
     zmq_util.h
 
 libmatrix_la_SOURCES = \
+    Mutex.cc  \
     Controller.cc \
+    Component.cc \
     FiniteStateMachine.cc \
-    Mutex.cc \
-    Publisher.cc \
+    Semaphore.cc \
     Time.cc \
+    Publisher.cc \
     ZMQContext.cc \
     netUtils.cc \
     yaml_util.cc \

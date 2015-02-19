@@ -27,7 +27,11 @@
 
 noinst_PROGRAMS = matrix_unittest
 
-matrix_unittest_SOURCES = matrix_unittest.cc StateTransitionTest.cc TimeTest.cc
+matrix_unittest_SOURCES = matrix_unittest.cc \
+                          StateTransitionTest.cc \
+                          TimeTest.cc \
+                          ControllerTest.cc
+
 matrix_unittest_CXXFLAGS = -std=c++0x -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src
 matrix_unittest_LDADD = -L../src/.libs -lmatrix /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt
 

@@ -29,7 +29,7 @@
 #if !defined(_PUBLISHER_H_)
 #define _PUBLISHER_H_
 
-#include "auto_ptr.h"
+#include <memory>
 #include "Mutex.h"
 
 #include <string>

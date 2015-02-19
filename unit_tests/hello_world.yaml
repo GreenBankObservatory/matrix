@@ -1,0 +1,35 @@
+---
+
+# Components in the system
+#
+# Each component has a name by which it is known. Some components have 0
+# or more data sources, and 0 or more data sinks. The sources are known
+# by their URLs. The sinks are just listed by name (for now).
+
+components:
+  hellothing1:
+    type: HelloWorldComponent
+    sink:
+      A: inproc
+  hellothing2:
+    type: HelloWorldComponent
+    sink:
+      A: inproc
+
+# Connection mapping for the various configurations. The mapping is a
+# list of lists, which each element of the outer list being a 4-element
+# inner list: [source_component, source_name, sink_component, sink_name]
+
+connections:
+  VEGAS_HBW:
+    - [nettask, A, cputask, A]
+    - [cputask, A, vegas_disk, A]
+
+  VEGAS_LBW:
+    - [nettask, A, gputask, A]
+    - [gputask, A, cputask, A]
+    - [cputask, A, vegas_disk, A]
+
+  GUPPI:
+    - [nettask, A, guppitask, A]
+    - [guppitask, A, guppi_disk, A]

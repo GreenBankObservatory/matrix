@@ -23,7 +23,6 @@
  *  P. O. Box 2
  *  Green Bank, WV 24944-0002 USA
  *
- *  $Id: TCondition.h,v 1.6 2008/04/14 17:08:56 rcreager Exp $
  *
  *******************************************************************/
 
@@ -36,6 +35,7 @@
 
 #include "Mutex.h"
 
+<<<<<<< HEAD
 /****************************************************************//**
  * \class TCondition
  *
@@ -56,6 +56,9 @@
  *
  *******************************************************************/
 
+/// A template which implements a condition variable. This
+/// template can be used to signal/wait on a value of type T,
+/// or simply on a void signal.
 template <typename T> class TCondition : public Mutex
 
 {
@@ -64,17 +67,50 @@ template <typename T> class TCondition : public Mutex
     TCondition(T const &val);
     virtual ~TCondition();
 
+    /// Access the current value. Locks are used but the internal value may
+    /// change prior to being tested outside the class.
     void get_value(T &v);
-    void set_value(T v);
+    
+    /// Acess the current value. No locking is used.
     T &value();
+    
+    /// Set the value atomically.
+    void set_value(T v);
 
+    /// wait forever for the value to become equal to s.
+    /// Upon returning the internal mutex is unlocked.
     void wait(T const &s);
+    
+    /// wait with a timeout for the value to be equal to s.
+    /// Upon returning the internal mutex is unlocked.
+    /// Return value is true if the timeout was not reached,
+    /// or false if a timeout or error occured.
     bool wait(T const &s, int usecs);
+    
+    /// wait with a timeout for the value to be equal to s.
+    /// Upon returning, the internal mutex is locked, and
+    /// the method unlock() must be used to unlock it.
+    /// Return value is true if the timeout was not reached,
+    /// or false otherwise.
     void wait_with_lock(T const &s);
-
+    
+    /// Waits without checking the internal value. Upon returning
+    /// the internal mutex is locked, and must be unlocked by calling
+    /// the unlock() method. Return value is true if no timeout occured,
+    /// and false otherwise.
+    /// This is convienent to use when an external condition is checked.
+    bool wait_locked_with_timeout(int usecs);
+   
+    /// Singal without changing the internal value    
     void signal();
+    
+    /// Set the value to 's' atomically and signal any waiters.
     void signal(T const &s);
+    
+    /// Broadcast without changing the internal value
     void broadcast();
+    
+    /// Set the value to 's' and send a broadcast
     void broadcast(T const &s);
 
 
@@ -96,7 +132,7 @@ template <typename T> class TCondition : public Mutex
  *********************************************************************/
 
 template <typename T> TCondition<T>::TCondition(T const &val)
-                                      : _value(val)
+                                      : Mutex(), _value(val)
 
 {
     pthread_cond_init(&_cond, NULL);
@@ -307,5 +343,31 @@ template <typename T> void TCondition<T>::wait_with_lock(T const &s)
         pthread_cond_wait(&_cond, &mutex);
     }
     // Do not unlock!
+}
+
+// Wait with a timeout, but ignore the internal value.
+// This allows the implementation of an external while loop.
+template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
+{
+    timeval curtime;
+    timespec to;
+    int status;
+    bool rval = true;
+
+    gettimeofday(&curtime, 0);
+    to.tv_nsec = (usecs % 1000000 + curtime.tv_usec) * 1000;
+    to.tv_sec  = to.tv_nsec / 1000000000;
+    to.tv_nsec -= to.tv_sec * 1000000000;
+    to.tv_sec  +=  curtime.tv_sec + usecs / 1000000;
+    lock();
+
+    status = pthread_cond_timedwait(&_cond, &mutex, &to);
+
+    if (status == ETIMEDOUT)
+    {
+        rval = false;
+    }
+    // Do not unlock!
+    return rval;
 }
 #endif

@@ -30,6 +30,10 @@
 #define NANOSEC_PER_DAY (86400000000000LL)
 #endif
 
+extern "C" void  __Matrix__Time__(...)
+{
+}
+
 namespace Time
 {
                   

@@ -26,7 +26,7 @@
 #===============================================================================
 
 
-SUBDIRS = src unit_tests 
+SUBDIRS = src unit_tests examples
 
 distclean-local:
 	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess 
@@ -36,3 +36,5 @@ dist-hook:
 	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess 
 	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache 
 
+docs:
+	doxygen Doxyfile
