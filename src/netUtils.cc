@@ -38,16 +38,17 @@
 
 using namespace std;
 
-/********************************************************************
- * is_canonical(string n)
- *
+namespace mxutils
+{
+
+/****************************************************************//**
  * This predicate function determines whether a string is a canonical
  * hostname or not.  This currently is determined if the string passed
  * in has at least one period in it (host.domain), and that it is not
  * (or does not contain) 'localhost'.  Any other conditions may be
  * placed in here.
  *
- * @param string n: the string to examine.
+ * @param n: the string to examine.
  *
  * @return true if it meets the conditions, false otherwise.
  *
@@ -68,20 +69,17 @@ bool is_canonical(string n)
     return true;
 }
 
-/********************************************************************
- * getCanonicalHostname(string &name)
- *
+/****************************************************************//**
  * Returns the local host's canonical host name
  * (e.g. 'ajax.gb.nrao.edu').  The function gathers all names by first
  * looking up the host name (by gethostname) then uses gethostbyname
  * to get all the full names and aliases, putting them all into a
  * list.  It then searches the list for the first element that meets
  * the conditions of a canonical host name (see the predicate
- * 'is_canonical' above.)
+ * 'is_canonical')
  *
- * @param string &name: A string buffer passed into the caller that
- *        will hold the canonical host name, if the return value is
- *        true.
+ * @param name: A string buffer passed into the caller that will hold
+ *        the canonical host name, if the return value is true.
  *
  * @return true on success, false otherwise.
  *
@@ -120,4 +118,6 @@ bool getCanonicalHostname(string &name)
     }
 
     return false;
+}
+
 }

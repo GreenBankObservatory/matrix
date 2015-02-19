@@ -1,10 +1,5 @@
 /*******************************************************************
- ** ThreadLock.h - A template accepting any object that has a lock()
- *  and an unlock() member function.  ThreadLock assumes that the
- *  lock() and unlock() functions return 0 for success (as would the
- *  underlying pthread_mutex_(un)lock() functions).  The object
- *  will unlock() the contained object when it goes out of scope,
- *  making for exception-safe locking.
+ ** ThreadLock.h
  *
  *  Copyright (C) 2004 Associated Universities, Inc. Washington DC, USA.
  *
@@ -28,8 +23,6 @@
  *  P. O. Box 2
  *  Green Bank, WV 24944-0002 USA
  *
- *  $Id: ThreadLock.h,v 1.1 2004/02/11 15:44:00 rcreager Exp $
- *
  *******************************************************************/
 
 #if !defined(_THREADLOCK_H_)
@@ -37,44 +30,44 @@
 
 #include <assert.h>
 
+/****************************************************************//**
+ * \class ThreadLock
+ *
+ * A template accepting any object that has a lock() and an unlock()
+ * member function.  ThreadLock assumes that the lock() and unlock()
+ * functions return 0 for success (as would the underlying
+ * pthread_mutex_(un)lock() functions).  The object will unlock() the
+ * contained object when it goes out of scope, making for exception-safe
+ * locking.
+ *
+ * Example:
+ *
+ *     Mutex mutex;
+ *     ...
+ *
+ *     void foo()
+ *     {
+ *         ThreadLock<Mutex> tl(mutex);
+ *
+ *         if (tl.lock() == 0)
+ *         {
+ *             // do something
+ *         }
+ *     } // unlocks when foo goes out of scope
+ *
+ *******************************************************************/
+
 template<typename X> class ThreadLock
 {
   public:
 
-    explicit ThreadLock (X &p) :  _the_lock(p), locked(false), rval(0)  {}
-    ~ThreadLock ()                                                      {unlock();}
+    explicit ThreadLock (X &p);
+    ~ThreadLock();
 
 
-    int lock()
-    {
-        if ((rval = _the_lock.lock()) == 0)
-        {
-            locked = true;
-        }
-
-        return rval;
-    }
-
-    int unlock()
-    {
-        if (locked)
-        {
-            if ((rval = _the_lock.unlock()) == 0)
-            {
-                locked = false;
-            }
-
-            return rval;
-        }
-
-        return 0;
-    }
-
-    int last_error()
-    {
-        return rval;
-    }
-
+    int lock();
+    int unlock();
+    int last_error();
 
   private:
 
@@ -83,5 +76,83 @@ template<typename X> class ThreadLock
     int rval;
 };
 
-#endif
+/****************************************************************//**
+ * Constructs a ThreadLock object that locks a type X.
+ *
+ * @param p: The object of type X to lock. Must have a lock() and
+ * unlock() function.
+ *
+ *******************************************************************/
 
+template<typename X> ThreadLock<X>::ThreadLock(X &p)
+    :  _the_lock(p),
+       locked(false),
+       rval(0)
+{}
+
+/****************************************************************//**
+ * Destructor. Unlocks the object X. This means X will always be
+ * unlocked when this goes out of scope.
+ *
+ *******************************************************************/
+
+template<typename X> ThreadLock<X>::~ThreadLock()
+{
+    unlock();
+}
+
+/****************************************************************//**
+ * Locks the object X.
+ *
+ * @return 0 on success, error code otherwise (see documentation for
+ * type X.)
+ *
+ *******************************************************************/
+
+template<typename X> int ThreadLock<X>::lock()
+{
+    if ((rval = _the_lock.lock()) == 0)
+    {
+        locked = true;
+    }
+
+    return rval;
+}
+
+/****************************************************************//**
+ * Unlocks the object X.
+ *
+ * @return 0 on success, error code otherwise. (see documentation for
+ * type X.)
+ *
+ *******************************************************************/
+
+template<typename X> int ThreadLock<X>::unlock()
+{
+    if (locked)
+    {
+        if ((rval = _the_lock.unlock()) == 0)
+        {
+            locked = false;
+        }
+
+        return rval;
+    }
+
+    return 0;
+}
+
+/****************************************************************//**
+ * Returns the value last returned by `lock()` and `unlock()`
+ *
+ * @return This is an integer, the value returned by the last call to
+ * `lock()` or `unlock()`.
+ *
+ *******************************************************************/
+
+template<typename X> int ThreadLock<X>::last_error()
+{
+    return rval;
+}
+
+#endif

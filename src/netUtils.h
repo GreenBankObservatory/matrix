@@ -31,8 +31,11 @@
 
 #include <string>
 
-// This is similar to the one in rpcUtils.h, but allows easy
-// re-definition of what a canonical hostname is.
+namespace mxutils
+{
+
 bool getCanonicalHostname(std::string &name);
+
+}
 
 #endif

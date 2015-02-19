@@ -34,7 +34,6 @@
 #include "ThreadLock.h"
 #include "tsemfifo.h"
 #include "Thread.h"
-#include "zmq_ephemeral_bind.h"
 #include "zmq_util.h"
 #include "netUtils.h"
 
@@ -53,8 +52,14 @@
 #include <boost/shared_ptr.hpp>
 
 using namespace std;
+using namespace mxutils;
 
 #define DEBUG
+
+/******************************************************************//**
+ * PubImpl is the private implementation of the Publisher class.
+ *
+ *******************************************************************/
 
 struct Publisher::PubImpl
 {
@@ -80,8 +85,7 @@ struct Publisher::PubImpl
     bool publish(std::string &key, std::string &data, int circ_buf_size);
     void save_val(std::string key, std::string data, int circ_buf_size);
     void send_snapshot(zmq::socket_t &s, std::string &key);
-    void send_list_of_keys(std::string major, std::string minor,
-                           zmq::socket_t &s);
+    void send_list_of_keys(zmq::socket_t &s, std::string component);
     void register_service(vector<string> &urls, int interface);
 
     Thread<PubImpl> _server_thread;
@@ -123,9 +127,7 @@ struct Publisher::PubImpl
     zmq::context_t &_ctx;
 };
 
-/********************************************************************
- * Publisher::PubImpl::PubImpl(string component, int transports, int portnum)
- *
+/*****************************************************************//**
  * Constructor of the implementation class of the publisher.  The
  * implementation class handles all the details; the Publisher class
  * merely provides the external interface.
@@ -138,15 +140,17 @@ struct Publisher::PubImpl
  * attempt to report the host name and ports to the directory name
  * server.
  *
- * @param std::string const component: The component name.  Used to
- * register the service with the keymaster.
- * @param int transports: Any combination of the Publisher::INPROC,
+ * @param component: The component name.  Used to register the service
+ * with the keymaster.
+ * @param transports: Any combination of the Publisher::INPROC,
  * Publisher::IPC, Publisher::TCP enums defined in Publisher.h. For
  * example, Publisher::IPC | Publisher::TCP provides those two
  * interfaces.
- * @param int port: The optional port.  If 0, the service will choose
- * its own ports, which is the standard operating mode if the service
- * is using a name server.
+ * @param portnum: The optional port.  If 0, or not given, the service
+ * will choose its own ports, which is the standard operating mode if
+ * the service is using a name server.
+ * @param keymaster: The URL to the keymaster. If not given defaults to
+ * "".
  *
  *******************************************************************/
 
@@ -192,9 +196,7 @@ Publisher::PubImpl::PubImpl(string component, int transports, int portnum, strin
     }
 }
 
-/********************************************************************
- * Publisher::PubImpl::~PubImpl()
- *
+/****************************************************************//**
  * Signals the server thread that we're done, waiting for it to exit
  * on its own.
  *
@@ -212,9 +214,7 @@ Publisher::PubImpl::~PubImpl()
     sock.close();
 }
 
-/********************************************************************
- * Publisher::PubImpl::register_service(vector<string> &urls, int interface)
- *
+/****************************************************************//**
  * Registers the URLs for the given interface for this publisher. This
  * uses the Lazy Pirate pattern to prevent indefinite blocking should
  * the Keymager not be present.
@@ -227,10 +227,10 @@ Publisher::PubImpl::~PubImpl()
  * comes back up. In that case the Publisher will receive the up
  * message, and try again.
  *
- * @param vector<string> &urls: The URLs for this interface. There are
- * up to 3 urls, depending on the transports chosen.
- * @param int interface: the interface, PubImpl::PUBLISH is the
- * publisher and PubImpl::STATE is the state service.
+ * @param urls: The URLs for this interface. There are up to 3 urls,
+ * depending on the transports chosen.
+ * @param interface: the interface, PubImpl::PUBLISH is the publisher
+ * and PubImpl::STATE is the state service.
  *
  *******************************************************************/
 
@@ -352,9 +352,7 @@ void Publisher::PubImpl::register_service(vector<string> &urls, int interface)
     // }
 }
 
-/********************************************************************
- * Publisher::PubImpl::server_task()
- *
+/****************************************************************//**
  * This is the publisher server task.  It sits on the queue waiting
  * for something to be published until it gets a "QUIT" message.  This
  * consists of putting a null pointer on the state queue.
@@ -485,13 +483,11 @@ void Publisher::PubImpl::server_task()
     cout << "publisher server task ended..." << endl;
 }
 
-/********************************************************************
- * Publisher::PubImpl::state_manager_task()
- *
+/****************************************************************//**
  * This 0MQ server task implements a REPLY socket (of a REQ/REP pair),
  * whose function is to receive requests for cached data.  This is
- * useful for late joiners, especially if it is for Parameters or
- * Samplers that don't change frequently.
+ * useful for late joiners, especially for keys that don't change
+ * frequently.
  *
  *******************************************************************/
 
@@ -621,11 +617,10 @@ void Publisher::PubImpl::state_manager_task()
 		}
 		else if (key.size() == 4 && key == "LIST")
 		{
-		    string major, minor;
-		    z_recv(initial_state, major);
-		    z_recv(initial_state, minor);
+		    string component;
+		    z_recv(initial_state, component);
 		    // provide list of stuff
-		    send_list_of_keys(major, minor, initial_state);
+		    send_list_of_keys(initial_state, component);
 		}
 		else  // assume everything else is a subcription key
 		{
@@ -645,9 +640,7 @@ void Publisher::PubImpl::state_manager_task()
     cout << "Publisher state manager task ended..." << endl;
 }
 
-/********************************************************************
- * Publisher::PubImpl::save_val(std::string key, std::string value)
- *
+/****************************************************************//**
  * This function saves a published value in its key's circular buffer.
  * This is for late/initial joiners.  In the case of samplers the
  * circular buffer is more than 1 in size, thus retaining a history of
@@ -679,9 +672,9 @@ void Publisher::PubImpl::state_manager_task()
  * clients who wish to reconstruct the circular buffer at their end,
  * or at the least immediately receive the last value posted.
  *
- * @param std::string key: The key in the key/value pair
- * @param PBDataField &value: the value part.
- * @param int circ_buf_size: initial size for key's circular buffer
+ * @param key: The key in the key/value pair
+ * @param value: the value part. The string is used solely as a buffer
+ * @param circ_buf_size: initial size for key's history circular buffer
  *
  *******************************************************************/
 
@@ -704,16 +697,12 @@ void Publisher::PubImpl::save_val(std::string key, std::string value, int circ_b
     _kv_cache[key].push_back(value);
 }
 
-/********************************************************************
- * Publisher::PubImpl::send_snapshot(zmq::socket_t &s, std::string &key)
- *
+/****************************************************************//**
  * Given a socket, an address for the requestor, and a key, sends off
  * all the values stored in the circular buffer for that key.
  *
- * @param zmq::socket_t &s: the socket
- * @param std::string &key: The key to the desired values
- * @param std::string &addr: This is a binary value which uniquely
- *        identifies the anonymous requestor.
+ * @param s: the socket
+ * @param key: The key to the desired values
  *
  *******************************************************************/
 
@@ -754,19 +743,17 @@ void Publisher::PubImpl::send_snapshot(zmq::socket_t &s, std::string &key)
     }
 }
 
-/********************************************************************
- * Publisher::PubImpl::send_list_of_keys(std::string major, std::string minor,
- *                                       zmq::socket_t &s)
+/****************************************************************//**
+ * Given a component name and socket for the requestor sends off
+ * all the keys being served for this component.
  *
- * Given a socket and an address for the requestor sends off
- * all the keys being served
- *
- * @param zmq::socket_t &s: the socket
+ * @param s: the socket that will return the values to the entity
+ * requesting the keys.
+ * @param component: Names the component publishing the keys
  *
  *******************************************************************/
 
-void Publisher::PubImpl::send_list_of_keys(std::string major, std::string minor,
-                                           zmq::socket_t &s)
+void Publisher::PubImpl::send_list_of_keys(zmq::socket_t &s, std::string component)
 {
     pub_map::iterator it;
     ThreadLock<Mutex> l(_cache_lock);
@@ -775,10 +762,7 @@ void Publisher::PubImpl::send_list_of_keys(std::string major, std::string minor,
 
     for (it = _kv_cache.begin(); it != _kv_cache.end(); ++it)
     {
-        vector<string> components;
-        boost::split(components, it->first, boost::is_any_of(".:"));
-
-        if (components[0] == major && components[1] == minor)
+        if (it->first == component)
         {
             z_send(s, it->first, ZMQ_SNDMORE);
         }
@@ -787,10 +771,7 @@ void Publisher::PubImpl::send_list_of_keys(std::string major, std::string minor,
     z_send(s, "END");
 }
 
-/********************************************************************
- * Publisher::PubImpl::publish(std::string &key,
- *                             std::string &data, int circ_buf_size)
- *
+/****************************************************************//**
  * This is the Publisher's Data publishing facility.  It is a private
  * function that does all the work preparing data for publication.
  * The data and metadata are copied into a 'data_package' object and
@@ -799,9 +780,9 @@ void Publisher::PubImpl::send_list_of_keys(std::string major, std::string minor,
  * set.  This 'publish' function assumes the data is not Sampler or
  * Parameter data.
  *
- * @param std::string &key: the data key
- * @param std::string &data: the data buffer
- * @param int circ_buf_size: the desired size of the circular buffer.
+ * @param key: the data key
+ * @param data: the data buffer
+ * @param circ_buf_size: the desired size of the circular buffer.
  *
  * @return true if the data was succesfuly placed in the publication
  * queue, false otherwise.
@@ -825,18 +806,44 @@ bool Publisher::PubImpl::publish(std::string &key,
     return true;
 }
 
-/********************************************************************
- * Publisher::Publisher(std::string const device,
- *                      std::string const subdevice, int port)
+/****************************************************************//**
+ * \class Publisher
  *
+ * This is a class that provides a 0MQ publishing facility. Publisher
+ * both publishes data as a ZMQ PUB, but also provides a REQ/REP
+ *
+ * Usage involves some setup in the
+ *
+ *     int main(...)
+ *     {
+ *         // Instantiate a Zero MQ context, usually one per process.
+ *         // It will be used by any 0MQ service in this process.
+ *         ZMQContext::Instance();
+ *         // Instantiate the 0MQ publisher, where 'component' is the
+ *         // component name, and 'port' is the TCP port.
+ *         pub = new Publisher(component, port);
+ *         ... // rest of component
+ *         delete pub; // clean up
+ *         ZMQContext::RemoveInstance();
+ *         return 0;
+ *     }
+ *
+ * Elsewhere in the code:
+ *
+ *     ...
+ *     pub->publish_data(key, data_buf);
+ *
+ *******************************************************************/
+
+/****************************************************************//**
  * Publisher constructor.  Saves the URL, and starts a server
  * thread.
  *
- * @param std::string component: The name of the publishing component.
- * @param int transports: one or more of INPROC, IPC and TCP or'ed together.
- * @param int portnum: The TCP port number. If not provided, will use a
- * transient port.
- * @param std::string keymaster: If provided, the URL of the keymaster.
+ * @param component: The name of the publishing component.
+ * @param transports: one or more of INPROC, IPC and TCP or'ed together.
+ * @param portnum: The TCP port number. If not provided, will use a
+ *                 transient port.
+ * @param keymaster: If provided, the URL of the keymaster.
  *
  *******************************************************************/
 
@@ -849,9 +856,7 @@ Publisher::Publisher(std::string component, int transports,
     cout << "Publisher::Publisher(): constructor" << endl;
 }
 
-/********************************************************************
- * Publisher::~Publisher()
- *
+/****************************************************************//**
  * Signals the server thread that we're done, waiting for it to exit
  * on its own.
  *
@@ -863,9 +868,7 @@ Publisher::~Publisher()
     _impl.reset();
 }
 
-/********************************************************************
- * Publisher::publish_data(std::string, std::string, std::string)
- *
+/****************************************************************//**
  * This template function serves to publish backend data via the
  * Publisher.  Since each server that published data has a different
  * data specification (unlike Samplers and Parameters), the Publisher
@@ -873,8 +876,8 @@ Publisher::~Publisher()
  * The caller would thus fill out a GPB, serialize it to a
  * std::string, and call this function with that string.
  *
- * @param std::string key: The publishing key for the data.
- * @param std::string data: The serialized data, ready to send.
+ * @param key: The publishing key for the data.
+ * @param data: The serialized data, ready to send.
  *
  * @return true if the data was succesfuly placed in the publication
  * queue, false otherwise.

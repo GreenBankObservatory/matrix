@@ -33,61 +33,65 @@
 #include <string>
 #include <vector>
 
-/********************************************************************
- * z_send(zmq::socket_t &sock, T data, int flags = 0)
- *
- * A send function for simple data types.  These data types must be
- * contiguous in memory: ints, doubles, bools, and structs of these
- * types, etc.
- *
- * @param zmq::socket_t &sock: the socket to send the data over
- * @param T data: the data to send
- * @param int flags: socket flags, such as ZMQ_SNDMORE
- *
- *******************************************************************/
-
-template <class T> void z_send(zmq::socket_t &sock, T data, int flags = 0)
-
+namespace mxutils
 {
-    zmq::message_t msg(sizeof data);
-    memcpy((char *)msg.data(), &data, sizeof data);
 
-    if (flags)
+    /****************************************************************//**
+     * A send function for simple data types.  These data types must be
+     * contiguous in memory: ints, doubles, bools, and structs of these
+     * types, etc.
+     *
+     * @param sock: the socket to send the data over
+     * @param data: the data to send
+     * @param flags: socket flags, such as ZMQ_SNDMORE
+     *
+     *******************************************************************/
+
+    template <class T> void z_send(zmq::socket_t &sock, T data, int flags = 0)
+
     {
-        sock.send(msg, flags);
+        zmq::message_t msg(sizeof data);
+        memcpy((char *)msg.data(), &data, sizeof data);
+
+        if (flags)
+        {
+            sock.send(msg, flags);
+        }
+        else
+        {
+            sock.send(msg);
+        }
     }
-    else
+
+    /****************************************************************//**
+     * A receive function template for simple data types.  These data types must
+     * meet the same requirements for the basic z_send(), i.e. be
+     * contiguous in memory.
+     *
+     * @param sock: the socket to receive from
+     * @param data: the data received.
+     *
+     *******************************************************************/
+
+    template <class T> void z_recv(zmq::socket_t &sock, T &data)
     {
-        sock.send(msg);
+        zmq::message_t msg;
+        sock.recv(&msg);
+        memcpy(&data, msg.data(), sizeof data);
     }
+
+    // These do the same as above, but for std::strings.
+
+    void z_send(zmq::socket_t &sock, std::string data, int flags = 0);
+    void z_recv(zmq::socket_t &sock, std::string &data);
+
+    // and for traditional strings/buffers.  (Set 'sze' to 0 if 'buf' is ASCII)
+    void z_send(zmq::socket_t &sock, const char *buf, size_t sze = 0, int flags = 0);
+    void z_recv(zmq::socket_t &sock, char *buf, size_t &sze);
+
+    // bind a socket to an ephemeral port
+    int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries = 10);
+
 }
-
-/********************************************************************
- * z_recv(zmq::socket_t &sock, T &data)
- *
- * A receive function template for simple data types.  These data types must
- * meet the same requirements for the basic z_send(), i.e. be
- * contiguous in memory.
- *
- * @param zmq::socket_t &sock: the socket to receive from
- * @param T &data: the data received.
- *
- *******************************************************************/
-
-template <class T> void z_recv(zmq::socket_t &sock, T &data)
-{
-    zmq::message_t msg;
-    sock.recv(&msg);
-    memcpy(&data, msg.data(), sizeof data);
-}
-
-// These do the same as above, but for std::strings.
-
-void z_send(zmq::socket_t &sock, std::string data, int flags = 0);
-void z_recv(zmq::socket_t &sock, std::string &data);
-
-// and for traditional strings/buffers.  (Set 'sze' to 0 if 'buf' is ASCII)
-void z_send(zmq::socket_t &sock, const char *buf, size_t sze = 0, int flags = 0);
-void z_recv(zmq::socket_t &sock, char *buf, size_t &sze);
 
 #endif // _ZMQ_UTIL_H_

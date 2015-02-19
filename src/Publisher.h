@@ -34,52 +34,6 @@
 
 #include <string>
 #include <set>
-
-/********************************************************************
- * class Publisher
- *
- * This is a class that provides a 0MQ publishing facility. Publisher
- * both publishes data as a ZMQ PUB, but also provides a REQ/REP
- *
- * Usage involves some setup in the
- *
- * int main(...)
- * {
- *     // Instantiate a Zero MQ context, usually one per process.
- *     // It will be used by any 0MQ service in this process.
- *     ZMQContext::Instance();
- *     // Instantiate the 0MQ publisher, where 'major' is the device
- *     // name, 'minor' is the subdevice name, and 'port' is the
- *     // TCP port.  (this last may disappear.)
- *     Publisher::Instance(major, minor, port);
- *     ... // rest of manager
- *     Publisher::RemoveInstance(); // clean up
- *     ZMQContext::RemoveInstance();
- *     return 0;
- * }
- *
- * Elsewhere in the code:
- *
- *     ...
- *     // obtain pointer to singleton
- *     Publisher pub = Publisher::Instance();
- *     pub->publish_sampler(major, minor, data_buf, buflen, data_descriptor);
- *
- * Note the use of the 'major' and 'minor' names would seem redundant
- * because the publisher already has these values; but there are
- * executables which are composed of several managers--a coordinator
- * and some children--all sharing the same publisher.  Passing in the
- * 'major' and 'minor' device names allow the publisher to compose the
- * proper subscription key, which is:
- *
- *   <major>.<minor>:<type>[:sampler/parameter name]
- *
- * where 'type' is 'P' for parameters, 'S' for samplers, 'Data' for
- * data, and 'Log' for log output; the sampler/parameter name is
- * mandatory for types 'P' and 'S' but not used if the type is 'Data'.
- *
- *******************************************************************/
-
 #include <map>
 #include <string>
 #include <boost/shared_ptr.hpp>
@@ -96,9 +50,8 @@ class Publisher
         TCP    = 0x04
     };
 
-
     Publisher(std::string component, int transports = INPROC,
-              int portnum = -1, std::string keymaster = "");
+              int portnum = 0, std::string keymaster = "");
     ~Publisher();
 
     bool publish_data(std::string key, std::string data);
