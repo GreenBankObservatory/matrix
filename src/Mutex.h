@@ -33,6 +33,7 @@
 
 #include <pthread.h>
 
+/// Enapsulates a pthread mutex for mutual exclusion.
 class Mutex
 {
   public:
@@ -46,5 +47,25 @@ class Mutex
   protected:
     pthread_mutex_t mutex;
 };
+
+/// A template to add a mutex lock/unlock to an stl container, so
+/// one can write constructs like:
+///
+///      Protected< vector<int> >pc;
+///      pc.lock();  // or ThreadLock(pc);
+///      pc.push_back(10);
+///      pc.unlock();
+///
+template <typename Container>
+class Protected : public Container
+{
+public:
+    int lock()   { return mtx.lock(); }
+    int unlock() { return mtx.unlock(); }
+protected:
+    Mutex mtx;
+};
+
+
 
 #endif

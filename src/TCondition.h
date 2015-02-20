@@ -62,7 +62,7 @@ template <typename T> class TCondition : public Mutex
 
 {
   public:
-
+  
     TCondition(T const &val);
     virtual ~TCondition();
 
@@ -70,7 +70,23 @@ template <typename T> class TCondition : public Mutex
     /// change prior to being tested outside the class.
     void get_value(T &v);
     
-    /// Acess the current value. No locking is used.
+    /// Access the current value. This method does not use locks,
+    /// so the lock()/unlock() methods must be used. For performing
+    /// a read-modify-write updates, a safe example is given below.
+    ///
+    /// Example Safe Read-Modify-Write:
+    /// -------------------------------
+    ///
+    ///          cond.lock();  // or ThreadLock(cond);
+    ///          T &temp = cond.value();
+    ///          temp += 1;
+    ///          cond.signal();
+    ///          cond.unlock();
+    ///
+    ///
+    /// Notes: 
+    /// * the value of temp at this point is *undefined* and temp should no longer be accessed.
+    /// * Do not use cond.signal(temp) above. That will doubly lock the mutex, which is an error.
     T &value();
     
     /// Set the value atomically.
