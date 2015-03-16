@@ -48,10 +48,31 @@ class Component
 public:
     Component(std::string myname);
     virtual ~Component();
+    
+    /// Initiate a publish/subscribe connection to the keymaster to exchange
+    /// commands and status. Configuration information is obtained via the
+    /// get/set mechanism.
     void contact_keymaster();
+    
+    /// The base class method just initializes the basic state transitions.
+    /// Derived Components may add additional states, events, actions and predicates.
     void initialize_fsm();
+    
+    /// A new Controller command has arrived. Process it.
     bool process_command(std::string);
+    
+    ///  Return the current Component state.
     std::string get_state();
+    
+    /// Send a state change to the keymaster.
+    bool report_state(std::string);
+    
+    /// Make data connections based on the current configuration. Normally
+    /// occurs in the Standby to Ready state.
+    bool create_data_connections();
+    
+    /// tare down data connections.
+    bool close_data_connections();
    
 protected:
     std::string my_instance_name;

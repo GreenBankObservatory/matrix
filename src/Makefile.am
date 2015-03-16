@@ -35,6 +35,7 @@ headers_HEADERS = \
     TCondition.h \
     Controller.h \
     Component.h \
+    DataInterface.h \
     FiniteStateMachine.h \
     Semaphore.h \
     Thread.h \
@@ -42,6 +43,7 @@ headers_HEADERS = \
     Time.h \
     Publisher.h \
     ZMQContext.h \
+    ZMQDataInterface.h \
     netUtils.h \
     tsemfifo.h \
     yaml_util.h \
@@ -51,18 +53,20 @@ libmatrix_la_SOURCES = \
     Mutex.cc  \
     Controller.cc \
     Component.cc \
+    DataInterface.cc \
     FiniteStateMachine.cc \
     Semaphore.cc \
     Time.cc \
     Publisher.cc \
     ZMQContext.cc \
+    ZMQDataInterface.cc \
     netUtils.cc \
     yaml_util.cc \
     zmq_util.cc
 
 
-libmatrix_la_CXXFLAGS = $(LIBGPIB_CFLAGS) -pthread -std=c++0x
-libmatrix_la_CFLAGS = $(LIBGPIB_CFLAGS) -pthread
+libmatrix_la_CXXFLAGS = $(LIBGPIB_CFLAGS) -pthread -std=c++0x -g
+libmatrix_la_CFLAGS = $(LIBGPIB_CFLAGS) -pthread -g
 libmatrix_la_LDFLAGS = -lpthread
 
 distclean-local:

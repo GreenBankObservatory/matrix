@@ -69,6 +69,13 @@ class Component;
 #include <string>
 #include <yaml-cpp/yaml.h>
 #include "TCondition.h"
+#include "tsemfifo.h"
+
+class StatusMap : public std::map<std::string, std::string>
+{
+public:
+    // operator<(const StatusMap &)
+};
 
 class Controller
 {
@@ -96,20 +103,22 @@ public:
     bool subscribe_to_components();
     
     /// Issue the initialize event to the Controller FSM.
-    bool initialize();
+    bool emit_initialize();
+    
     /// The opposite of the initialize event.
-    bool stand_down();
+    bool emit_stand_down();
+    
     /// Issue the start event
-    bool start();
+    bool emit_start();
+    
     // Issue the stop event
-    bool stop();
+    bool emit_stop();
+    
     /// Attempt to shutdown the system (optional)
     bool exit_system();
+    
     /// Issue an arbitrary user-defined event to the FSM
     bool send_event(std::string event);
-    /// Wait until all components report the specified state.
-    /// A timeout of zero is a simple poll, returning immediately
-    bool wait_for_all(std::string statename, int timeout = 0);
     
     /// A callback for component state changes. TBD
     void component_state_changed(std::string comp_name, std::string newstate);
@@ -117,27 +126,35 @@ public:
     /// check that all component states are in the state specified.
     virtual bool check_all_in_state(std::string state);
     
+    /// wait until component states are all in the state specified.
+    virtual bool wait_all_in_state(std::string statename, int timeout);    
+    
 protected:
     /// Application specific implementations Are all necessary??
     virtual bool _create_the_keymaster();
     virtual bool _create_component_instances();
     virtual bool _subscribe_to_components();
-    virtual bool _initialize();
-    virtual bool _stand_down();
-    virtual bool _start();
-    virtual bool _stop();
+    virtual bool _emit_initialize();
+    virtual bool _emit_stand_down();
+    virtual bool _emit_start();
+    virtual bool _emit_stop();
     virtual bool _exit_system();
     virtual bool _send_event(std::string event);
+    virtual void _component_changed(std::string yml_path, std::string new_status);
 
     
     /// A place to store Component factory methods
     /// indexed by Component type, not name.
     std::map<std::string, Component *(*)(std::string)> factory_methods;
-    std::map<std::string, std::shared_ptr<Component> >component_instances;
-    std::vector<std::string> component_states;
-    FSM::FiniteStateMachine fsm;
+    // Maps below keyed by component instance name:
+    std::map<std::string, std::shared_ptr<Component> > component_instances;
+    Protected<std::map<std::string, std::string> > component_states;
+    Protected<std::map<std::string, std::string> > component_status;
+    Protected<FSM::FiniteStateMachine> fsm;
     YAML::Node key_root;
     TCondition<bool> state_condition;
+    
+    // keymaster stand-in    
 };
 
 

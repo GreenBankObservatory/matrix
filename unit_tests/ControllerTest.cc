@@ -79,3 +79,5 @@ void ControllerTest::test_component_init()
     CPPUNIT_ASSERT( c->process_command("error") );
     CPPUNIT_ASSERT( c->get_state() == "Ready" );
 }
+
+

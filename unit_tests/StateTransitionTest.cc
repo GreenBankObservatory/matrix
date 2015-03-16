@@ -111,6 +111,7 @@ void StateTransitionTest::test_medium_fsm()
     fsm.addTransition("Off", "mpress", "On");
     fsm.addTransition("On", "hold", "Off"); 
     fsm.addTransition("On", "mpress", "On");   
+    fsm.addTransition("On", "short", "Off");
     fsm.setInitialState("Off");
     // Now add some things to do when the state changes
     fsm.addLeaveAction("Off", new Action<MyEasyCheck>(&my, &MyEasyCheck::exitOff) );
@@ -126,8 +127,14 @@ void StateTransitionTest::test_medium_fsm()
     CPPUNIT_ASSERT(fsm.getState() == "On");
     CPPUNIT_ASSERT(fsm.handle_event("hold") == true);
     CPPUNIT_ASSERT(fsm.getState() == "Off");
+    // toss an unknown event at it
     CPPUNIT_ASSERT(fsm.handle_event("boom") == false);
-    CPPUNIT_ASSERT(fsm.getState() == "Off");        
+    CPPUNIT_ASSERT(fsm.getState() == "Off");   
+    fsm.handle_event("mpress");
+    // verify alternate path from state On
+    CPPUNIT_ASSERT(fsm.getState() == "On");
+    CPPUNIT_ASSERT(fsm.handle_event("short") == true);
+    CPPUNIT_ASSERT(fsm.getState() == "Off");
 }
 
 class MyPredicate

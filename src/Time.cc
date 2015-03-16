@@ -36,11 +36,18 @@ extern "C" void  __Matrix__Time__(...)
 
 namespace Time
 {
+#ifdef __XENO__
+     // xenomai's ntp adjusted RT clock
+    #define USE_THE_CLOCK 42
+#else
+    // Use the standard (also ntp tempered) clock
+    #define USE_THE_CLOCK CLOCK_REALTIME
+#endif
                   
 Time_t getUTC()
 {
     timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
+    clock_gettime(USE_THE_CLOCK, &ts);
     return (static_cast<Time_t>(ts.tv_sec * NANOSEC_PER_SEC + ts.tv_nsec));
 }
                        

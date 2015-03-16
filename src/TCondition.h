@@ -35,6 +35,11 @@
 
 #include "Mutex.h"
 
+#ifdef __XENO__
+    #ifndef CLOCK_HOST_REALTIME
+        #define CLOCK_HOST_REALTIME 42
+    #endif
+#endif
 /****************************************************************//**
  * \class TCondition
  *
@@ -69,28 +74,30 @@ template <typename T> class TCondition : public Mutex
     /// Access the current value. Locks are used but the internal value may
     /// change prior to being tested outside the class.
     void get_value(T &v);
+        
+    /// Access the current value without the use of a lock.
+    T &value();
     
-    /// Access the current value. This method does not use locks,
-    /// so the lock()/unlock() methods must be used. For performing
-    /// a read-modify-write updates, a safe example is given below.
+    /// Set the value atomically. See above, normal usage will use one arg. 
+    /// A read-modify-write may use a false 2nd arg to indicate the lock is
+    /// already held, and should not be required. This would be the
+    /// case in a read-modify-write situation, as the the example:
     ///
-    /// Example Safe Read-Modify-Write:
-    /// -------------------------------
-    ///
-    ///          cond.lock();  // or ThreadLock(cond);
-    ///          T &temp = cond.value();
-    ///          temp += 1;
+    ///          cond.lock();
+    ///          cond.wait_with_lock(3);
+    ///          cond.set_value(0, false);
     ///          cond.signal();
     ///          cond.unlock();
     ///
-    ///
-    /// Notes: 
-    /// * the value of temp at this point is *undefined* and temp should no longer be accessed.
-    /// * Do not use cond.signal(temp) above. That will doubly lock the mutex, which is an error.
-    T &value();
+    /// This would cause the waiting thread to wait until the internal
+    /// value was 3, then it would reset it safely to the value 0.
+    /// Note: We cannot use the method signal(T const &), as it would
+    /// attempt to relock the mutex. We also cannot use a regular
+    /// unlocking wait method followed by set_value(T) or signal(T)
+    /// because of the race between the unlock in wait and relock in
+    /// signal(T) or set_value(T).
     
-    /// Set the value atomically.
-    void set_value(T v);
+    void set_value(T v, bool use_lock=true);
 
     /// wait forever for the value to become equal to s.
     /// Upon returning the internal mutex is unlocked.
@@ -127,7 +134,6 @@ template <typename T> class TCondition : public Mutex
     
     /// Set the value to 's' and send a broadcast
     void broadcast(T const &s);
-
 
   protected:
 
@@ -204,13 +210,17 @@ template <typename T> T &TCondition<T>::value()
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::set_value(T v)
+template <typename T> void TCondition<T>::set_value(T v, bool use_lock)
 
 {
-    lock();
-    _value = v;
-    unlock();
-
+    if (use_lock)
+    {
+        lock();
+        _value = v;
+        unlock();
+    } else {
+        _value = v;
+    }
 }
 
 /****************************************************************//**
@@ -296,12 +306,23 @@ template <typename T> bool TCondition<T>::wait(T const &s, int usecs)
     int status;
     bool rval = true;
 
-
+#ifdef __XENO__
+    time_t carry_sec;
+    clock_gettime(CLOCK_HOST_REALTIME, &to);
+    to.tv_nsec += (usecs % 1000000)*1000 + to.tv_nsec;
+    carry_sec   = to.tv_nsec / 1000000000;
+    to.tv_sec  += carry_sec;
+    to.tv_nsec -= carry_sec * 1000000000;
+    to.tv_sec  += usecs / 1000000;
+    
+#else
     gettimeofday(&curtime, 0);
     to.tv_nsec = (usecs % 1000000 + curtime.tv_usec) * 1000;
     to.tv_sec  = to.tv_nsec / 1000000000;
     to.tv_nsec -= to.tv_sec * 1000000000;
     to.tv_sec  +=  curtime.tv_sec + usecs / 1000000;
+#endif
+
     lock();
 
     while (_value != s)
@@ -362,6 +383,8 @@ template <typename T> void TCondition<T>::wait_with_lock(T const &s)
 
 // Wait with a timeout, but ignore the internal value.
 // This allows the implementation of an external while loop.
+// Note: Must be called with the condition already locked.
+// Returns with condition locked.
 template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
 {
     timeval curtime;
@@ -369,12 +392,23 @@ template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
     int status;
     bool rval = true;
 
+#ifdef __XENO__
+    time_t carry_sec;
+    clock_gettime(CLOCK_HOST_REALTIME, &to);
+    to.tv_nsec += (usecs % 1000000)*1000 + to.tv_nsec;
+    carry_sec   = to.tv_nsec / 1000000000;
+    to.tv_sec  += carry_sec;
+    to.tv_nsec -= carry_sec * 1000000000;
+    to.tv_sec  += usecs / 1000000;
+    
+#else
     gettimeofday(&curtime, 0);
     to.tv_nsec = (usecs % 1000000 + curtime.tv_usec) * 1000;
     to.tv_sec  = to.tv_nsec / 1000000000;
     to.tv_nsec -= to.tv_sec * 1000000000;
     to.tv_sec  +=  curtime.tv_sec + usecs / 1000000;
-    lock();
+#endif
+    
 
     status = pthread_cond_timedwait(&_cond, &mutex, &to);
 
@@ -385,4 +419,5 @@ template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
     // Do not unlock!
     return rval;
 }
+
 #endif
