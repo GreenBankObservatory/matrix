@@ -57,9 +57,6 @@ using namespace std;
 using namespace mxutils;
 
 
-// print a vector of strings: [el0, el1, ... eln]
-extern void print_vector(vector<string> &v);
-
 struct substring_p
 {
     substring_p(string subs)
@@ -671,6 +668,7 @@ void KeymasterServer::KmImpl::state_manager_task()
         catch (zmq::error_t e)
         {
             cerr << "State manager task, main loop: " << e.what() << endl;
+            break;
         }
     }
 
@@ -1051,7 +1049,6 @@ void Keymaster::_subscriber_task()
     try
     {
         km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
-        print_vector(km_pub_urls);
     }
     catch (KeymasterException e)
     {
@@ -1069,8 +1066,6 @@ void Keymaster::_subscriber_task()
         cerr << "Publisher URL transport mismatch with the keymaster" << endl;
         return;
     }
-
-    cout << *cvi << endl;
 
     sub_sock.connect(cvi->c_str());
     pipe.bind(_pipe_url.c_str());
