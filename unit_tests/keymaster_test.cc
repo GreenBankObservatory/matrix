@@ -34,6 +34,7 @@
 #include "Keymaster.h"
 #include "yaml_util.h"
 #include "keymaster_test.h"
+#include "TCondition.h"
 
 using namespace std;
 using namespace mxutils;
@@ -113,41 +114,39 @@ struct MyCallback : public KeymasterCallback
     : data(v)
     {}
 
-    T data;
+    TCondition<T> data;
 
 private:
     void _call(YAML::Node n)
     {
-        data = n.as<T>();
+        data.signal(n.as<T>());
     }
 };
 
 void KeymasterTest::test_keymaster_publisher()
 {
-    // yaml_result r;
-    // boost::shared_ptr<KeymasterServer> km_server;
+    yaml_result r;
+    boost::shared_ptr<KeymasterServer> km_server;
 
-    // CPPUNIT_ASSERT_NO_THROW(
-    //     km_server.reset(new KeymasterServer("test.yaml"));
-    //     km_server->run();
-    //     );
+    CPPUNIT_ASSERT_NO_THROW(
+        km_server.reset(new KeymasterServer("test.yaml"));
+        km_server->run();
+        );
 
-    // Keymaster km("inproc://matrix.keymaster");
+    Keymaster km("inproc://matrix.keymaster");
 
-    // int val = 0;
-    // MyCallback<int> cb(val);
+    int val = 0;
+    MyCallback<int> cb(val);
 
-    // km.subscribe("components.nettask.source.ID", &cb);
+    km.subscribe("components.nettask.source.ID", &cb);
 
-    // // Put a new value into the keymaster
-    // km.put("components.nettask.source.ID", 1234, true);
+    // Put a new value into the keymaster
+    km.put("components.nettask.source.ID", 1234, true);
 
-    // CPPUNIT_ASSERT(cb.data == 1234);
+    CPPUNIT_ASSERT(cb.data.wait(1234, 100000));
 
-    // // Replace an existing value in the keymaster
-    // km.put("components.nettask.source.ID", 9999);
+    // Replace an existing value in the keymaster
+    km.put("components.nettask.source.ID", 9999);
 
-    // CPPUNIT_ASSERT(cb.data == 9999);
-
-    CPPUNIT_ASSERT(1);
+    CPPUNIT_ASSERT(cb.data.wait(9999, 100000));
 }
