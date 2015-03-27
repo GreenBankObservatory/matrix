@@ -56,6 +56,47 @@
 using namespace std;
 using namespace mxutils;
 
+
+// print a vector of strings: [el0, el1, ... eln]
+extern void print_vector(vector<string> &v);
+
+struct substring_p
+{
+    substring_p(string subs)
+        : _subs(subs)
+    {
+    }
+
+    bool operator()(const string s)
+    {
+        return !(s.find(_subs) == string::npos);
+    }
+
+    string _subs;
+};
+
+struct same_transport_p
+{
+    same_transport_p(string url)
+    {
+        vector<string> parts;
+        boost::split(parts, url, boost::is_any_of(":"));
+
+        if (!parts.empty())
+        {
+            _transport = parts[0];
+        }
+    }
+
+    bool operator()(const string s)
+    {
+        substring_p pred(_transport);
+        return pred(s);
+    }
+
+    string _transport;
+};
+
 /**
  * KmImpl is the private implementation of the KeymasterServer class.
  *
@@ -104,7 +145,6 @@ struct KeymasterServer::KmImpl
     std::vector<std::string> _publish_service_urls;
 
     YAML::Node _root_node;    //<? THE keymaster node
-    zmq::context_t &_ctx;
 };
 
 /**
@@ -135,8 +175,7 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
     _state_manager_thread_ready(false),
     _data_queue(1000),
     _state_task_url("inproc://state_manager_task"),
-    _state_task_quit(true),
-    _ctx(ZMQContext::Instance()->get_context())
+    _state_task_quit(true)
 {
     int i = 0;
 
@@ -165,12 +204,11 @@ KeymasterServer::KmImpl::~KmImpl()
 
     terminate();
 
-    for (i = _publish_service_urls.begin(); i != _publish_service_urls.end(); ++i)
+    i = find_if(_publish_service_urls.begin(), _publish_service_urls.end(), substring_p("ipc"));
+
+    if (i != _publish_service_urls.end())
     {
-        if (i->find("ipc") != string::npos)
-        {
-            unlink(i->c_str());
-        }
+        unlink(i->c_str());
     }
 }
 
@@ -189,24 +227,29 @@ void KeymasterServer::KmImpl::run()
         }
     }
 
+    if (_server_thread_ready.wait(true, 1000000) != true)
+    {
+        throw(runtime_error("KeymasterServer: timed out waiting for publishing thread"));
+    }
+
+    // Make sure this is run AFTER the _server_thread (publisher)
+    // because it will put publishing information in the _root_node. All
+    // access to the _root_node should be via the _state_manager_thread
+    // because the _root_node is not thread-safe.
     if (!_state_manager_thread.running())
     {
-        if (_state_manager_thread.start() != 0)
+        if (_state_manager_thread.start() != 0 || !_state_manager_thread_ready.wait(true, 1000000))
         {
             throw(runtime_error("KeymasterServer: unable to start request thread"));
         }
     }
-
-
-    _server_thread_ready.wait(true, 1000000);
-    _state_manager_thread_ready.wait(true, 1000000);
 }
 
 void KeymasterServer::KmImpl::terminate()
 {
     if (_state_manager_thread.running())
     {
-        zmq::socket_t sock(_ctx, ZMQ_PAIR);
+        zmq::socket_t sock(ZMQContext::Instance()->get_context(), ZMQ_PAIR);
         sock.connect(_state_task_url.c_str());
         z_send(sock, _state_task_quit);
         sock.close();
@@ -231,7 +274,7 @@ void KeymasterServer::KmImpl::terminate()
 void KeymasterServer::KmImpl::setup_urls()
 {
     vector<string>::const_iterator cvi;
-    vector<string> urls = _root_node["Keymaster"]["URLS"].as<vector<string> >();
+    vector<string> urls = _root_node["Keymaster"]["URLS"]["Initial"].as<vector<string> >();
 
     for (cvi = urls.begin(); cvi != urls.end(); ++cvi)
     {
@@ -277,13 +320,10 @@ bool KeymasterServer::KmImpl::using_tcp()
     bool rval = false;
     vector<string>::const_iterator cvi;
 
-    for (cvi = _state_service_urls.begin(); cvi != _state_service_urls.end(); ++cvi)
+    if (find_if(_state_service_urls.begin(), _state_service_urls.end(), substring_p("tcp"))
+        != _state_service_urls.end())
     {
-        if (cvi->find("tcp") != string::npos)
-        {
-            rval = true;
-            break;
-        }
+        rval = true;
     }
 
     return rval;
@@ -375,13 +415,12 @@ void KeymasterServer::KmImpl::server_task()
 
 {
     data_package dp;
-    zmq::socket_t data_publisher(_ctx, ZMQ_PUB);
+    zmq::socket_t data_publisher(ZMQContext::Instance()->get_context(), ZMQ_PUB);
     string tcp_url;
 
     try
     {
         bind_server(data_publisher, _publish_service_urls, true);
-        put_yaml_val(_root_node, "KeymasterServer.PUBURLS", _publish_service_urls, true);
     }
     catch (zmq::error_t e)
     {
@@ -406,18 +445,30 @@ void KeymasterServer::KmImpl::server_task()
             vector<string> keys;
             boost::split(keys, dp.key, boost::is_any_of("."));
 
-            for (int i = 0; i < keys.size(); ++i)
+            // Publish "Root" if there is no key
+            if (keys.empty())
             {
-                string key = boost::algorithm::join(vector<string>(keys.begin(), keys.begin() + i), ".");
-                yaml_result r = get_yaml_node(dp.node, key);
-
-                if (r.result == true)
+                ostringstream yr;
+                yr << dp.node;
+                z_send(data_publisher, string("Root"), ZMQ_SNDMORE);
+                z_send(data_publisher, yr.str());
+            }
+            else
+            {
+                // Publish with keys
+                for (int i = 1; i < keys.size() + 1; ++i)
                 {
-                    ostringstream yr;
-                    // we just need the node that goes with the key.
-                    yr << r.node;
-                    z_send(data_publisher, key, ZMQ_SNDMORE);
-                    z_send(data_publisher, yr.str());
+                    string key = boost::algorithm::join(vector<string>(keys.begin(), keys.begin() + i), ".");
+                    yaml_result r = get_yaml_node(dp.node, key);
+
+                    if (r.result == true)
+                    {
+                        ostringstream yr;
+                        // we just need the node that goes with the key.
+                        yr << r.node;
+                        z_send(data_publisher, key, ZMQ_SNDMORE);
+                        z_send(data_publisher, yr.str());
+                    }
                 }
             }
         }
@@ -460,7 +511,17 @@ void KeymasterServer::KmImpl::state_manager_task()
     catch (zmq::error_t e)
     {
         cerr << "Error in state manager thread: " << e.what() << endl
-             << "Exiting thread." << endl;
+             << "Exiting state thread." << endl;
+        return;
+    }
+
+    yaml_result rs = put_yaml_val(_root_node, "Keymaster.URLS.AsConfigured.State", _state_service_urls, true);
+    yaml_result rp = put_yaml_val(_root_node, "Keymaster.URLS.AsConfigured.Pub", _publish_service_urls, true);
+
+    if (! (rs.result && rp.result))
+    {
+        cerr << "Error storing configured URLs into the root node." << endl
+             << "Exiting state thread." << endl;
         return;
     }
 
@@ -470,8 +531,8 @@ void KeymasterServer::KmImpl::state_manager_task()
             { state_sock, 0, ZMQ_POLLIN, 0 }
         };
 
-    _state_manager_thread_ready.signal(true); // allow constructor to
-                                              // move on
+    _state_manager_thread_ready.signal(true); // allow 'run()' to move
+                                              // on.
     while (1)
     {
         try
@@ -519,9 +580,19 @@ void KeymasterServer::KmImpl::state_manager_task()
                     if (!frame.empty())
                     {
                         string keychain = frame[0];
-                        yaml_result r = get_yaml_node(_root_node, keychain);
                         ostringstream rval;
-                        rval << r;
+
+                        if (keychain == "Root")
+                        {
+                            yaml_result r(true, _root_node, "Root");
+                            rval << r;
+                        }
+                        else
+                        {
+                            yaml_result r = get_yaml_node(_root_node, keychain);
+                            rval << r;
+                        }
+
                         z_send(state_sock, rval.str());
                     }
                     else
@@ -717,6 +788,7 @@ KeymasterServer::~KeymasterServer()
 /**
  * Starts the KeymasterServer running.
  *
+ * @return true if the threads were started, false otherwise.
  */
 
 void KeymasterServer::run()
@@ -754,12 +826,15 @@ void KeymasterServer::terminate()
 
 Keymaster::Keymaster(string keymaster_url)
     :
-    _ctx(ZMQContext::Instance()->get_context()),
-    _km(_ctx, ZMQ_REQ)
+    _km(ZMQContext::Instance()->get_context(), ZMQ_REQ),
+    _pipe_url("inproc://keymaster_subscriber_control"),
+    _subscriber_thread(this, &Keymaster::_subscriber_task),
+    _subscriber_thread_ready(false)
 {
     try
     {
         _km.connect(keymaster_url.c_str());
+        _km_url = keymaster_url;
     }
     catch (zmq::error_t e)
     {
@@ -777,6 +852,18 @@ Keymaster::Keymaster(string keymaster_url)
 Keymaster::~Keymaster()
 {
     int zero = 0;
+
+    if (_subscriber_thread.running())
+    {
+        zmq::socket_t ctrl(ZMQContext::Instance()->get_context(), ZMQ_REQ);
+        ctrl.connect(_pipe_url.c_str());
+        z_send(ctrl, string("QUIT"));
+        int rval;
+        z_recv(ctrl, rval);
+        _subscriber_thread.stop_without_cancel();
+        ctrl.close();
+    }
+
     _km.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
     _km.close();
 }
@@ -911,4 +998,159 @@ void Keymaster::del(std::string key)
         msg << "Failed to delete key " << key << " from keymaster. Keymaster says: " << _r.err;
         throw(KeymasterException(msg.str()));
     }
+}
+
+void Keymaster::subscribe(string key, KeymasterCallback *f)
+{
+    // first start the subscriber thread. If it's already running this
+    // won't do anything.
+
+    _run();
+
+    zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
+    pipe.connect(_pipe_url.c_str());
+    z_send(pipe, string("SUBSCRIBE"), ZMQ_SNDMORE);
+    z_send(pipe, key, ZMQ_SNDMORE);
+    z_send(pipe, f);
+    int rval;
+    z_recv(pipe, rval);
+}
+
+
+void Keymaster::unsubscribe(string key)
+{
+    zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
+    pipe.connect(_pipe_url.c_str());
+    z_send(pipe, string("UNSUBSCRIBE"), ZMQ_SNDMORE);
+    z_send(pipe, key);
+    int rval;
+    z_recv(pipe, rval);
+}
+
+void Keymaster::_run()
+{
+    if (!_subscriber_thread.running())
+    {
+        if ((_subscriber_thread.start() != 0) || (!_subscriber_thread_ready.wait(true, 1000000)))
+        {
+            throw(runtime_error("Keymaster: unable to start subscriber thread"));
+        }
+    }
+}
+
+
+
+void Keymaster::_subscriber_task()
+{
+    zmq::socket_t sub_sock(ZMQContext::Instance()->get_context(), ZMQ_SUB);
+    zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REP);
+    vector<string>::const_iterator cvi;
+    vector<string> km_pub_urls;
+
+    // get the keymaster publishing URLs:
+    try
+    {
+        km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
+        print_vector(km_pub_urls);
+    }
+    catch (KeymasterException e)
+    {
+        cerr << "Unable to obtain the Keymaster publishing URLs. Ensure a Keymaster is running and try again."
+             << endl;
+        return;
+    }
+
+    // use the URL that has the same transport as the keymaster URL
+    cvi = find_if(km_pub_urls.begin(), km_pub_urls.end(), same_transport_p(_km_url));
+
+    // TBF: What to do if they don't match? currently just quit.
+    if (cvi == km_pub_urls.end())
+    {
+        cerr << "Publisher URL transport mismatch with the keymaster" << endl;
+        return;
+    }
+
+    cout << *cvi << endl;
+
+    sub_sock.connect(cvi->c_str());
+    pipe.bind(_pipe_url.c_str());
+    _subscriber_thread_ready.signal(true);
+
+    // we're going to poll. We will be waiting for subscription requests
+    // (via 'pipe'), and for subscription data (via 'sub_sock').
+    zmq::pollitem_t items [] =
+        {
+            { pipe, 0, ZMQ_POLLIN, 0 },
+            { sub_sock, 0, ZMQ_POLLIN, 0 }
+        };
+
+    while (1)
+    {
+        try
+        {
+            zmq::poll(&items[0], 2, -1);
+
+            if (items[0].revents & ZMQ_POLLIN) // the control pipe
+            {
+                string msg;
+                z_recv(pipe, msg);
+
+                if (msg == "SUBSCRIBE")
+                {
+                    string key;
+                    KeymasterCallback *f_ptr;
+                    z_recv(pipe, key);
+                    z_recv(pipe, f_ptr);
+
+                    _callbacks[key] = f_ptr;
+                    sub_sock.setsockopt(ZMQ_SUBSCRIBE, key.c_str(), key.length());
+                    z_send(pipe, 1);
+                }
+                else if (msg == "UNSUBSCRIBE")
+                {
+                    string key;
+                    z_recv(pipe, key);
+                    sub_sock.setsockopt(ZMQ_UNSUBSCRIBE, key.c_str(), key.length());
+                    _callbacks.erase(key);
+                    z_send(pipe, 1);
+                }
+                else if (msg == "QUIT")
+                {
+                    z_send(pipe, 0);
+                    break;
+                }
+            }
+
+            if (items[1].revents & ZMQ_POLLIN)
+            {
+                string key;
+                vector<string> val;
+                z_recv(sub_sock, key);
+                z_recv_multipart(sub_sock, val);
+
+                if (!val.empty())
+                {
+                    YAML::Node n = YAML::Load(val[0]);
+                    map<string, KeymasterCallback *>::const_iterator mci;
+                    mci = _callbacks.find(key);
+
+                    if (mci != _callbacks.end())
+                    {
+                        mci->second->exec(n);
+                    }
+                }
+            }
+        }
+        catch (zmq::error_t e)
+        {
+            cout << "Keymaster subscriber task: " << e.what() << endl;
+        }
+    }
+
+    int zero = 0;
+    pipe.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+    pipe.close();
+    zero = 0;
+    sub_sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+    sub_sock.close();
 }

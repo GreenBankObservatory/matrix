@@ -29,6 +29,8 @@
 #define _KEYMASTER_H_
 
 #include "yaml_util.h"
+#include "Thread.h"
+#include "TCondition.h"
 
 #include <string>
 #include <vector>
@@ -84,6 +86,15 @@ private:
     std::string _msg;
 };
 
+struct KeymasterCallback
+{
+    void operator()(YAML::Node n) {_call(n);}
+    void exec(YAML::Node n)       {_call(n);}
+private:
+    virtual void _call(YAML::Node n) = 0;
+};
+
+
 class Keymaster
 {
 public:
@@ -101,16 +112,24 @@ public:
 
     void del(std::string key);
 
-    void subscribe(std::string key /*, functor */);
+    void subscribe(std::string key, KeymasterCallback *f);
     void unsubscribe(std::string key);
 
     mxutils::yaml_result get_last_result() {return _r;}
 
 private:
 
-    zmq::context_t &_ctx;
+    void _subscriber_task();
+    void _run();
+
     zmq::socket_t _km;
     mxutils::yaml_result _r;
+    std::string _km_url;
+    std::string _pipe_url;
+
+    std::map<std::string, KeymasterCallback *> _callbacks;
+    Thread<Keymaster> _subscriber_thread;
+    TCondition<bool> _subscriber_thread_ready;
 
 };
 
