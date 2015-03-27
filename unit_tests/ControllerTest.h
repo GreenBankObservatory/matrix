@@ -30,7 +30,7 @@ class ControllerTest : public CppUnit::TestCase
 {
     CPPUNIT_TEST_SUITE(ControllerTest);
     CPPUNIT_TEST(test_init);
-    CPPUNIT_TEST(test_component_init);
+    // CPPUNIT_TEST(test_component_init);
     CPPUNIT_TEST_SUITE_END();
     
     public:

@@ -4,6 +4,7 @@
 
 #include "Controller.h"
 #include "Component.h"
+#include "Keymaster.h"
 
 using namespace std;
 using namespace YAML;
@@ -13,9 +14,9 @@ using namespace YAML;
 class HelloWorld : public Component
 {
 public:
-    HelloWorld(string name) : Component(name) {}
-    static Component *factory(string myname)
-    { cout << "Hello World ctor" << endl; return new HelloWorld(myname); }
+    HelloWorld(string name, string urn) : Component(name, urn) {}
+    static Component *factory(string myname,string k)
+    { cout << "Hello World ctor" << endl; return new HelloWorld(myname, k); }
 };
 
 ///////////////////////////////////////////////////////////////////
@@ -151,7 +152,7 @@ int main(int argc, char **argv)
 
     Controller simple("hello_world.yaml");
     // The controller needs a dictionary of components names to static factory methods
-    simple.add_factory_method("HelloWorld", &HelloWorld::factory);
+    simple.add_factory_method("HelloWorldComponent", &HelloWorld::factory);
 
     // first step is to create the keymaster and subscribe to its events
     if (!simple.create_the_keymaster())
@@ -164,15 +165,9 @@ int main(int argc, char **argv)
     {
         cerr << "Error creating component, or no components listed" << endl;
     }
-    // Go through and subscribe to all the component status and command keys
-    // The components should have created the keys in their ctor
-    if (!simple.subscribe_to_components())
-    {
-        cerr << "Error subscribing to components" << endl;
-    }
     // Now components have been instanced. Tell everyone to initialize. This
     // should leave all components in the "Standby" state.
-    simple.emit_initialize();
+    simple.do_initialize();
 
     // wait for the keymaster events which report components in the Standby state.
     // Probably should return if any component reports and error state????
@@ -185,9 +180,9 @@ int main(int argc, char **argv)
     }
 
     // Everybody now in standby. Get things running by issuing a start event.
-    simple.emit_start();
+    simple.do_start();
     // Normal app would do something here.
     // tell the components to stop (They should go back to the Ready state.)
-    simple.emit_stop();
+    simple.do_stop();
     return 0;
 }

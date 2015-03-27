@@ -42,6 +42,12 @@
 #include <yaml-cpp/yaml.h>
 #include <zmq.hpp>
 
+#ifdef __GNUC__
+#define __classmethod__  __PRETTY_FUNCTION__
+#else
+#define __classmethod__  __func__
+#endif
+
 class KeymasterServer
 {
 public:
@@ -59,17 +65,17 @@ private:
     boost::shared_ptr<KeymasterServer::KmImpl> _impl;
 };
 
-class KeymasterException : public std::runtime_error
+class MatrixException : public std::runtime_error
 {
 public:
 
-    KeymasterException(std::string msg)
-        : runtime_error("Keymaster exception"),
+    MatrixException(std::string msg, std::string etype)
+        : runtime_error(etype),
           _msg(msg)
     {
     }
 
-    virtual ~KeymasterException() throw ()
+    virtual ~MatrixException() throw ()
     {
     }
 
@@ -84,6 +90,13 @@ public:
 private:
 
     std::string _msg;
+};
+
+class KeymasterException : public MatrixException
+{
+public:
+    KeymasterException(std::string msg) : 
+        MatrixException(msg, "Keymaster exception") {}
 };
 
 /****************************************************************//**

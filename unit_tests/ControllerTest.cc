@@ -35,10 +35,10 @@ using namespace YAML;
 class HelloWorldComponent : public Component
 {
 public:
-    HelloWorldComponent(string myname, shared_ptr<Keymaster> k) : Component(myname, k)
-    { cout << "creating component " << myname << endl; }
-    static Component *factory(string myname, shared_ptr<Keymaster> k)
-    { return new HelloWorldComponent(myname, k); }
+    HelloWorldComponent(string myname, string k_url) : Component(myname, k_url)
+    { /*cout << "creating component " << myname << endl;*/ }
+    static Component *factory(string myname, string k_url)
+    { return new HelloWorldComponent(myname, k_url); }
     virtual ~HelloWorldComponent()
     {  }
 
@@ -51,8 +51,44 @@ void ControllerTest::test_init()
     Controller simple("hello_world.yaml");
     simple.add_factory_method("HelloWorldComponent", &HelloWorldComponent::factory);
     
-    CPPUNIT_ASSERT( simple.create_the_keymaster());
-    CPPUNIT_ASSERT( simple.create_component_instances() );
+    CPPUNIT_ASSERT( simple.initialize());
+    CPPUNIT_ASSERT( simple.do_initialize());
+    
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
+    CPPUNIT_ASSERT( simple.set_system_mode("default") );    
+    CPPUNIT_ASSERT( simple.do_ready());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
+    CPPUNIT_ASSERT( simple.do_start());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
+    CPPUNIT_ASSERT( simple.do_stop());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
+    
+    // In order to change system mode we must first revert to stanby
+    CPPUNIT_ASSERT( simple.do_standby());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
+    
+    CPPUNIT_ASSERT( simple.set_system_mode("VEGAS_LBW") );
+    CPPUNIT_ASSERT( simple.do_ready());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
+    CPPUNIT_ASSERT( simple.do_start());
+    
+    // CPPUNIT_ASSERT( !simple.set_system_mode("default") );
+    
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
+    CPPUNIT_ASSERT( simple.do_stop());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
+    CPPUNIT_ASSERT( simple.do_standby());
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
+    
+    simple.terminate();
+    
+    timespec slp;
+    slp.tv_sec = 1;
+    slp.tv_nsec = 0;
+    fflush(stdout);
+    //nanosleep(&slp, 0);
+    //simple.terminate();
+    cout << "terminated" << endl << endl;
 }
 
 void ControllerTest::test_component_init()

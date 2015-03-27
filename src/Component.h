@@ -24,9 +24,19 @@
 #ifndef Component_h
 #define Component_h
 #include <string>
+#include <yaml-cpp/yaml.h>
 #include "FiniteStateMachine.h"
+#include <tsemfifo.h>
+#include <Thread.h>
+#include "Keymaster.h"
 
-class Keymaster;
+class ComponentException : public MatrixException
+{
+public:
+    ComponentException(std::string msg) : 
+        MatrixException(msg, "Component exception") {}
+};
+
 
 /// This class defines the basic interface between the Controller, Keymaster,
 /// and inter-component dataflow setup.
@@ -45,16 +55,17 @@ class Keymaster;
 /// and the other Components.
 /// 
 /// 
+
 class Component
 {
 public:
-    Component(std::string myname, std::shared_ptr<Keymaster> k);
+    Component(std::string myname, std::string keymaster_url);
     virtual ~Component();
     
     /// Initiate a publish/subscribe connection to the keymaster to exchange
     /// commands and status. Configuration information is obtained via the
     /// get/set mechanism.
-    void contact_keymaster();
+    void contact_keymaster(std::string url);
     
     /// The base class method just initializes the basic state transitions.
     /// Derived Components may add additional states, events, actions and predicates.
@@ -73,13 +84,74 @@ public:
     /// occurs in the Standby to Ready state.
     bool create_data_connections();
     
-    /// tare down data connections.
+    /// tear down data connections.
     bool close_data_connections();
+    
+    /// the keymaster has detected a command change, handle it
+    void command_changed(std::string key, YAML::Node n);
+    
+    /// the internal state has changed, report it to the keymaster
+    bool state_changed();
+    
+    /// A service loop which waits for commands from the controller
+    void server_loop();
+    
+    /// Shutdown the component and any threads it created
+    void terminate();
+    
+    /// handle leaving a state
+    bool handle_leaving_state();
+    
+    /// handle entering a state
+    bool handle_entering_state();
    
 protected:
+    // virtual implementations of the public interface
+    virtual void _contact_keymaster(std::string url);
+    
+    /// The base class method just initializes the basic state transitions.
+    /// Derived Components may add additional states, events, actions and predicates.
+    virtual void _initialize_fsm();
+    
+    /// A new Controller command has arrived. Process it.
+    virtual bool _process_command(std::string);
+    
+    ///  Return the current Component state.
+    virtual std::string _get_state();
+    
+    /// Send a state change to the keymaster.
+    virtual bool _report_state(std::string);
+    
+    /// Make data connections based on the current configuration. Normally
+    /// occurs in the Standby to Ready state.
+    virtual bool _create_data_connections();
+    
+    /// tare down data connections.
+    virtual bool _close_data_connections();
+    
+    virtual void _command_changed(std::string key, YAML::Node n);
+    
+    virtual bool _state_changed();
+    
+    virtual void _server_loop();
+    
+    virtual void _terminate();
+
+    /// handle leaving a state
+    virtual bool _handle_leaving_state();
+    
+    /// handle entering a state
+    virtual bool _handle_entering_state();
+    
+
+    
     std::string my_instance_name;
     FSM::FiniteStateMachine fsm;
-    std::shared_ptr<Keymaster> keymaster;
+    std::unique_ptr<Keymaster> keymaster;
+    Thread<Component> _server_thread;
+    tsemfifo<std::string> command_fifo;
+    bool done;
+    TCondition<bool> thread_started;
 };
 
 

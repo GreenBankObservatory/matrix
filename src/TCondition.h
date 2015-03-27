@@ -409,7 +409,7 @@ template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
     to.tv_sec  +=  curtime.tv_sec + usecs / 1000000;
 #endif
     
-
+    // lock();
     status = pthread_cond_timedwait(&_cond, &mutex, &to);
 
     if (status == ETIMEDOUT)

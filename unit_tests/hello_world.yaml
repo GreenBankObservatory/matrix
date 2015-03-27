@@ -1,8 +1,8 @@
 ---
 Keymaster:
   URLS:
-    - inproc://matrix.keymaster
-
+    Initial:
+      - inproc://matrix.keymaster
 
 # Components in the system
 #
@@ -19,14 +19,22 @@ components:
     type: HelloWorldComponent
     sink:
       A: inproc
+  nettask:
+    type: HelloWorldComponent
+  gputask:
+    type: HelloWorldComponent
+  ZZ:
+    type: HelloWorldComponent
+  AA:
+    type: HelloWorldComponent
 
 # Connection mapping for the various configurations. The mapping is a
 # list of lists, which each element of the outer list being a 4-element
 # inner list: [source_component, source_name, sink_component, sink_name]
 
 connections:
-  VEGAS_HBW:
-    - [nettask, A, cputask, A]
+  default:
+    - [ZZ, a, AA, b]
     - [cputask, A, vegas_disk, A]
 
   VEGAS_LBW:
