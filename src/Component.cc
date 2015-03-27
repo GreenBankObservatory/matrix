@@ -24,6 +24,7 @@
 #include "Component.h"
 #include <yaml-cpp/yaml.h>
 #include <iostream>
+#include "Keymaster.h"
 
 using namespace std;
 using namespace YAML;
@@ -31,10 +32,13 @@ using namespace FSM;
 
 /// The arg 'myname' is the so called instance name from the
 /// configuration file.
-Component::Component(string myname) :
-    my_instance_name(myname)
+Component::Component(string myname, shared_ptr<Keymaster> k) :
+    my_instance_name(myname),
+    keymaster(k)
 {
     // perform other user-defined initializations in derived class
+    cout << "components." + myname + ".state" << endl;
+    keymaster->put("components." + myname + ".state", "Created", true);
 }
 
 Component::~Component()

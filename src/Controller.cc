@@ -27,10 +27,13 @@
 #include "Controller.h"
 #include <yaml-cpp/yaml.h>
 #include "ThreadLock.h"
+#include "Keymaster.h"
+#include "yaml_util.h"
 
 using namespace std;
 
-Controller::Controller(string config_file) : state_condition(bool())
+Controller::Controller(string config_file) : 
+    state_condition(bool()), _conf_file(config_file)
 {
     fsm.addTransition("_created", "do_initial_init", "Standby");
     fsm.addTransition("Standby",  "initialize",      "Ready");
@@ -39,9 +42,6 @@ Controller::Controller(string config_file) : state_condition(bool())
     fsm.addTransition("Running",  "error",           "Ready");    
     fsm.addTransition("Running",  "stop",            "Ready");
     fsm.setInitialState("_created");
-    
-    // Temporary stand-in until Keymaster is available ...
-    key_root = YAML::LoadFile(config_file);
 }
 
 Controller::~Controller()
@@ -122,14 +122,19 @@ bool Controller::wait_all_in_state(string statename, int timeout)
 
 bool Controller::_create_the_keymaster()
 {
-    cout << __func__ << " - not implemented" << endl;
-    // for now we emulate via a simple string/string map
+    cout << "Config file is " << _conf_file << endl;
+    km_server.reset( new KeymasterServer(_conf_file) );
+    km_server->run();
+    keymaster.reset( new Keymaster("inproc://matrix.keymaster") );
+    keymaster->put("controller.active", true, true);
+    //YAML::Node conf = YAML::LoadFile(_conf_file);
+    //keymaster->put("components", conf["components"], true);
     return true;
 }
 
 bool Controller::_create_component_instances()
 {
-    YAML::Node components = key_root["components"];
+    YAML::Node components = keymaster->get("components");
     cout << "Components are:" << endl;
 
     for (YAML::const_iterator it = components.begin(); it != components.end(); ++it)
@@ -152,7 +157,7 @@ bool Controller::_create_component_instances()
         {
             auto fmethod = factory_methods.find(type.as<string>());
             component_instances[comp_instance_name] = shared_ptr<Component>( 
-                (*fmethod->second)(comp_instance_name) );
+                (*fmethod->second)(comp_instance_name, keymaster) );
             cout << "Created component named " << comp_instance_name << endl;
         }
         ThreadLock<decltype(component_states) > l(component_states);
@@ -242,17 +247,17 @@ bool Controller::_exit_system()
     return false;
 }
 
+void Controller::add_factory_method(std::string name, ComponentFactory func)
+{
+    factory_methods[name] = func;
+}    
+
 bool Controller::_send_event(std::string event)
 {
     cout << __func__ << " - not implemented" << endl;
 ///
     return false;
 }
-
-void Controller::add_factory_method(string name, Component *(*func)(string))
-{
-    factory_methods[name] = func;
-}    
 
 
 

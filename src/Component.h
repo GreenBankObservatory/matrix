@@ -26,6 +26,8 @@
 #include <string>
 #include "FiniteStateMachine.h"
 
+class Keymaster;
+
 /// This class defines the basic interface between the Controller, Keymaster,
 /// and inter-component dataflow setup.
 ///
@@ -33,7 +35,7 @@
 /// which takes a std::string, and returns a new instance of the component
 /// as a Component pointer.
 /// e.g:
-///       `static Component * MyComponent::factory(std::string);`
+///       `static Component * MyComponent::factory(std::string, keymaster);`
 /// 
 /// In the constructor, the Component should contact the Keymaster and
 /// register the required keys 'my_instance_name.status', and report a 
@@ -46,7 +48,7 @@
 class Component
 {
 public:
-    Component(std::string myname);
+    Component(std::string myname, std::shared_ptr<Keymaster> k);
     virtual ~Component();
     
     /// Initiate a publish/subscribe connection to the keymaster to exchange
@@ -77,6 +79,7 @@ public:
 protected:
     std::string my_instance_name;
     FSM::FiniteStateMachine fsm;
+    std::shared_ptr<Keymaster> keymaster;
 };
 
 

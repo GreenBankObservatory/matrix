@@ -1,4 +1,8 @@
 ---
+Keymaster:
+  URLS:
+    - inproc://matrix.keymaster
+
 
 # Components in the system
 #

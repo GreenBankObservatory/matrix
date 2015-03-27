@@ -67,15 +67,22 @@
 class Component;
 #include <map>
 #include <string>
+#include <memory>
 #include <yaml-cpp/yaml.h>
 #include "TCondition.h"
 #include "tsemfifo.h"
+
+class Keymaster;
+class KeymasterServer;
 
 class StatusMap : public std::map<std::string, std::string>
 {
 public:
     // operator<(const StatusMap &)
 };
+
+    typedef  Component *(*ComponentFactory)(std::string, std::shared_ptr<Keymaster>) ;
+    typedef  std::map<std::string, ComponentFactory> ComponentFactoryMap;
 
 class Controller
 {
@@ -89,7 +96,7 @@ public:
     /// Add a component factory constructor for later use in creating
     /// the component instance. The factory signature should be
     /// `      Component * Classname::factory(string);`
-    void add_factory_method(std::string name, Component *(*)(std::string));
+    void add_factory_method(std::string name, ComponentFactory func);
     
     /// Go through configuration, and create instances of the components
     /// This should also cause component threads to be created. 
@@ -145,16 +152,19 @@ protected:
     
     /// A place to store Component factory methods
     /// indexed by Component type, not name.
-    std::map<std::string, Component *(*)(std::string)> factory_methods;
+    ComponentFactoryMap factory_methods;
     // Maps below keyed by component instance name:
     std::map<std::string, std::shared_ptr<Component> > component_instances;
     Protected<std::map<std::string, std::string> > component_states;
     Protected<std::map<std::string, std::string> > component_status;
     Protected<FSM::FiniteStateMachine> fsm;
-    YAML::Node key_root;
+    // YAML::Node key_root;
     TCondition<bool> state_condition;
+    std::string _conf_file;
+    std::unique_ptr<KeymasterServer> km_server;
     
-    // keymaster stand-in    
+    // keymaster stand-in
+    std::shared_ptr<Keymaster> keymaster;
 };
 
 
