@@ -34,11 +34,13 @@ class KeymasterTest : public CppUnit::TestCase
 {
     CPPUNIT_TEST_SUITE(KeymasterTest);
     CPPUNIT_TEST(test_keymaster);
+    CPPUNIT_TEST(test_keymaster_publisher);
 
     CPPUNIT_TEST_SUITE_END();
 
 public:
     void test_keymaster();
+    void test_keymaster_publisher();
 };
 
 #endif

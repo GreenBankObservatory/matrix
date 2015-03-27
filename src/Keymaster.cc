@@ -668,7 +668,6 @@ void KeymasterServer::KmImpl::state_manager_task()
         catch (zmq::error_t e)
         {
             cerr << "State manager task, main loop: " << e.what() << endl;
-            break;
         }
     }
 

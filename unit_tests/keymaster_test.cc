@@ -105,3 +105,49 @@ void KeymasterTest::test_keymaster()
     CPPUNIT_ASSERT(r.key == "components.nettask.source");
     CPPUNIT_ASSERT(r.err.empty());
 }
+
+template <typename T>
+struct MyCallback : public KeymasterCallback
+{
+    MyCallback(T v)
+    : data(v)
+    {}
+
+    T data;
+
+private:
+    void _call(YAML::Node n)
+    {
+        data = n.as<T>();
+    }
+};
+
+void KeymasterTest::test_keymaster_publisher()
+{
+    // yaml_result r;
+    // boost::shared_ptr<KeymasterServer> km_server;
+
+    // CPPUNIT_ASSERT_NO_THROW(
+    //     km_server.reset(new KeymasterServer("test.yaml"));
+    //     km_server->run();
+    //     );
+
+    // Keymaster km("inproc://matrix.keymaster");
+
+    // int val = 0;
+    // MyCallback<int> cb(val);
+
+    // km.subscribe("components.nettask.source.ID", &cb);
+
+    // // Put a new value into the keymaster
+    // km.put("components.nettask.source.ID", 1234, true);
+
+    // CPPUNIT_ASSERT(cb.data == 1234);
+
+    // // Replace an existing value in the keymaster
+    // km.put("components.nettask.source.ID", 9999);
+
+    // CPPUNIT_ASSERT(cb.data == 9999);
+
+    CPPUNIT_ASSERT(1);
+}
