@@ -56,6 +56,9 @@
 using namespace std;
 using namespace mxutils;
 
+#define SUBSCRIBE   1
+#define UNSUBSCRIBE 2
+#define QUIT        3
 
 struct substring_p
 {
@@ -854,15 +857,13 @@ Keymaster::~Keymaster()
     {
         zmq::socket_t ctrl(ZMQContext::Instance()->get_context(), ZMQ_REQ);
         ctrl.connect(_pipe_url.c_str());
-        z_send(ctrl, string("QUIT"));
+        z_send(ctrl, QUIT);
         int rval;
         z_recv(ctrl, rval);
         _subscriber_thread.stop_without_cancel();
-        ctrl.close();
     }
 
     _km.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
-    _km.close();
 }
 
 /**
@@ -997,32 +998,58 @@ void Keymaster::del(std::string key)
     }
 }
 
+/**
+ * Subscribes to a key on the keymaster.
+ *
+ * @param key: the subscription key.
+ *
+ * @param f: A pointer to a KeymasterCallback functor. This functor will
+ * be called whenever the value represented by 'key' updates on the
+ * keymaster. NOTE: The function does not assume ownership of this
+ * object! This should be managed by the thread calling this function.
+ *
+ */
+
 void Keymaster::subscribe(string key, KeymasterCallback *f)
 {
     // first start the subscriber thread. If it's already running this
     // won't do anything.
-
     _run();
 
+    // Next, request the subscription by posting a request to the
+    // subscriber thread.
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
-    z_send(pipe, string("SUBSCRIBE"), ZMQ_SNDMORE);
+    z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
     z_send(pipe, key, ZMQ_SNDMORE);
     z_send(pipe, f);
     int rval;
     z_recv(pipe, rval);
 }
 
+/**
+ * Unsubscribes to a key on the keymaster. Has no effect if the key is
+ * not subscribed to.
+ *
+ * @param key: The key to unsubscribe to.
+ *
+ */
 
 void Keymaster::unsubscribe(string key)
 {
+    // request that the subscriber thread unsubscribe from 'key'
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
-    z_send(pipe, string("UNSUBSCRIBE"), ZMQ_SNDMORE);
+    z_send(pipe, UNSUBSCRIBE, ZMQ_SNDMORE);
     z_send(pipe, key);
     int rval;
     z_recv(pipe, rval);
 }
+
+/**
+ * Starts the subscriber thread, if it is not already running.
+ *
+ */
 
 void Keymaster::_run()
 {
@@ -1035,7 +1062,15 @@ void Keymaster::_run()
     }
 }
 
-
+/**
+ * The subscriber thread. This thread handles all the subscription
+ * related activities. It receives and acts on requests to subscribe and
+ * unsubscribe, and it also receives and handles the data received from
+ * the keymaster's publisher. This thread is responsible for running the
+ * callback functors paired with the keys, so it should be kept in mind
+ * that that code executes asynchronously from client code.
+ *
+ */
 
 void Keymaster::_subscriber_task()
 {
@@ -1086,10 +1121,10 @@ void Keymaster::_subscriber_task()
 
             if (items[0].revents & ZMQ_POLLIN) // the control pipe
             {
-                string msg;
+                int msg;
                 z_recv(pipe, msg);
 
-                if (msg == "SUBSCRIBE")
+                if (msg == SUBSCRIBE)
                 {
                     string key;
                     KeymasterCallback *f_ptr;
@@ -1100,21 +1135,27 @@ void Keymaster::_subscriber_task()
                     sub_sock.setsockopt(ZMQ_SUBSCRIBE, key.c_str(), key.length());
                     z_send(pipe, 1);
                 }
-                else if (msg == "UNSUBSCRIBE")
+                else if (msg == UNSUBSCRIBE)
                 {
                     string key;
                     z_recv(pipe, key);
                     sub_sock.setsockopt(ZMQ_UNSUBSCRIBE, key.c_str(), key.length());
-                    _callbacks.erase(key);
+
+                    if (_callbacks.find(key) != _callbacks.end())
+                    {
+                        _callbacks.erase(key);
+                    }
+
                     z_send(pipe, 1);
                 }
-                else if (msg == "QUIT")
+                else if (msg == QUIT)
                 {
                     z_send(pipe, 0);
                     break;
                 }
             }
 
+            // The subscribed data is handled here
             if (items[1].revents & ZMQ_POLLIN)
             {
                 string key;
