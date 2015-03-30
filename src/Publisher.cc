@@ -572,7 +572,7 @@ void Publisher::PubImpl::state_manager_task()
     {
         try
         {
-            zmq::poll(&items [0], 3, -1);
+            zmq::poll(&items [0], 2, -1);
 
             if (items[0].revents & ZMQ_POLLIN)
             {
