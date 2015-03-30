@@ -901,7 +901,7 @@ YAML::Node Keymaster::get(std::string key)
         throw(KeymasterException(msg.str()));
     }
 
-    return _r.node;
+    return YAML::Clone(_r.node);
 }
 
 /**
