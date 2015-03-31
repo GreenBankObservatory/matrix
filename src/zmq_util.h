@@ -95,6 +95,9 @@ namespace mxutils
     // bind a socket to an ephemeral port
     int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries = 10);
 
+    // generate a random string, use with inproc and ipc urls
+    std::string gen_random_string(const int len);
+
 }
 
 #endif // _ZMQ_UTIL_H_

@@ -174,7 +174,7 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
     _server_thread_ready(false),
     _state_manager_thread_ready(false),
     _data_queue(1000),
-    _state_task_url("inproc://state_manager_task"),
+    _state_task_url(string("inproc://") + gen_random_string(20)),
     _state_task_quit(true)
 {
     int i = 0;
@@ -290,12 +290,12 @@ void KeymasterServer::KmImpl::setup_urls()
         }
         else if (lc.find("ipc") != string::npos)
         {
-            string s = lc + ".publisher.XXXXXX";
+            string s = lc + ".publisher.";
             _publish_service_urls.push_back(s);
         }
         else if (lc.find("inproc") != string::npos)
         {
-            string s = lc + ".publisher";
+            string s = lc + ".publisher.";
             _publish_service_urls.push_back(s);
         }
         else
@@ -336,11 +336,10 @@ bool KeymasterServer::KmImpl::using_tcp()
  * @param server_sock: The server. May be a ZMQ_PUB or ZMQ_REP.
  *
  * @param urls: A list of URLs to bind to. These are presumed to be
- * valid. IPC urls given with the `transit` flag need to be of the form
- * "ipc:///tmp/<name>.XXXXXX, so that the Xs may be replace by a
- * temporary string. (see man 3 mktemp). These URLs will then all be
- * replaced by the one actually used, except the TCP one (if included)
- * being completely replaced in all cases by the string
+ * valid. IPC & inproc urls given with the `transient` flag will have a
+ * random string appended to them to avoid collisions. These URLs will
+ * then all be replaced by the one actually used, except the TCP one (if
+ * included) being completely replaced in all cases by the string
  * "tcp://<hostname>:<port>, whether the port is transient or not.
  *
  * @param transient: A flag, if true the TCP and IPC urls (if provided)
@@ -377,28 +376,22 @@ void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<str
                 *cvi = tcp_url.str();
             }
         }
-        else if (cvi->find("ipc") != string::npos)
+        else
         {
-            // A temporary name for IPC is needed for the same reason
-            // the transient port is needed for TCP: to avoid collisions
-            // if more than one keymaster is running on the same machine.
-            // I (RC) am aware of the man page's exhortation to "never
-            // use mktemp()".  mktemp() does exactly what is needed
-            // here: generate a temporary name and let 0MQ use
-            // it. mkstemp() *opens* the file as well, which is not
-            // wanted. No security issues are anticipated
+            // A temporary name for IPC or inproc is needed for the same
+            // reason the transient port is needed for TCP: to avoid
+            // collisions if more than one keymaster is running on the
+            // same machine.  I (RC) am aware of the man page's
+            // exhortation to "never use mktemp()".  mktemp() does
+            // exactly what is needed here: generate a temporary name
+            // and let 0MQ use it. mkstemp() *opens* the file as well,
+            // which is not wanted. No security issues are anticipated
             // here. (possible alternative: use mkdtemp())
             if (transient)
             {
-                mktemp((char *)cvi->data());
+                *cvi += gen_random_string(6);
             }
 
-            server_sock.bind(cvi->c_str());
-        }
-        else
-        {
-            // The only remaining kind of URL is the inproc type, as
-            // the URLs were validated by setup_urls().
             server_sock.bind(cvi->c_str());
         }
     }
@@ -827,7 +820,7 @@ void KeymasterServer::terminate()
 Keymaster::Keymaster(string keymaster_url)
     :
     _km(ZMQContext::Instance()->get_context(), ZMQ_REQ),
-    _pipe_url("inproc://keymaster_subscriber_control"),
+    _pipe_url(string("inproc://") + gen_random_string(20)),
     _subscriber_thread(this, &Keymaster::_subscriber_task),
     _subscriber_thread_ready(false)
 {
@@ -1003,14 +996,14 @@ void Keymaster::del(std::string key)
  *
  * @param key: the subscription key.
  *
- * @param f: A pointer to a KeymasterCallback functor. This functor will
+ * @param f: A pointer to a KeymasterCallbackBase functor. This functor will
  * be called whenever the value represented by 'key' updates on the
  * keymaster. NOTE: The function does not assume ownership of this
  * object! This should be managed by the thread calling this function.
  *
  */
 
-void Keymaster::subscribe(string key, KeymasterCallback *f)
+void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
 {
     // first start the subscriber thread. If it's already running this
     // won't do anything.
@@ -1127,7 +1120,7 @@ void Keymaster::_subscriber_task()
                 if (msg == SUBSCRIBE)
                 {
                     string key;
-                    KeymasterCallback *f_ptr;
+                    KeymasterCallbackBase *f_ptr;
                     z_recv(pipe, key);
                     z_recv(pipe, f_ptr);
 
@@ -1166,12 +1159,12 @@ void Keymaster::_subscriber_task()
                 if (!val.empty())
                 {
                     YAML::Node n = YAML::Load(val[0]);
-                    map<string, KeymasterCallback *>::const_iterator mci;
+                    map<string, KeymasterCallbackBase *>::const_iterator mci;
                     mci = _callbacks.find(key);
 
                     if (mci != _callbacks.end())
                     {
-                        mci->second->exec(n);
+                        mci->second->exec(mci->first, n);
                     }
                 }
             }

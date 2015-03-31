@@ -86,12 +86,79 @@ private:
     std::string _msg;
 };
 
-struct KeymasterCallback
+/****************************************************************//**
+ * \class KeymasterCallbackBase
+ *
+ * A virtual pure base callback class. A pointer to one of these is
+ * given when subscribing for a keymaster value. When the value is
+ * published, it is received by the Keymaster client object, which then
+ * calls the provided pointer to an object of this type.
+ *
+ *******************************************************************/
+
+struct KeymasterCallbackBase
 {
-    void operator()(YAML::Node n) {_call(n);}
-    void exec(YAML::Node n)       {_call(n);}
+    void operator()(std::string key, YAML::Node val) {_call(key, val);}
+    void exec(std::string key, YAML::Node val)       {_call(key, val);}
 private:
-    virtual void _call(YAML::Node n) = 0;
+    virtual void _call(std::string key, YAML::Node val) = 0;
+};
+
+/****************************************************************//**
+ * \class KeymasterMemberCB
+ *
+ * A subclassing of the base KeymasterCallbackBase callback class that allows
+ * a using class to use one of its methods as the callback.
+ *
+ * example:
+ *
+ *     class foo()
+ *     {
+ *     public:
+ *         void bar(YAML::Node n) {...}
+ *
+ *     private:
+ *         KeymasterMemberCB<foo> my_cb;
+ *         Keymaster *km;
+ *     };
+ *
+ *     foo::foo()
+ *       :
+ *       my_cb(this, &foo::bar)
+ *     {
+ *         ...
+ *         km = new Keymaster(km_url);
+ *         km->subscribe("foo.bar.baz", my_cb);
+ *     }
+ *
+ *******************************************************************/
+
+template <typename T>
+class KeymasterMemberCB : public KeymasterCallbackBase
+{
+public:
+    typedef void (T::*ActionMethod)(std::string, YAML::Node);
+
+    KeymasterMemberCB(T *obj, ActionMethod cb) :
+      _object(obj),
+      _faction(cb)
+    {
+    }
+
+private:
+    ///
+    /// Invoke a call to the user provided callback
+    ///
+    void _call(std::string key, YAML::Node val)
+    {
+        if (_object && _faction)
+        {
+            (_object->*_faction)(key, val);
+        }
+    }
+
+    T  *_object;
+    ActionMethod _faction;
 };
 
 
@@ -112,7 +179,7 @@ public:
 
     void del(std::string key);
 
-    void subscribe(std::string key, KeymasterCallback *f);
+    void subscribe(std::string key, KeymasterCallbackBase *f);
     void unsubscribe(std::string key);
 
     mxutils::yaml_result get_last_result() {return _r;}
@@ -127,7 +194,7 @@ private:
     std::string _km_url;
     std::string _pipe_url;
 
-    std::map<std::string, KeymasterCallback *> _callbacks;
+    std::map<std::string, KeymasterCallbackBase *> _callbacks;
     Thread<Keymaster> _subscriber_thread;
     TCondition<bool> _subscriber_thread_ready;
 

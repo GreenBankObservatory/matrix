@@ -39,6 +39,42 @@ namespace mxutils
 {
 
 /**
+ * Generates a string of length 'len' with random alpha-numeric
+ * characters in it. This is useful to generate unique inproc and ipc
+ * urls. For example, if a class Foo internally uses an inproc pipe to
+ * control a private thread, instantiating more than one instance of Foo
+ * would require those URLs to be unique to each object. Otherwise a
+ * zmq::error_t of "address already in use" would be thrown. A randomly
+ * generated string would serve the purpose:
+ *
+ *     string pipe_url = string("inproc://") + gen_random_string(20);
+ *     // pipe_url == inproc://S22JjzhMaiRrV41mtzxl
+ *
+ * @param len: the length of the string
+ *
+ * @return The string of random alpha-numeric characters.
+ *
+ */
+
+std::string gen_random_string(const int len)
+{
+    std::string s;
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    for (int i = 0; i < len; ++i)
+    {
+        s.push_back(alphanum[rand() % (sizeof(alphanum) - 1)]);
+    }
+
+    return s;
+}
+
+
+
+/**
  * A simple utility to send stat from within a std::string over a 0MQ
  * connection.  The data could be a binary buffer, or ASCII strings.
  * 0MQ treats them the same.  The null terminator on a string will be

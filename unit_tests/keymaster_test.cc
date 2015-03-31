@@ -39,6 +39,7 @@
 using namespace std;
 using namespace mxutils;
 
+std::string keymaster_url("inproc://matrix.keymaster");
 
 void KeymasterTest::test_keymaster()
 {
@@ -50,7 +51,7 @@ void KeymasterTest::test_keymaster()
         km_server->run();
         );
 
-    Keymaster km("inproc://matrix.keymaster");
+    Keymaster km(keymaster_url);
     // get a value as a YAML::Node
     YAML::Node n;
     CPPUNIT_ASSERT_NO_THROW(n = km.get("components.nettask.source.URLs"));
@@ -108,7 +109,7 @@ void KeymasterTest::test_keymaster()
 }
 
 template <typename T>
-struct MyCallback : public KeymasterCallback
+struct MyCallback : public KeymasterCallbackBase
 {
     MyCallback(T v)
     : data(v)
@@ -117,10 +118,37 @@ struct MyCallback : public KeymasterCallback
     TCondition<T> data;
 
 private:
-    void _call(YAML::Node n)
+    void _call(string key, YAML::Node val)
     {
-        data.signal(n.as<T>());
+        data.signal(val.as<T>());
     }
+};
+
+class Foo
+{
+public:
+    Foo(string url) : data(0), my_cb(this, &Foo::bar), km(url)
+    {
+        km.subscribe("foo.bar", &my_cb);
+        km.put("foo.bar", 5, true);
+    }
+
+    void bar(string key, YAML::Node val)
+    {
+        data.signal(val.as<int>());
+    }
+
+    int get_data()
+    {
+        data.wait(5, 100000);
+        return data.value();
+    }
+
+private:
+    TCondition<int> data;
+    KeymasterMemberCB<Foo> my_cb;
+    Keymaster km;
+
 };
 
 void KeymasterTest::test_keymaster_publisher()
@@ -133,8 +161,12 @@ void KeymasterTest::test_keymaster_publisher()
         km_server->run();
         );
 
-    Keymaster km("inproc://matrix.keymaster");
+    Keymaster km(keymaster_url);
 
+    cout << "keymaster urls: " << km.get("Keymaster.URLS.AsConfigured") << endl;
+
+    // first kind of callback: a custom callback based on
+    // KeymasterCallbackBase.
     int val = 0;
     MyCallback<int> cb(val);
 
@@ -149,4 +181,11 @@ void KeymasterTest::test_keymaster_publisher()
     km.put("components.nettask.source.ID", 9999);
 
     CPPUNIT_ASSERT(cb.data.wait(9999, 100000));
+
+    // second kind of callback: a class Foo method is used internally as
+    // a callback, using the KeymasterMemberCB<T> class to enclose
+    // it. Foo creates its own keymaster client, given a keymaster URL,
+    // just as a component would do.
+    Foo foo(keymaster_url);
+    CPPUNIT_ASSERT(foo.get_data() == 5);
 }
