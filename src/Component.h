@@ -104,7 +104,22 @@ public:
     
     /// handle entering a state
     bool handle_entering_state();
-   
+
+    /// callback for the Created to Standby state transition
+    bool do_initialize();
+            
+    /// callback for the Standby to Ready state transition
+    bool do_ready();
+    
+    /// callback for the Ready to Running state transition
+    bool do_start();
+    
+    /// callback for the Running to Ready state transition
+    bool do_stop();
+    
+    /// callback for the Ready to Standby state transition
+    bool do_standby();
+       
 protected:
     // virtual implementations of the public interface
     virtual void _contact_keymaster(std::string url);
@@ -143,12 +158,26 @@ protected:
     /// handle entering a state
     virtual bool _handle_entering_state();
     
+    /// callback for the Created to Standby state transition
+    virtual bool _do_initialize();
+    
+    /// callback for the Standby to Ready state transition
+    virtual bool _do_ready();
+    
+    /// callback for the Ready to Running state transition
+    virtual bool _do_start();
+    
+    /// callback for the Running to Ready state transition
+    virtual bool _do_stop();
+    
+    /// callback for the Ready to Standby state transition
+    virtual bool _do_standby();
 
     
     std::string my_instance_name;
     FSM::FiniteStateMachine fsm;
     std::unique_ptr<Keymaster> keymaster;
-    Thread<Component> _server_thread;
+    Thread<Component> server_thread;
     tsemfifo<std::string> command_fifo;
     bool done;
     TCondition<bool> thread_started;

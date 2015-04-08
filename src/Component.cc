@@ -36,7 +36,7 @@ using namespace FSM;
 Component::Component(string myname, string keymaster_url) :
     my_instance_name(myname),
     keymaster(),
-    _server_thread(this, &Component::server_loop),
+    server_thread(this, &Component::server_loop),
     command_fifo(),
     done(false),
     thread_started(false)
@@ -97,6 +97,36 @@ bool Component::state_changed()
     return _state_changed();
 }
 
+/// callback for the Created to Standby state transition
+bool Component::do_initialize()
+{
+    return _do_initialize();
+}
+
+/// callback for the Standby to Ready state transition
+bool Component::do_ready()
+{
+    return _do_ready();
+}
+
+/// callback for the Ready to Running state transition
+bool Component::do_start()
+{
+    return _do_start();
+}
+
+/// callback for the Running to Ready state transition
+bool Component::do_stop()
+{
+    return _do_stop();
+}
+
+/// callback for the Ready to Standby state transition
+bool Component::do_standby()
+{
+    return _do_standby();
+}
+
 void Component::server_loop()
 {
     _server_loop();
@@ -114,8 +144,7 @@ void Component::_server_loop()
     while (!done)
     {
         command_fifo.get(command);
-        cout << "Component:" << my_instance_name << " command now " << command << endl;
-        fflush(stdout);
+        // cout << "Component:" << my_instance_name << " command now " << command << endl;
         process_command(command);
     }
 }
@@ -132,7 +161,7 @@ void Component::_contact_keymaster(string keymaster_url)
                          new KeymasterMemberCB<Component>(this, 
                          &Component::command_changed) );
 
-    _server_thread.start();
+    server_thread.start();
     thread_started.wait(true);
 }
     
@@ -144,22 +173,23 @@ void Component::_initialize_fsm()
     //          current state:     on event:    next state:
     fsm.addTransition("Created", "do_init", "Standby");
     // Commented out to prevent spurious state events before component is fully initialized.
-    // fsm.addEnterAction("Created", new Action<Component>(this, &Component::handle_entering_state) );
-    fsm.addLeaveAction("Created", new Action<Component>(this, &Component::handle_leaving_state) );    
+    fsm.addLeaveAction("Created", new Action<Component>(this, &Component::do_initialize) );
+    // fsm.addLeaveAction("Created", new Action<Component>(this, &Component::handle_leaving_state) );    
     
     fsm.addTransition("Standby", "get_ready",  "Ready");
-    fsm.addEnterAction("Standby", new Action<Component>(this, &Component::handle_entering_state) );
+    fsm.addEnterAction("Standby", new Action<Component>(this, &Component::do_standby) );
     fsm.addLeaveAction("Standby", new Action<Component>(this, &Component::handle_leaving_state) );
     
     fsm.addTransition("Ready",   "start",      "Running");
-    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
+    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::do_ready) );
     fsm.addLeaveAction("Ready", new Action<Component>(this, &Component::handle_leaving_state) );
     
     fsm.addTransition("Running", "stop",       "Ready");
-    fsm.addEnterAction("Running", new Action<Component>(this, &Component::handle_entering_state) );
+    fsm.addEnterAction("Running", new Action<Component>(this, &Component::do_start) );
     fsm.addLeaveAction("Running", new Action<Component>(this, &Component::handle_leaving_state) );
     
     fsm.addTransition("Running", "error",      "Ready");
+    
     fsm.addTransition("Ready",   "do_standby", "Standby");
     
     fsm.setInitialState("Created");
@@ -168,13 +198,13 @@ void Component::_initialize_fsm()
 
 bool Component::handle_leaving_state()
 {
-    cout << "Debug:" << my_instance_name << " leaving state " << fsm.getState() << endl;
+    // cout << "Debug:" << my_instance_name << " leaving state " << fsm.getState() << endl;
     return _handle_leaving_state();
 }
 
 bool Component::handle_entering_state()
 {
-    cout << "Debug:" << my_instance_name << " entering state " << fsm.getState() << endl;
+    // cout << "Debug:" << my_instance_name << " entering state " << fsm.getState() << endl;
     return _handle_entering_state();
 }
 
@@ -237,12 +267,44 @@ bool Component::_state_changed(void)
 
 void Component::_terminate()
 {
-    if (_server_thread.running())
+    if (server_thread.running())
     {
-        _server_thread.stop();
+        server_thread.stop();
         done = true;
     }
     command_fifo.release();
     keymaster.reset();
 }
+
+bool Component::_do_initialize()
+{
+    state_changed();
+    return true;
+}
+
+bool Component::_do_standby()
+{
+    state_changed();
+    return true;
+}
+
+bool Component::_do_ready()
+{
+    state_changed();
+    return true;
+}
+
+bool Component::_do_start()
+{
+    state_changed();
+    return true;
+}
+
+bool Component::_do_stop()
+{
+    state_changed();
+    return true;
+}
+
+
 

@@ -106,9 +106,12 @@ public:
     Controller(std::string configuration_file);
     virtual ~Controller();
     
-    /// An initialize routine which creates a keymaster, initializes an
-    /// fsm, and creates/subscribes to components.
-    bool initialize();
+    /// Build up the state machine, adding callbacks and predicates as needed.
+    bool create_the_state_machine();
+    
+    /// This should only be called once. The result will be an initialized 
+    /// Controller, with all Components created.
+    bool basic_init();    
     
     /// Set a specific mode. If multiple modes are not defined, the mode
     /// name 'default' is used.
@@ -121,7 +124,7 @@ public:
     /// Add a component factory constructor for later use in creating
     /// the component instance. The factory signature should be
     /// `      Component * Classname::factory(string);`
-    void add_factory_method(std::string name, ComponentFactory func);
+    void add_component_factory(std::string name, ComponentFactory func);
     
     /// Go through configuration, and create instances of the components
     /// This should also cause component threads to be created. 
@@ -134,25 +137,26 @@ public:
     /// in that mode.
     bool configure_component_modes();
     
-    /// Issue the initialize event to the Controller FSM. This should
-    /// only be called once. The result will be all components in Standby.
-    bool do_initialize();
+    /// Sends the init event to all Components, placing them all in the Standby
+    /// state. This should be called prior to setting the system mode with
+    /// set_system_mode().
+    bool initialize();
     
     /// The opposite of the get_ready event. This will transition
     /// active components from the Ready to the Standby state.
-    bool do_standby();
+    bool standby();
     
     /// Issue 'do_ready' event to active components. This will transition
     /// active components from the Standby to the Ready state.
-    bool do_ready();
+    bool ready();
     
     /// Issue the start event to active components. This will transition
     /// active components from the Ready to the Running state.
-    bool do_start();
+    bool start();
     
     // Issue the stop event to active components. This will transition
     /// active components from the Running to the Ready state.
-    bool do_stop();
+    bool stop();
     
     /// Attempt to shutdown the system (optional)
     bool exit_system();
@@ -178,16 +182,17 @@ public:
       
     
 protected:
-    /// Application specific implementations (or default implementations)
-    virtual bool _initialize();
+    /// Application specific implementations. This class provides default implementations.
     virtual bool _set_system_mode(std::string);
     virtual bool _create_the_keymaster();
     virtual bool _create_component_instances();
-    virtual bool _do_initialize();
-    virtual bool _do_ready();
-    virtual bool _do_standby();
-    virtual bool _do_start();
-    virtual bool _do_stop();
+    virtual bool _basic_init();
+    virtual bool _create_the_state_machine();
+    virtual bool _initialize();
+    virtual bool _ready();
+    virtual bool _standby();
+    virtual bool _start();
+    virtual bool _stop();
     virtual bool _exit_system();
     virtual bool _send_event(std::string event);
     virtual void _component_state_changed(std::string yml_path, YAML::Node new_state);
@@ -204,7 +209,7 @@ protected:
     Protected<FSM::FiniteStateMachine> fsm;
     // YAML::Node key_root;
     TCondition<bool> state_condition;
-    std::string _conf_file;
+    std::string conf_file;
     std::unique_ptr<KeymasterServer> km_server;
     std::string current_mode;
     

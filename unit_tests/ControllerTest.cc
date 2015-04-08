@@ -49,35 +49,35 @@ public:
 void ControllerTest::test_init()
 {
     Controller simple("hello_world.yaml");
-    simple.add_factory_method("HelloWorldComponent", &HelloWorldComponent::factory);
+    simple.add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
     
+    CPPUNIT_ASSERT( simple.basic_init());
     CPPUNIT_ASSERT( simple.initialize());
-    CPPUNIT_ASSERT( simple.do_initialize());
     
     CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
     CPPUNIT_ASSERT( simple.set_system_mode("default") );    
-    CPPUNIT_ASSERT( simple.do_ready());
+    CPPUNIT_ASSERT( simple.ready());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
-    CPPUNIT_ASSERT( simple.do_start());
+    CPPUNIT_ASSERT( simple.start());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
-    CPPUNIT_ASSERT( simple.do_stop());
+    CPPUNIT_ASSERT( simple.stop());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
     
     // In order to change system mode we must first revert to stanby
-    CPPUNIT_ASSERT( simple.do_standby());
+    CPPUNIT_ASSERT( simple.standby());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
     
     CPPUNIT_ASSERT( simple.set_system_mode("VEGAS_LBW") );
-    CPPUNIT_ASSERT( simple.do_ready());
+    CPPUNIT_ASSERT( simple.ready());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
-    CPPUNIT_ASSERT( simple.do_start());
+    CPPUNIT_ASSERT( simple.start());
     
     // CPPUNIT_ASSERT( !simple.set_system_mode("default") );
     
     CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
-    CPPUNIT_ASSERT( simple.do_stop());
+    CPPUNIT_ASSERT( simple.stop());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
-    CPPUNIT_ASSERT( simple.do_standby());
+    CPPUNIT_ASSERT( simple.standby());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
     
     simple.terminate();

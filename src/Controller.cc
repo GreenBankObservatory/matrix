@@ -36,9 +36,9 @@ using namespace Time;
 
 
 // Functor to check component states
-struct Not_in_state
+struct NotInState
 {
-    Not_in_state(string s) : compare_state(s) {}
+    NotInState(string s) : compare_state(s) {}
     // return true if states are not equal
     bool operator()(std::pair<const string, ComponentInfo> &p)
     {
@@ -64,7 +64,7 @@ string lstrip(const string s)
 
 Controller::Controller(string config_file) : 
     state_condition(false), 
-    _conf_file(config_file), 
+    conf_file(config_file), 
     keymaster_url("inproc://matrix.keymaster"),
     state_report_fifo(),
     done(false),
@@ -79,9 +79,14 @@ Controller::~Controller()
 
 /// Initialize the system. This should be called once after system
 /// startup.
-bool Controller::initialize()
+bool Controller::basic_init()
 {
-    return _initialize();
+    return _basic_init();
+}
+
+bool Controller::create_the_state_machine()
+{
+    return _create_the_state_machine();
 }
 
 /// Change/set the system mode. This updates the active
@@ -106,29 +111,29 @@ bool Controller::configure_component_modes()
     return _configure_component_modes();
 }
 
-bool Controller::do_initialize()
+bool Controller::initialize()
 {
-    return _do_initialize();
+    return _initialize();
 }
 
-bool Controller::do_standby()
+bool Controller::standby()
 {
-    return _do_standby();
+    return _standby();
 }
 
-bool Controller::do_ready()
+bool Controller::ready()
 {
-    return _do_ready();
+    return _ready();
 }
 
-bool Controller::do_start()
+bool Controller::start()
 {
-    return _do_start();
+    return _start();
 }
 
-bool Controller::do_stop()
+bool Controller::stop()
 {
-    return _do_stop();
+    return _stop();
 }
 
 bool Controller::exit_system()
@@ -143,7 +148,7 @@ bool Controller::send_event(string event)
 
 bool Controller::check_all_in_state(string statename)
 {
-    Not_in_state not_in_state(statename);
+    NotInState not_in_state(statename);
     ThreadLock<decltype(components)> l(components);
     auto rtn = find_if(components.begin(), components.end(), not_in_state);
     // If we get to the end of the list, all components are in the desired state
@@ -178,8 +183,7 @@ void Controller::terminate()
     _terminate();
 }
 
-
-bool Controller::_initialize()
+bool Controller::_create_the_state_machine()
 {
     fsm.addTransition("Created",  "do_init",         "Standby");
     fsm.addTransition("Standby",  "get_ready",       "Ready");
@@ -187,11 +191,15 @@ bool Controller::_initialize()
     fsm.addTransition("Running",  "error",           "Ready");    
     fsm.addTransition("Running",  "stop",            "Ready");
     fsm.addTransition("Ready",    "do_standby",      "Standby");    
-    fsm.setInitialState("Created");
+    fsm.setInitialState("Created");    
+}
 
-    bool result = true;
-    result = create_the_keymaster() &&
-             _configure_component_modes() &&
+bool Controller::_basic_init()
+{
+    bool result;
+    result = create_the_state_machine() &&
+             create_the_keymaster() &&
+             configure_component_modes() &&
              create_component_instances();
     return result;
 }
@@ -238,7 +246,7 @@ bool Controller::_set_system_mode(string mode)
 
 bool Controller::_create_the_keymaster()
 {
-    km_server.reset( new KeymasterServer(_conf_file) );
+    km_server.reset( new KeymasterServer(conf_file) );
     km_server->run();
 
     keymaster.reset( new Keymaster(keymaster_url) );
@@ -259,7 +267,6 @@ bool Controller::_create_component_instances()
     for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
     {
         string comp_instance_name = "components." + it->first.as<string>();
-        cout << "\t" << it->first << endl;
         YAML::Node type = it->second["type"];
         
         if (!type)
@@ -365,27 +372,27 @@ void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
     state_condition.signal();
 }
 
-bool Controller::_do_initialize()
+bool Controller::_initialize()
 {
     return send_event("do_init");
 }
 
-bool Controller::_do_standby()
+bool Controller::_standby()
 {
     return send_event("do_standby");
 }
 
-bool Controller::_do_ready()
+bool Controller::_ready()
 {
     return send_event("get_ready");
 }
 
-bool Controller::_do_start()
+bool Controller::_start()
 {
     return send_event("start");
 }
 
-bool Controller::_do_stop()
+bool Controller::_stop()
 {
     return send_event("stop");
 }
@@ -396,7 +403,7 @@ bool Controller::_exit_system()
     return false;
 }
 
-void Controller::add_factory_method(std::string name, ComponentFactory func)
+void Controller::add_component_factory(std::string name, ComponentFactory func)
 {
     factory_methods[name] = func;
 }    
@@ -425,7 +432,7 @@ void Controller::_service_loop()
     while(!done)
     {
         state_report_fifo.get(report);
-        cout << __classmethod__ << report.first << " is now " << report.second << endl;
+        // cout << __classmethod__ << report.first << " is now " << report.second << endl;
     }
 }
 
