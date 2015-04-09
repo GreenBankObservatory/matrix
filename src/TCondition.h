@@ -207,6 +207,8 @@ template <typename T> T &TCondition<T>::value()
  * variable, without doing a broadcast/signal.
  *
  *  @param v: The value
+ *  @param use_lock: Specifies whether or not the modification should
+ *  occur as a locked or unlocked transaction.
  *
  *******************************************************************/
 

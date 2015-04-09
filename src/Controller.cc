@@ -35,22 +35,6 @@ using namespace std;
 using namespace Time;
 
 
-// Functor to check component states
-struct NotInState
-{
-    NotInState(string s) : compare_state(s) {}
-    // return true if states are not equal
-    bool operator()(std::pair<const string, ComponentInfo> &p)
-    {
-        if (p.second.active)
-        {
-            return p.second.state != compare_state;
-        }
-        return false;
-    }
-
-    string compare_state;
-};
 
 string lstrip(const string s)
 {
@@ -227,6 +211,7 @@ bool Controller::_set_system_mode(string mode)
     if (modeset == active_mode_components.end())
     {
         // no components or no entry for this mode. we are done.
+        // TBD is this really an error???
         return false;
     }
         
@@ -271,15 +256,11 @@ bool Controller::_create_component_instances()
         
         if (!type)
         {
-            cerr << __classmethod__ << " No type field for component " 
-                 << comp_instance_name << endl;
-            return false;
+            throw ControllerException("No type field for component " + type.as<string>());
         }
         else if (factory_methods.find(type.as<string>()) == factory_methods.end())
         {
-            cerr << "No factory for component of type " << type 
-                 << " found in factory list" << endl;
-            return false;
+            throw ControllerException("No factory for component of type " + type.as<string>());
         }     
         else
         {        
@@ -312,14 +293,13 @@ bool Controller::_configure_component_modes()
 {
     // Now search connection info for modes where this component is active
     YAML::Node km_mode = keymaster->get("connections");
-    // connection: <--- map
-    //    SOMEMODE: <--- map
-    //       - [A,a,B,b,T] <-- vector
+
     ThreadLock<decltype(active_mode_components)> l(active_mode_components);
     try
     {
         for (YAML::const_iterator md = km_mode.begin(); md != km_mode.end(); ++md)
         {
+            //active_mode_components[md->first.as<string>()] = set<std::string>();
             for (YAML::const_iterator conn = md->second.begin(); conn != md->second.end(); ++conn)
             {
                 YAML::Node n = *conn;
@@ -403,7 +383,7 @@ bool Controller::_exit_system()
     return false;
 }
 
-void Controller::add_component_factory(std::string name, ComponentFactory func)
+void Controller::add_component_factory(std::string name, Component::ComponentFactory func)
 {
     factory_methods[name] = func;
 }    

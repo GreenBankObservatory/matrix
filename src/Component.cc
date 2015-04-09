@@ -248,7 +248,7 @@ bool Component::_create_data_connections()
     return false;
 }
 
-/// tare down data connections.
+/// tear down data connections.
 bool Component::_close_data_connections()
 {
     return false;

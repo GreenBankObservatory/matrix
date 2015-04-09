@@ -41,24 +41,32 @@ public:
 /// This class defines the basic interface between the Controller, Keymaster,
 /// and inter-component dataflow setup.
 ///
-/// A derived Component should have (by convention) a static factory method
-/// which takes a std::string, and returns a new instance of the component
-/// as a Component pointer.
+/// A derived Component should have a static factory method
+/// which takes a std::string, and returns a new instance of the Component,
+/// returning it as a Component pointer.
 /// e.g:
 ///       `static Component * MyComponent::factory(std::string, keymaster);`
-/// 
+///
+/// Somewhere in the code, prior to creating components, the factory method
+/// should be registered with the Controller, using 
+/// Controller::add_component_factory().
+///
 /// In the constructor, the Component should contact the Keymaster and
-/// register the required keys 'my_instance_name.status', and report a 
-/// value of 'created'. Likewise the Component should register and subscribe to
-/// the key ,my_instance_name.command. 
-/// These two elements form the basis of coordination with the Controller 
-/// and the other Components.
+/// register the required keys 'my_instance_name.state', and report a 
+/// value of 'Created'. Likewise the Component should register and subscribe to
+/// the key 'my_instance_name.command', to listen for commands from the Controller. 
+/// These keys form the basis of coordination with the Controller 
+/// and Components.
 /// 
 /// 
 
 class Component
 {
 public:
+
+    // The signature of Component factory methods, and the map which contains them.
+    typedef Component *(*ComponentFactory)(std::string, std::string keymaster_url);
+    
     Component(std::string myname, std::string keymaster_url);
     virtual ~Component();
     
@@ -141,7 +149,7 @@ protected:
     /// occurs in the Standby to Ready state.
     virtual bool _create_data_connections();
     
-    /// tare down data connections.
+    /// tear down data connections.
     virtual bool _close_data_connections();
     
     virtual void _command_changed(std::string key, YAML::Node n);

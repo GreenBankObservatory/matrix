@@ -85,39 +85,8 @@ void ControllerTest::test_init()
     timespec slp;
     slp.tv_sec = 1;
     slp.tv_nsec = 0;
-    fflush(stdout);
-    //nanosleep(&slp, 0);
-    //simple.terminate();
+
     cout << "terminated" << endl << endl;
-}
-
-void ControllerTest::test_component_init()
-{
-#if 0
-    // This needs to be merged with controller tests
-    shared_ptr<Component> c;
-    c.reset( HelloWorldComponent::factory("test_component") );
-    c->contact_keymaster();
-    c->initialize_fsm();
-
-    // The events below will come via the keymaster publisher
-    // of the Controller's commands
-    CPPUNIT_ASSERT( c->get_state() == "Created" );
-    CPPUNIT_ASSERT( c->process_command("register") );
-    CPPUNIT_ASSERT( c->get_state() == "Standby" );
-    CPPUNIT_ASSERT( c->process_command("initialize") );
-    CPPUNIT_ASSERT( c->get_state() == "Ready" );
-    CPPUNIT_ASSERT( c->process_command("start") );
-    CPPUNIT_ASSERT( c->get_state() == "Running" );
-    CPPUNIT_ASSERT( c->process_command("stop") );
-    CPPUNIT_ASSERT( c->get_state() == "Ready" );
-    CPPUNIT_ASSERT(!c->process_command("foobar") );
-    CPPUNIT_ASSERT( c->get_state() == "Ready" );
-    CPPUNIT_ASSERT( c->process_command("start") );
-    CPPUNIT_ASSERT( c->get_state() == "Running" );
-    CPPUNIT_ASSERT( c->process_command("error") );
-    CPPUNIT_ASSERT( c->get_state() == "Ready" );
-#endif
 }
 
 

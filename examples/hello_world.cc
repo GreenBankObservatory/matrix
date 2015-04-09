@@ -9,6 +9,7 @@
 using namespace std;
 using namespace YAML;
 
+
 // Example trival component
 class ClockComponent : public Component
 {
@@ -65,7 +66,14 @@ TestController::TestController(string conf_file) : Controller(conf_file)
     add_component_factory("ClockComponent",     &ClockComponent::factory);
     add_component_factory("IndicatorComponent", &IndicatorComponent::factory);
     basic_init();
-    initialize();
+    #if 0
+    try { basic_init(); } catch(ControllerException e)
+    {
+        cout << e.what() << endl;
+        throw e;
+    }
+    #endif
+    initialize(); // Sends the init event to get components initialized.    
 }
 
 
@@ -73,6 +81,7 @@ int main(int argc, char **argv)
 {
 
     TestController simple(string("hello_world.yaml"));
+    
 
     // wait for the keymaster events which report components in the Standby state.
     // Probably should return if any component reports and error state????
@@ -97,10 +106,15 @@ int main(int argc, char **argv)
         cout << "initial standby state error" << endl;
     }
             
-    sleep(30);
+    sleep(10);
     // Normal app would do something here.
     // tell the components to stop (They should go back to the Ready state.)
     simple.stop();
+    result = simple.wait_all_in_state("Ready", 1000000);
+    if (!result)
+    {
+        cout << "initial standby state error" << endl;
+    }    
     sleep(1);
     return 0;
 }

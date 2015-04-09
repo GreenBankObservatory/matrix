@@ -28,6 +28,28 @@
 #include <memory>
 #include "FiniteStateMachine.h"
 #include "Component.h"
+#include <map>
+#include <string>
+#include <memory>
+#include <vector>
+#include <yaml-cpp/yaml.h>
+#include "TCondition.h"
+#include "Mutex.h"
+#include "ThreadLock.h"
+#include "tsemfifo.h"
+
+class Keymaster;
+class KeymasterServer;
+
+/// Exception type for Controller errors.
+class ControllerException : public MatrixException
+{
+public:
+    ControllerException(std::string msg) : 
+        MatrixException(msg, "Controller exception") {}
+};
+
+
 ///
 /// This class acts as an interface/default implementation of a Component
 /// controller. Its main purpose is to manage the contained Components,
@@ -57,6 +79,9 @@
 ///
 /// At this point the system is in its initial state.
 ///
+/// Once all Components are in the Standby state, the set_system_mode() should
+/// be called to specify which mode in the configuration file is to be used.
+///
 /// It should be noted that the Controller, as its name implies, acts
 /// as the bridge between application control code, and the system
 /// state. Applications would typically derive from the Controller to
@@ -64,42 +89,6 @@
 /// Some methods in the Controller class provide default implementations
 /// of commonly used code.
 ///
-class Component;
-#include <map>
-#include <string>
-#include <memory>
-#include <vector>
-#include <yaml-cpp/yaml.h>
-#include "TCondition.h"
-#include "Mutex.h"
-#include "ThreadLock.h"
-#include "tsemfifo.h"
-
-class Keymaster;
-class KeymasterServer;
-
-class ControllerException : public MatrixException
-{
-public:
-    ControllerException(std::string msg) : 
-        MatrixException(msg, "Controller exception") {}
-};
-
-
-typedef  Component *(*ComponentFactory)(std::string, std::string keymaster_url) ;
-typedef  std::map<std::string, ComponentFactory> ComponentFactoryMap;
-struct ComponentInfo
-{
-    std::shared_ptr<Component> instance;   
-    std::string state;
-    std::string status;
-
-    bool active;
-};
-typedef Protected<std::map<std::string, ComponentInfo> > ComponentMap;
-typedef Protected<std::map<std::string, std::set<std::string> > > ActiveModeComponentSet;
-
-
 class Controller
 {
 public:
@@ -113,9 +102,9 @@ public:
     /// Controller, with all Components created.
     bool basic_init();    
     
-    /// Set a specific mode. If multiple modes are not defined, the mode
-    /// name 'default' is used.
-    bool set_system_mode(std::string mode="default");
+    /// Set a specific mode. The mode name should be defined in the "connections"
+    /// section of the configuration file.
+    bool set_system_mode(std::string mode);
     
     /// Create the Keymaster and have it read the configuration
     /// file specified.
@@ -123,18 +112,19 @@ public:
     
     /// Add a component factory constructor for later use in creating
     /// the component instance. The factory signature should be
-    /// `      Component * Classname::factory(string);`
-    void add_component_factory(std::string name, ComponentFactory func);
+    /// `       Component * Classname::factory(string type, ComponentFactory);`
+    void add_component_factory(std::string name, Component::ComponentFactory func);
     
     /// Go through configuration, and create instances of the components
     /// This should also cause component threads to be created. 
     /// As components are created, they should register themselves
-    /// with the keymaster
+    /// with the keymaster. Note: throws ControllerException if there
+    /// is no factory registered for the requested Component type.
     bool create_component_instances();
     
     /// This reads the connections section of the keymaster database/config file
-    /// and for each mode listed, creates a set of active components to be used
-    /// in that mode.
+    /// and for each mode listed, creates a set of instance names of the
+    /// active components to be used in a given mode.
     bool configure_component_modes();
     
     /// Sends the init event to all Components, placing them all in the Standby
@@ -154,7 +144,7 @@ public:
     /// active components from the Ready to the Running state.
     bool start();
     
-    // Issue the stop event to active components. This will transition
+    /// Issue the stop event to active components. This will transition
     /// active components from the Running to the Ready state.
     bool stop();
     
@@ -180,8 +170,36 @@ public:
     void terminate();
     
       
+protected:    
+    struct ComponentInfo
+    {
+        std::shared_ptr<Component> instance;   
+        std::string state;
+        std::string status;
+        bool active;
+    };
+    typedef std::map<std::string, Component::ComponentFactory> ComponentFactoryMap;
+    typedef Protected<std::map<std::string, ComponentInfo> > ComponentMap;
+    typedef Protected<std::map<std::string, std::set<std::string> > > ActiveModeComponentSet;
+    typedef std::pair<std::string, std::string> StateReport;
+
+    // Functor to check component states. Could do this differently if we had find_not_if (C++11)
+    struct NotInState
+    {
+        NotInState(std::string s) : compare_state(s) {}
+        // return true if states are not equal
+        bool operator()(std::pair<const std::string, Controller::ComponentInfo> &p)
+        {
+            if (p.second.active)
+            {
+                return p.second.state != compare_state;
+            }
+            return false;
+        }
+
+        std::string compare_state;
+    };
     
-protected:
     /// Application specific implementations. This class provides default implementations.
     virtual bool _set_system_mode(std::string);
     virtual bool _create_the_keymaster();
@@ -207,14 +225,13 @@ protected:
     ComponentMap components;
     ActiveModeComponentSet active_mode_components;
     Protected<FSM::FiniteStateMachine> fsm;
-    // YAML::Node key_root;
+    // A condition variable for waiting on state updates (TBD)
     TCondition<bool> state_condition;
     std::string conf_file;
     std::unique_ptr<KeymasterServer> km_server;
     std::string current_mode;
     
     // keymaster client
-    typedef std::pair<std::string, std::string> StateReport;
     std::unique_ptr<Keymaster> keymaster;
     std::string keymaster_url;
     tsemfifo<StateReport> state_report_fifo;

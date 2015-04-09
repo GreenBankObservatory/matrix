@@ -18,7 +18,6 @@ components:
     type: IndicatorComponent
   AA:
     type: IndicatorComponent
-
 # Connection mapping for the various configurations. The mapping is a
 # list of lists, which each element of the outer list being a 4-element
 # inner list: [source_component, source_name, sink_component, sink_name]

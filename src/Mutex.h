@@ -52,9 +52,13 @@ class Mutex
 /// one can write constructs like:
 ///
 ///      Protected< vector<int> >pc;
-///      pc.lock();  // or ThreadLock(pc);
+///      pc.lock();
 ///      pc.push_back(10);
 ///      pc.unlock();
+///
+/// This can also be used with the ThreadLock template:
+///      Protected< vector<int> >pc;
+///      ThreadLock<decltype(pc)> thread_lock(pc);
 ///
 template <typename Container>
 class Protected : public Container
