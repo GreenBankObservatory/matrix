@@ -38,11 +38,11 @@ headers_HEADERS = \
     DataInterface.h \
     FiniteStateMachine.h \
     Keymaster.h \
+    matrix_util.h \
     Semaphore.h \
     Thread.h \
     ThreadLock.h \
     Time.h \
-    Publisher.h \
     ZMQContext.h \
     ZMQDataInterface.h \
     netUtils.h \
@@ -57,9 +57,9 @@ libmatrix_la_SOURCES = \
     DataInterface.cc \
     FiniteStateMachine.cc \
     Keymaster.cc \
+    matrix_util.cc \
     Semaphore.cc \
     Time.cc \
-    Publisher.cc \
     ZMQContext.cc \
     ZMQDataInterface.cc \
     netUtils.cc \

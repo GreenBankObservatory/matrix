@@ -95,11 +95,11 @@ private:
 class KeymasterException : public MatrixException
 {
 public:
-    KeymasterException(std::string msg) : 
+    KeymasterException(std::string msg) :
         MatrixException(msg, "Keymaster exception") {}
 };
 
-/****************************************************************//**
+/**
  * \class KeymasterCallbackBase
  *
  * A virtual pure base callback class. A pointer to one of these is
@@ -107,7 +107,7 @@ public:
  * published, it is received by the Keymaster client object, which then
  * calls the provided pointer to an object of this type.
  *
- *******************************************************************/
+ */
 
 struct KeymasterCallbackBase
 {
@@ -117,7 +117,7 @@ private:
     virtual void _call(std::string key, YAML::Node val) = 0;
 };
 
-/****************************************************************//**
+/**
  * \class KeymasterMemberCB
  *
  * A subclassing of the base KeymasterCallbackBase callback class that allows
@@ -144,7 +144,7 @@ private:
  *         km->subscribe("foo.bar.baz", my_cb);
  *     }
  *
- *******************************************************************/
+ */
 
 template <typename T>
 class KeymasterMemberCB : public KeymasterCallbackBase

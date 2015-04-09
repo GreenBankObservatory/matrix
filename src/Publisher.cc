@@ -35,6 +35,7 @@
 #include "tsemfifo.h"
 #include "Thread.h"
 #include "zmq_util.h"
+#include "matrix_util.h"
 #include "netUtils.h"
 
 #include <string>
@@ -45,32 +46,32 @@
 #include <iostream>
 
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include <boost/circular_buffer.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/shared_ptr.hpp>
 
 using namespace std;
 using namespace mxutils;
 
 #define DEBUG
 
-/******************************************************************//**
- * PubImpl is the private implementation of the Publisher class.
+/**
+ * \class PubImpl is the private implementation of the Publisher class.
  *
- *******************************************************************/
+ */
 
 struct Publisher::PubImpl
 {
-    PubImpl(string component, int transports, int portnum, string keymaster);
+    PubImpl(vector<vector<string> > urls);
     ~PubImpl();
 
     struct data_package
     {
-        std::string key;
-        std::string data;
-        int circ_buf_size;
+        string key;
+        string data;
     };
 
     enum
@@ -82,112 +83,101 @@ struct Publisher::PubImpl
 
     void server_task();
     void state_manager_task();
-    bool publish(std::string &key, std::string &data, int circ_buf_size);
-    void save_val(std::string key, std::string data, int circ_buf_size);
-    void send_snapshot(zmq::socket_t &s, std::string &key);
-    void send_list_of_keys(zmq::socket_t &s, std::string component);
-    void register_service(vector<string> &urls, int interface);
+    bool publish(string key, string data);
+    void save_val(string key, string data);
+    void send_snapshot(zmq::socket_t &s, string &key);
+    void send_list_of_keys(zmq::socket_t &s);
+    vector<vector<string> > get_urls();
 
     Thread<PubImpl> _server_thread;
     Thread<PubImpl> _state_manager_thread;
     TCondition<bool> _server_thread_ready;
     TCondition<bool> _state_manager_thread_ready;
 
-    std::string _component;
-    std::string _keymaster;
-    int _port;
-    int _transports;
-    int _state_port_used;
-    int _pub_port_used;
     bool _state_manager_done;
     tsemfifo<data_package> _data_queue;
     Mutex _cache_lock;
-    std::string _state_task_url;
+    string _state_task_url;
     bool _state_task_quit;
-    std::string _ns_reg_url;
-    std::string _ns_pub_url;
-    std::string _hostname;
+    string _hostname;
 
 
-    // The service URLs. Each interface (STATE or PUBLISH) may have
-    // multiple URLs (tcp, udp, inproc, ipc). Record them for
-    // (re)registration:
-    std::vector<std::string> _state_service_urls;
-    std::vector<std::string> _publish_service_url;
+    vector<string> _state_service_urls;
+    vector<string> _publish_service_urls;
+    vector<vector<string> > _given_urns;
 
-    // the idea here is to have a map of published values, with the
-    // key = sampler/parameter name.  The map consists of a circular
-    // buffer of each value; so there is a key, and 1 or more values,
-    // depending on the circular buffer size.  Parameters will always
-    // be 1, samplers 1 to n, depending on what the Sampler class is
-    // constructed with. (NOTE: Linux Sampler classes are set to 1)
-    // The data in the circular buffer will consist of a string of
-    // bytes, which may already be in a wire-serialized format.  Thus
-    // this map can be used to store anything that was published,
-    // without knowledge of how it was serialized.
-    typedef std::map<std::string, boost::circular_buffer<string> > pub_map;
+    typedef map<string, string> pub_map;
     pub_map _kv_cache;
     zmq::context_t &_ctx;
 };
 
-/*****************************************************************//**
+/**
  * Constructor of the implementation class of the publisher.  The
  * implementation class handles all the details; the Publisher class
  * merely provides the external interface.
  *
- * The component is provided only for the purposes of establishing the
- * endpoint URL for the client.  The port is also provided for that
- * reason; however, in the declaration of the Publisher constructor, it
- * is defaulted to 0.  If the port is 0, then the implementation will
- * find ephemeral ports to use for the service.  In either case, it will
- * attempt to report the host name and ports to the directory name
- * server.
+ * @param urns: The desired URNs, as a vector of vector of strings. If
+ * only the transport is given, ephemeral URLs will be generated. There
+ * are two sets of urns; the first element of the outer vector is for
+ * the state server, the second for the pub server.
  *
- * @param component: The component name.  Used to register the service
- * with the keymaster.
- * @param transports: Any combination of the Publisher::INPROC,
- * Publisher::IPC, Publisher::TCP enums defined in Publisher.h. For
- * example, Publisher::IPC | Publisher::TCP provides those two
- * interfaces.
  * @param portnum: The optional port.  If 0, or not given, the service
  * will choose its own ports, which is the standard operating mode if
- * the service is using a name server.
- * @param keymaster: The URL to the keymaster. If not given defaults to
- * "".
+ * the service is some sort of directory service.
  *
- *******************************************************************/
+ */
 
-Publisher::PubImpl::PubImpl(string component, int transports, int portnum, string keymaster)
+Publisher::PubImpl::PubImpl(vector<vector<string> > urns)
 :
     _server_thread(this, &Publisher::PubImpl::server_task),
     _state_manager_thread(this, &Publisher::PubImpl::state_manager_task),
     _server_thread_ready(false),
     _state_manager_thread_ready(false),
-    _component(component),
-    _keymaster(keymaster),
-    _port(portnum),
-    _transports(transports),
     _state_manager_done(false),
     _data_queue(1000),
-    _state_task_url("inproc://state_manager_task"),
+    _state_task_url(string("inproc://") + gen_random_string(20)),
     _state_task_quit(true),
+    _given_urls(urls),
     _ctx(ZMQContext::Instance()->get_context())
+
 {
     int i = 0;
 
+    // process the urns. There must be two sets. All urns provided must
+    // be valid (see docs for 'process_zmq_urn')
+
+    if (urns.size() != 2)
+    {
+        throw PublisherException("need two sets of urns: one for the state service, "
+                                 "the other for the publishing service.");
+    }
+
+    transform(urns[0].begin(), urns(0).end(), _state_service_urls.begin(), &process_zmq_urn);
+    transform(urns[1].begin(), urns(1).end(), _publish_service_urls.begin(), &process_zmq_urn);
+    auto str_not_empty = bind(not_equal_to<string>(), _1, string());
+
+    if (!all_of(_state_service_urls.begin(), _state_service_urls.end(), str_not_empty))
+    {
+        throw PublisherException("Cannot use one or more of the following transports", urns[0]);
+    }
+
+    if (!all_of(_publish_service_urls.begin(), _publish_service_urls.end(), str_not_empty))
+    {
+        throw PublisherException("Cannot use one or more of the following transports", urns[1]);
+    }
+
     if (!getCanonicalHostname(_hostname))
     {
-        perror("Unable to obtain canonical hostname:");
-        exit(1);
+        string error = string("Unable to obtain canonical hostname: ") + strerror(errno);
+        throw PublisherException(error);
     }
 
     if (!_server_thread.running())
     {
         if (_server_thread.start() != 0)
         {
-            cerr << "Publisher data task was not started.  "
-                 << "There will be no data published."
-                 << endl;
+            string error("Publisher data task was not started.");
+            throw PublisherException(error);
         }
     }
 
@@ -195,9 +185,8 @@ Publisher::PubImpl::PubImpl(string component, int transports, int portnum, strin
     {
         if (_state_manager_thread.start() != 0)
         {
-            cerr << "Publisher state manager task was not started.  "
-                 << "Late joiners will not get updates."
-                 << endl;
+            string error("Publisher state manager task was not started.");
+            throw PublisherException(error);
         }
     }
 
@@ -205,11 +194,11 @@ Publisher::PubImpl::PubImpl(string component, int transports, int portnum, strin
     _state_manager_thread_ready.wait(true, 1000000);
 }
 
-/****************************************************************//**
+/**
  * Signals the server thread that we're done, waiting for it to exit
  * on its own.
  *
- ********************************************************************/
+ */
 
 Publisher::PubImpl::~PubImpl()
 
@@ -223,150 +212,29 @@ Publisher::PubImpl::~PubImpl()
     _state_manager_thread.stop_without_cancel();
 }
 
-/****************************************************************//**
- * Registers the URLs for the given interface for this publisher. This
- * uses the Lazy Pirate pattern to prevent indefinite blocking should
- * the Keymager not be present.
- * (http://zguide.zeromq.org/page:all#toc89) This involves making the
- * request then dropping into a poll loop with a time-out to await the
- * response. If Keymaster is not there this will fail. Eventually after
- * exhausting the retries it will give up.
+/**
+ * Returns the URLs bound to the services.
  *
- * The service URLs will still be registered properly when the Keymaster
- * comes back up. In that case the Publisher will receive the up
- * message, and try again.
+ * @return A vector of two vectors of strings. The first element is the
+ * state service URL set, the second is the publisher service URL set.
  *
- * @param urls: The URLs for this interface. There are up to 3 urls,
- * depending on the transports chosen.
- * @param interface: the interface, PubImpl::PUBLISH is the publisher
- * and PubImpl::STATE is the state service.
- *
- *******************************************************************/
+ */
 
-void Publisher::PubImpl::register_service(vector<string> &urls, int interface)
-
+vector<vector<string> > Publisher::PubImpl::get_urls()
 {
-    int REQUEST_TIMEOUT = 2500; // msecs, (> 1000!)
-    int REQUEST_RETRIES = 2;    // Before we abandon
-    int zero = 0;
-
-    // try
-    // {
-    //     PBRegisterService regpb;
-    //     regpb.set_major(device.c_str());
-    //     regpb.set_minor(cit->c_str());
-    //     regpb.set_interface((PBRegisterService::Interface)interface);
-    //     regpb.set_host(hostname);
-    //     regpb.clear_url();
-
-    //     for (vector<string>::const_iterator vi = urls.begin(); vi != urls.end(); ++vi)
-    //     {
-    //         regpb.add_url(*vi);
-    //     }
-
-    //     zmq::message_t msg(regpb.ByteSize());
-    //     regpb.SerializeToArray(msg.data(), regpb.ByteSize());
-    //     boost::shared_ptr<zmq::socket_t> sock(new zmq::socket_t(ctx, ZMQ_REQ));
-    //     sock->connect(ns_reg_url.c_str());
-    //     string reply;
-    //     bool success = false;
-    //     int retries_left = REQUEST_RETRIES;
-
-    //     while (!success && retries_left > 0)
-    //     {
-    //         sock->send(msg);
-    //         bool expect_reply = true;
-
-    //         while (expect_reply)
-    //         {
-    //             // Poll socket for a reply, with timeout
-    //             zmq::pollitem_t items[] = { { *sock, 0, ZMQ_POLLIN, 0 } };
-    //             zmq::poll (&items[0], 1, REQUEST_TIMEOUT);
-
-    //             // If we got a reply, process it
-    //             if (items[0].revents & ZMQ_POLLIN)
-    //             {
-    //                 // We got a reply from the server, all is well!
-    //                 z_recv(*sock, reply);
-    //                 success = true;
-    //                 expect_reply = false;
-    //             }
-    //             else
-    //             {
-    //                 // Timed out. Should we retry again?
-    //                 if (--retries_left == 0)  // no.
-    //                 {
-    //                     cout << "YgorDirectory seems to be offline. Will register when it comes back up"
-    //                          << endl;
-    //                     expect_reply = false;
-    //                 }
-    //                 else  // yes.
-    //                 {
-    //                     cout << "No response from YgorDirectory @ "
-    //                          << ns_reg_url << ", retrying…" << endl;
-    //                     // Get rid of old socket, it is in an
-    //                     // unusable state
-    //                     sock->setsockopt(ZMQ_LINGER, &zero, sizeof zero);
-    //                     sock->close();
-    //                     sock.reset(new zmq::socket_t(ctx, ZMQ_REQ));
-    //                     sock->connect(ns_reg_url.c_str());
-    //                     sock->send(msg);
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     if (success)
-    //     {
-    //         cout << "registering service." << endl
-    //              << "major = " << device << endl
-    //              << "minor = " << *cit << endl
-    //              << "host = " << hostname << endl
-    //              << "interface = " << interface << endl
-    //              << "URLs:" << endl;
-
-    //         for (vector<string>::const_iterator vi = urls.begin(); vi != urls.end(); ++vi)
-    //         {
-    //             cout << *vi << endl;
-    //         }
-
-    //         cout << "reply is: " << reply[0] << reply[1] << endl;
-
-    //         if (reply == "OK")
-    //         {
-    //             cout << "Register: " << device << "." << *cit << " success!" << endl;
-    //         }
-    //         else
-    //         {
-    //             cout << "Register: " << device << "." << *cit << " failed." << endl;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         // We failed. Don't repeat this for every child if no
-    //         // reply was received; it won't work for them
-    //         // either. Break out of the for-loop, which takes us out
-    //         // of this function.
-    //         cout << "Publisher failed to register with YgorDirectory. "
-    //              << "Registering will take place when YgorDirectory comes back up."
-    //              << endl;
-    //     }
-
-    //     sock->setsockopt(ZMQ_LINGER, &zero, sizeof zero);
-    //     sock->close();
-    // }
-    // catch (zmq::error_t e)
-    // {
-    //     cout << "register_service():" << e.what() << endl;
-    // }
+    vector<vector<string> > urls;
+    urls.push_back(_state_service_urls);
+    urls.push_back(_publish_service_urls);
+    return urls;
 }
 
-/****************************************************************//**
+
+/**
  * This is the publisher server task.  It sits on the queue waiting
  * for something to be published until it gets a "QUIT" message.  This
  * consists of putting a null pointer on the state queue.
  *
- *******************************************************************/
+ */
 
 void Publisher::PubImpl::server_task()
 
@@ -377,60 +245,45 @@ void Publisher::PubImpl::server_task()
 
     try
     {
-        _publish_service_url.clear();
+        vector<string>::iterator *urn;
 
-        // bind using tcp. If port is not given (port == 0), then use ephemeral port.
-
-        if ((_transports | TCP) == TCP)
+        for (urn = _publish_service_urls.begin(); urn != _publish_service_urls.end(); ++urn)
         {
-            if (_port)
+            boost::regex p_tcp("^tcp"), p_inproc("^inproc"), p_ipc("^ipc"), p_xs("X+$");
+            boost::smatch result;
+
+            // bind using tcp. If port is not given (port == 0), then use ephemeral port.
+            if (boost::regex_search(*urn, p_tcp, result))
             {
-                ostringstream url;
-                url << "tcp://*:" << _port;
-                data_publisher.bind(url.str().c_str());
-                _pub_port_used = _port;
+                int port_used;
+
+                // ephem port requested? ("tcp://*:XXXXX")
+                if (boost::regex_search(*urn, p_xs, result))
+                {
+                    port_used = zmq_ephemeral_bind(data_publisher, "tcp://*:*", 1000);
+                }
+                else
+                {
+                    data_publisher.bind(urn->c_str());
+                    vector<string> parts;
+                    boost::split(parts, *urn, boost::ist_any_of(":"));
+                    port_used = convert<int>(parts[2]);
+                }
+
+                // transmogrify the tcp urn to the actual urn needed for
+                // a clientto access the service:
+                // 'tcp://<canonical_hostname>:<port>
+                ostringstream tcp_url;
+                tcp_url << "tcp://" << _hostname << ":" << port_used;
+                *urn = tcp_url.str();
             }
-            else
+
+            // bind using IPC or INPROC:
+            if (boost::regex_search(*urn, p_ipc, result) || boost::regex_search(*urn, p_inproc, result))
             {
-                _pub_port_used = zmq_ephemeral_bind(data_publisher, "tcp://*:*", 1000);
+                // these are already in a form the client can use.
+                data_publisher.bind(urn->c_str());
             }
-
-            ostringstream tcp_url;
-            tcp_url << "tcp://" << _hostname << ":" << _pub_port_used;
-            _publish_service_url.push_back(tcp_url.str());
-        }
-
-        // also bind to IPC and INPROC to give clients these
-        // options. Clients should use the IPC URL returned by the
-        // Directory Service, and for inproc 'inproc://<major>.<minor>'
-        // For managers with many subdevices all in one process the main
-        // Publisher will serve them all, so only one URL is needed per
-        // transport. For this the first subdevice will be used, which
-        // is normally the same name as the device.
-
-        if ((_transports | IPC) == IPC)
-        {
-            string ipc_url = string("ipc:///tmp/") + _component + ".publisher.XXXXXX";
-
-            // A temporary name for IPC is needed for the same reason
-            // the transient port is needed for TCP: to avoid collisions
-            // if more than one manager is running on the same machine.
-            // I (RC) am aware of the man page's exhortation to "never
-            // use mktemp()".  mktemp() does exactly what is needed
-            // here: generate a temporary name and let 0MQ use
-            // it. mkstemp() *opens* the file as well, which is not
-            // wanted. No security issues are anticipated
-            // here. (possible alternative: use mkdtemp())
-            mktemp((char *)ipc_url.data());
-            _publish_service_url.push_back(ipc_url);
-            data_publisher.bind(ipc_url.c_str());
-        }
-
-        if ((_transports | INPROC) == INPROC)
-        {
-            string inproc_url = string("inproc://") + _component + ".publisher";
-            data_publisher.bind(inproc_url.c_str());
-            _publish_service_url.push_back(inproc_url);
         }
     }
     catch (zmq::error_t e)
@@ -440,44 +293,41 @@ void Publisher::PubImpl::server_task()
         return;
     }
 
-    // register this with the keymaster
-    // register_service(_publish_service_url, PUBLISH);
     _server_thread_ready.signal(true); // Allow constructor to move on
 
     while (_data_queue.get(dp))
     {
-        // Publish data.  A copy of the serialized data, whether it be
-        // Sampler, Parameter or Data, is also saved for use by the
-        // snapshot server.
-	//
-	// A note on copying.  It is tempting to use the zero-copy
-	// feature of ZMQ to avoid this extra copying:
-	//
-	// zmq::message_t payload(ser_data.data(), ser_data.size(), NULL);
-	// data_publisher.send(payload) /* zero copy */
-	//
-	// The problem with this is that there is no way to guarantee
-	// the lifetime of the data owned by 'ser_data' and later
-	// owned by a string contained in the snapshot map.  If OMQ
-	// has to queue stuff up, the next data for the same key might
-	// come along before the previous one was sent.  When it is
-	// saved by 'save_val', the previous buffer will then be
-	// deallocated by the string's destructor, and when 0MQ
-	// finally gets around to sending it, it has a bum pointer and
-	// cores. To summarize, 0MQ's zero-copy feature is fire and
-	// forget (you allocate the memory, pass it an a deallocation
-	// function to zmq::message_t, then forget about the allocated
-	// memory.)  But we can't forget the data if we wish to keep
-	// the snapshot feature.
+        // Publish data.  A copy of the data is also saved for use by
+        // the snapshot server.
+        //
+        // A note on copying.  It is tempting to use the zero-copy
+        // feature of ZMQ to avoid this extra copying:
+        //
+        // zmq::message_t payload(ser_data.data(), ser_data.size(), NULL);
+        // data_publisher.send(payload) /* zero copy */
+        //
+        // The problem with this is that there is no way to guarantee
+        // the lifetime of the data owned by 'ser_data' and later
+        // owned by a string contained in the snapshot map.  If OMQ
+        // has to queue stuff up, the next data for the same key might
+        // come along before the previous one was sent.  When it is
+        // saved by 'save_val', the previous buffer will then be
+        // deallocated by the string's destructor, and when 0MQ
+        // finally gets around to sending it, it has a bum pointer and
+        // cores. To summarize, 0MQ's zero-copy feature is fire and
+        // forget (you allocate the memory, pass it an a deallocation
+        // function to zmq::message_t, then forget about the allocated
+        // memory.)  But we can't forget the data if we wish to keep
+        // the snapshot feature.
 
         try
         {
             z_send(data_publisher, dp.key, ZMQ_SNDMORE);
-	    zmq::message_t payload(dp.data.size());
-	    memcpy(payload.data(), dp.data.data(), payload.size());
+            zmq::message_t payload(dp.data.size());
+            memcpy(payload.data(), dp.data.data(), payload.size());
             data_publisher.send(payload);
             // Record this key-value pair for late joiners:
-	    save_val(dp.key, dp.data, dp.circ_buf_size);
+            save_val(dp.key, dp.data);
         }
         catch (zmq::error_t e)
         {
@@ -492,22 +342,21 @@ void Publisher::PubImpl::server_task()
     data_publisher.close();
 }
 
-/****************************************************************//**
+/**
  * This 0MQ server task implements a REPLY socket (of a REQ/REP pair),
  * whose function is to receive requests for cached data.  This is
  * useful for late joiners, especially for keys that don't change
  * frequently.
  *
- *******************************************************************/
+ */
 
 void Publisher::PubImpl::state_manager_task()
 
 {
     zmq::context_t &ctx = ZMQContext::Instance()->get_context();
     zmq::socket_t initial_state(ctx, ZMQ_REP);
-    zmq::socket_t pipe(ctx, ZMQ_PAIR);  // mostly to tell this task to go away
-    std::string ns_key = "Keymaster:SERVER_UP";
-
+    zmq::socket_t pipe(ctx, ZMQ_PAIR);  // mostly to tell this task to
+                                        // go away
     _state_service_urls.clear();
 
     try
@@ -538,15 +387,14 @@ void Publisher::PubImpl::state_manager_task()
 
         if ((_transports | IPC) == IPC)
         {
-            string ipc_url = string("ipc:///tmp/") + _component + ".snapshot.XXXXXX";
-            mktemp((char *)ipc_url.data());
+            string ipc_url = string("ipc:///tmp/") + gen_random_string(20);
             initial_state.bind(ipc_url.c_str());
             _state_service_urls.push_back(ipc_url);
         }
 
         if ((_transports | INPROC) == INPROC)
         {
-            string inproc_url = string("inproc://") + _component + ".snapshot";
+            string inproc_url = string("inproc://") + gen_random_string(20);
             initial_state.bind(inproc_url.c_str());
             _state_service_urls.push_back(inproc_url);
         }
@@ -557,8 +405,6 @@ void Publisher::PubImpl::state_manager_task()
              << "Exiting thread." << endl;
         return;
     }
-
-    register_service(_state_service_urls, STATE);
 
     zmq::pollitem_t items [] =
         {
@@ -604,10 +450,8 @@ void Publisher::PubImpl::state_manager_task()
 		}
 		else if (key.size() == 4 && key == "LIST")
 		{
-		    string component;
-		    z_recv(initial_state, component);
 		    // provide list of stuff
-		    send_list_of_keys(initial_state, component);
+		    send_list_of_keys(initial_state);
 		}
 		else  // assume everything else is a subcription key
 		{
@@ -626,7 +470,7 @@ void Publisher::PubImpl::state_manager_task()
     initial_state.close();
 }
 
-/****************************************************************//**
+/**
  * This function saves a published value in its key's circular buffer.
  * This is for late/initial joiners.  In the case of samplers the
  * circular buffer is more than 1 in size, thus retaining a history of
@@ -662,74 +506,47 @@ void Publisher::PubImpl::state_manager_task()
  * @param value: the value part. The string is used solely as a buffer
  * @param circ_buf_size: initial size for key's history circular buffer
  *
- *******************************************************************/
+ */
 
-void Publisher::PubImpl::save_val(std::string key, std::string value, int circ_buf_size)
+void Publisher::PubImpl::save_val(string key, string value)
 {
-    map<string, boost::circular_buffer<std::string> >::iterator it;
     ThreadLock<Mutex> l(_cache_lock);
 
-
     l.lock();
-    // first check to see if this is the initial value published for
-    // this key:
-    it = _kv_cache.find(key);
-
-    if (it == _kv_cache.end())
-    {
-        _kv_cache[key].resize(circ_buf_size);
-    }
-
-    _kv_cache[key].push_back(value);
+    _kv_cache[key] = value;
 }
 
-/****************************************************************//**
+/**
  * Given a socket, an address for the requestor, and a key, sends off
  * all the values stored in the circular buffer for that key.
  *
  * @param s: the socket
  * @param key: The key to the desired values
  *
- *******************************************************************/
+ */
 
-void Publisher::PubImpl::send_snapshot(zmq::socket_t &s, std::string &key)
+void Publisher::PubImpl::send_snapshot(zmq::socket_t &s, string &key)
 {
-    map<string, boost::circular_buffer<string> >::iterator it;
+    map<string, string>::iterator it;
     ThreadLock<Mutex> l(_cache_lock);
-
 
     l.lock();
     it = _kv_cache.find(key);
 
     if (it == _kv_cache.end())
     {
-        l.unlock();       // don't need that no mo'
+        l.unlock();
         z_send(s, "E_NOKEY");
     }
     else
     {
-        boost::circular_buffer<string> &cb = it->second;
+        string &val = it->second;
         z_send(s, key, ZMQ_SNDMORE);
-
-        for (size_t i = 0; i != cb.size(); ++i)
-        {
-            zmq::message_t dat_msg(cb[i].size());
-	    memcpy(dat_msg.data(), cb[i].data(), cb[i].size());
-
-            if (i < (cb.size() - 1))
-            {
-                s.send(dat_msg, ZMQ_SNDMORE);
-            }
-            else
-            {
-                // last one, signal end of message sequence.
-                s.send(dat_msg);
-            }
-        }
+        z_send(s, val);
     }
 }
 
-/****************************************************************//**
+/**
  * Given a component name and socket for the requestor sends off
  * all the keys being served for this component.
  *
@@ -737,9 +554,9 @@ void Publisher::PubImpl::send_snapshot(zmq::socket_t &s, std::string &key)
  * requesting the keys.
  * @param component: Names the component publishing the keys
  *
- *******************************************************************/
+ */
 
-void Publisher::PubImpl::send_list_of_keys(zmq::socket_t &s, std::string component)
+void Publisher::PubImpl::send_list_of_keys(zmq::socket_t &s)
 {
     pub_map::iterator it;
     ThreadLock<Mutex> l(_cache_lock);
@@ -748,16 +565,13 @@ void Publisher::PubImpl::send_list_of_keys(zmq::socket_t &s, std::string compone
 
     for (it = _kv_cache.begin(); it != _kv_cache.end(); ++it)
     {
-        if (it->first == component)
-        {
-            z_send(s, it->first, ZMQ_SNDMORE);
-        }
+        z_send(s, it->first, ZMQ_SNDMORE);
     }
 
     z_send(s, "END");
 }
 
-/****************************************************************//**
+/**
  * This is the Publisher's Data publishing facility.  It is a private
  * function that does all the work preparing data for publication.
  * The data and metadata are copied into a 'data_package' object and
@@ -773,16 +587,14 @@ void Publisher::PubImpl::send_list_of_keys(zmq::socket_t &s, std::string compone
  * @return true if the data was succesfuly placed in the publication
  * queue, false otherwise.
  *
- *******************************************************************/
+ */
 
-bool Publisher::PubImpl::publish(std::string &key,
-                                 std::string &data, int circ_buf_size)
+bool Publisher::PubImpl::publish(string key, string data)
 {
     data_package dp;
 
     dp.key = key;
     dp.data = data;
-    dp.circ_buf_size = circ_buf_size;
 
     if (!_data_queue.try_put(dp))
     {
@@ -792,7 +604,7 @@ bool Publisher::PubImpl::publish(std::string &key,
     return true;
 }
 
-/****************************************************************//**
+/**
  * \class Publisher
  *
  * This is a class that provides a 0MQ publishing facility. Publisher
@@ -819,9 +631,9 @@ bool Publisher::PubImpl::publish(std::string &key,
  *     ...
  *     pub->publish_data(key, data_buf);
  *
- *******************************************************************/
+ */
 
-/****************************************************************//**
+/**
  * Publisher constructor.  Saves the URL, and starts a server
  * thread.
  *
@@ -831,21 +643,20 @@ bool Publisher::PubImpl::publish(std::string &key,
  *                 transient port.
  * @param keymaster: If provided, the URL of the keymaster.
  *
- *******************************************************************/
+ */
 
-Publisher::Publisher(std::string component, int transports,
-                     int portnum, std::string keymaster)
+Publisher::Publisher(string keymaster, string key)
     :
-    _impl(new Publisher::PubImpl(component, transports, portnum, keymaster))
+    _impl(new Publisher::PubImpl(keymaster, key))
 
 {
 }
 
-/****************************************************************//**
+/**
  * Signals the server thread that we're done, waiting for it to exit
  * on its own.
  *
- ********************************************************************/
+ */
 
 Publisher::~Publisher()
 
@@ -853,23 +664,39 @@ Publisher::~Publisher()
     _impl.reset();
 }
 
-/****************************************************************//**
- * This template function serves to publish backend data via the
- * Publisher.  Since each server that published data has a different
- * data specification (unlike Samplers and Parameters), the Publisher
- * must be given data that is already serialized and ready to send.
- * The caller would thus fill out a GPB, serialize it to a
- * std::string, and call this function with that string.
+/**
+ * Publishes a buffer of data using a given key.
  *
  * @param key: The publishing key for the data.
- * @param data: The serialized data, ready to send.
+ * @param data: The data buffer.
  *
  * @return true if the data was succesfuly placed in the publication
  * queue, false otherwise.
  *
- *******************************************************************/
+ */
 
-bool Publisher::publish_data(std::string key, std::string data)
+bool Publisher::publish_data(string key, string data)
 {
-    return _impl->publish(key, data, 1);
+    return _impl->publish(key, data);
+}
+
+/**
+ * Returns the actually configured URLs for the publishing
+ * service. There are two sets of URLs: A set for the state request
+ * server, which provides snapshots of the last published data for a
+ * given key, and a set for the publisher itself.
+ *
+ * @param
+ *
+ * @return A vector consisting of two elements, each itself a vector of
+ * strings, the URLs. The first element of the top-level vector is the
+ * vector of state service URLs, and the second element is the vector of
+ * publisher URLs. Each set consists of 1 to 3 URLs, depending on the
+ * transports used (tcp, inproc, ipc).
+ *
+ */
+
+vector<vector<string> > Publisher::get_urls()
+{
+    return _impl->get_urls();
 }

@@ -98,6 +98,9 @@ namespace mxutils
     // generate a random string, use with inproc and ipc urls
     std::string gen_random_string(const int len);
 
+    // process urns for zmq services
+    std::string process_zmq_urn(const std::string input);
+
 }
 
 #endif // _ZMQ_UTIL_H_
