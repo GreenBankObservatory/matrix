@@ -1,0 +1,30 @@
+---
+Keymaster:
+  URLS:
+    Initial:
+      - inproc://matrix.keymaster
+
+# Components in the system
+#
+# Each component has a name by which it is known. Some components have 0
+# or more data sources, and 0 or more data sinks. The sources are known
+# by their URLs. The sinks are just listed by name (for now).
+
+components:
+  clock:
+    time: 0
+    type: ClockComponent
+  ZZ:
+    type: IndicatorComponent
+  AA:
+    type: IndicatorComponent
+
+# Connection mapping for the various configurations. The mapping is a
+# list of lists, which each element of the outer list being a 4-element
+# inner list: [source_component, source_name, sink_component, sink_name]
+
+connections:
+  CLOCK:
+    - [ZZ]
+    - [clock]
+    - [AA]
