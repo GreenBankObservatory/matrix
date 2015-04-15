@@ -28,39 +28,47 @@
 #if !defined(_PUBLISHER_H_)
 #define _PUBLISHER_H_
 
+#include <string>
+#include <vector>
 #include <memory>
-#include "Mutex.h"
 
-#include <string>
-#include <set>
-#include <map>
-#include <string>
-#include <boost/shared_ptr.hpp>
+class PublisherException : public exception
+{
+    std::string msg;
+
+public:
+
+    PublisherException(std::string err_msg, std::vector<std::string> t std::vector<std::string>())
+    {
+        std::string x = boost::algorithm::join(t, ", ");
+        msg = std::string("Publisher: ") + err_msg + "; " + x;
+    }
+
+    ~PublisherException() throw()
+    {
+    }
+
+    const char *what() const throw()
+    {
+        return msg.c_str();
+    }
+};
 
 class Publisher
 
 {
   public:
 
-    enum
-    {
-        INPROC = 0x01,
-        IPC    = 0x02,
-        TCP    = 0x04
-    };
-
-    Publisher(std::string component, int transports = INPROC,
-              int portnum = 0, std::string keymaster = "");
+    Publisher(std::vector<std::vector<std::string> > urls);
     ~Publisher();
 
     bool publish_data(std::string key, std::string data);
+    std::vector<std::vector<std::string> > get_urls();
 
   private:
 
-    bool _load_config_file(std::string config);
-
     struct PubImpl;
-    boost::shared_ptr<PubImpl> _impl;
+    std::shared_ptr<PubImpl> _impl;
 };
 
 #endif // _PUBLISHER_H_

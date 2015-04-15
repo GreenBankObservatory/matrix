@@ -152,18 +152,16 @@ struct KeymasterServer::KmImpl
  * implementation class handles all the details; the KeymasterServer class
  * merely provides the external interface, and loads the configuration file.
  *
- * @param urls: The state service urls to be used with this
- * service. This is a vector, so more than one may be specified. For
- * example, tcp, ipc, and inproc may be specified in this way:
+ * @param config: The YAML configuration file. Specifies the Keymaster
+ * server configuration and also the initial state of the Keymaster's
+ * data store.
  *
- *       vector<string> urls = {"tcp://*:9000",
- *                              "ipc://matrix.keymaster",
- *                              "inproc://matrix.keymaster"}
- *
- * The KeymasterServer also publishes values that have been changed to any
- * subscribers. These URLs are not well known however. The
- * KeymasterClient class obtains these via request, so that it can
- * then subscribe.
+ * KeymasterServer supports a 0MQ REQ/REP service which allows the
+ * Keymaster client to query for values, alter values, create values and
+ * delete values. KeymasterServer also publishes values that have been
+ * changed by any client to all interested subscribers. These URLs are
+ * not well known however. The Keymaster client class obtains these via
+ * request, so that it can then subscribe.
  *
  */
 
@@ -244,6 +242,11 @@ void KeymasterServer::KmImpl::run()
         }
     }
 }
+
+/**
+ * Terminates the Keymaster server threads cleanly.
+ *
+ */
 
 void KeymasterServer::KmImpl::terminate()
 {
@@ -400,7 +403,7 @@ void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<str
 /**
  * This is the publisher server task.  It sits on the queue waiting
  * for something to be published until it gets a "QUIT" message.  This
- * consists of putting a null pointer on the state queue.
+ * consists of releasing the state queue.
  *
  */
 
@@ -710,28 +713,28 @@ bool KeymasterServer::KmImpl::publish(std::string key)
  * \class KeymasterServer
  *
  * This is a class that provides a 0MQ publishing facility. KeymasterServer
- * both publishes data as a ZMQ PUB, but also provides a REQ/REP
+ * both publishes data as a ZMQ PUB, but also provides a REQ/REP service.
  *
- * Usage involves some setup in the
+ * The KeymasterServer should be one of the first objects created in the
+ * main program entry point:
  *
  *     int main(...)
  *     {
- *         // Instantiate a Zero MQ context, usually one per process.
- *         // It will be used by any 0MQ service in this process.
- *         ZMQContext::Instance();
- *         // Instantiate the 0MQ publisher, where 'component' is the
- *         // component name, and 'port' is the TCP port.
- *         pub = new KeymasterServer(component, port);
- *         ... // rest of component
- *         delete pub; // clean up
- *         ZMQContext::RemoveInstance();
+ *         KeymasterServer *kms;
+ *         kms = new KeymasterServer("config.yaml");
+ *
+ *         if (!kms->run())
+ *         {
+ *             return 1;
+ *         }
+ *
+ *         ...
+ *
  *         return 0;
  *     }
  *
- * Elsewhere in the code:
- *
- *     ...
- *     pub->publish_data(key, data_buf);
+ * The Keymaster now is ready to serve clients. The initial state of the
+ * KeymasterServer is set by the file 'config.yaml'.
  *
  */
 
@@ -739,11 +742,8 @@ bool KeymasterServer::KmImpl::publish(std::string key)
  * KeymasterServer constructor.  Saves the URL, and starts a server
  * thread.
  *
- * @param component: The name of the publishing component.
- * @param transports: one or more of INPROC, IPC and TCP or'ed together.
- * @param portnum: The TCP port number. If not provided, will use a
- *                 transient port.
- * @param keymaster: If provided, the URL of the keymaster.
+ * @param configfile: A YAML configuration file which sets the
+ * Keymaster's data store to an initial state.
  *
  */
 
@@ -767,8 +767,8 @@ KeymasterServer::KeymasterServer(std::string configfile)
 }
 
 /**
- * Signals the server thread that we're done, waiting for it to exit
- * on its own.
+ * Destructor, signals the server thread that we're done, waiting for it
+ * to exit on its own.
  *
  */
 
@@ -805,6 +805,12 @@ void KeymasterServer::terminate()
  *
  * The Keymaster class is a client to the keymaster service,
  * encapsulating and hiding the details of the connection.
+ *
+ * Example usage:
+ *
+ *      Keymaster km("inproc://matrix.keymaster");
+ *      string key = "foo.Transports";
+ *      vector<string> transports = km.get_as<vector<string> >(key)
  *
  *******************************************************************/
 
@@ -993,6 +999,27 @@ void Keymaster::del(std::string key)
 
 /**
  * Subscribes to a key on the keymaster.
+ *
+ * Example usage:
+ *
+ *     template <typename T>
+ *     struct MyCallback : public KeymasterCallbackBase
+ *     {
+ *         MyCallback(T v)
+ *           : data(v)
+ *         {}
+ *
+ *         TCondition<T> data;
+ *
+ *     private:
+ *         void _call(string key, YAML::Node val)
+ *         {
+ *             data.signal(val.as<T>());
+ *         }
+ *     };
+ *
+ *     MyCallback<int> cb(0);
+ *     km.subscribe("components.nettask.source.ID", &cb);
  *
  * @param key: the subscription key.
  *

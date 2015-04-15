@@ -29,11 +29,15 @@
 #include "zmq_util.h"
 
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
+#include <stdlib.h>
 
 using namespace std;
+using namespace std::placeholders;
 
 namespace mxutils
 {
@@ -64,15 +68,145 @@ std::string gen_random_string(const int len)
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
 
+    srandom(time(NULL));
+
     for (int i = 0; i < len; ++i)
     {
-        s.push_back(alphanum[rand() % (sizeof(alphanum) - 1)]);
+        s.push_back(alphanum[random() % (sizeof(alphanum) - 1)]);
     }
 
     return s;
 }
 
+/**
+ * Given a possibly incomplete urn, creates a completed urn.
+ *
+ * The rules are:
+ *
+ *   1 If only the transport is given, a transient URN will be
+ *   generated:
+ *     * tcp: tcp://*:XXXXX (The XXXXXs indicate that the port should be
+ *       randomly chosen from the ephemeral range during bind.)
+ *     * ipc: ipc:///tmp/<20 randomly chosen alphanumeric characters>
+ *     * inproc: inproc://<20 randomly chosen alphanumeric characters.
+ *
+ *   2 A valid partial non-tcp urn may be given. A partial URN is a URN
+ *   which ends in a string of 'X's: ipc:///tmp/XXXXXX. In this case,
+ *   the Xs will be replaced by random alphanumeric characters, one for
+ *   each X.
+ *
+ *   3 A valid partial tcp urn. This is a URN that does not end in
+ *   ':12345', where '12345' may be any 5-digit value < 32768; for
+ *   example, 'tcp://*', or 'tcp://ajax.gb.nrao.edu'. A ':XXXXX' will be
+ *   appended to the URN to indicate that a port from the ephemeral
+ *   range should be chosen.
+ *
+ *   4 A valid complete urn: No trailing XXXXs for the non-tcp
+ *   transports, or a tcp URN complete with valid port number: returned
+ *   as-is.
+ *
+ *   5 None of the above: the URN is returned empty.
+ *
+ * example:
+ *
+ *     string urn = process_zmq_urn("inproc");
+ *     // urn now "inproc://S22JjzhMaiRrV41mtzxl
+ *     string urn2 = process_zmq_urn("ipc://foobar_XXXXXXXXXX");
+ *     // urn2 now "ipc://foobar_aiRrV41mtzx
+ *     string urn3 = process_zmq_urn("tcp");
+ *     // urn3 now "tcp://*:XXXXX
+ *     string urn4 = process_zmq_urn("tcp://*:4242");
+ *     // urn4 == input urn.
+ *
+ * @param urn: the starting URN. It may be a transport, or an incomplete
+ * urn in which case it will be completed. Incomplete urns are those
+ * which end in some number of 'X's, such as 'XXXXX'
+ *
+ * @return A complete URN.
+ *
+ */
 
+std::string process_zmq_urn(const std::string input)
+{
+    string s(input);
+    boost::regex p_tcp("^tcp"), p_inproc("^inproc"), p_ipc("^ipc");
+    boost::regex p_port(":[0-9]{1,5}$"), p_bad_port(":[0-9][A-Za-z]*"), p_xs("X+$");
+    boost::smatch result;
+
+    if (boost::regex_search(s, result, p_inproc) || boost::regex_search(s, result, p_ipc))
+    {
+        // Transport is there; but if it matches, it's the only
+        // thing. Make a temp URN out of it.
+        if (boost::regex_match(s, result, p_inproc) || boost::regex_match(s, result, p_ipc))
+        {
+            // just the transport given. Tack on '://' + 20 random
+            // alphanumeric characters. If 'ipc', add '/tmp', so that
+            // the pipe gets put in there.
+            if (s.find("ipc") != string::npos)
+            {
+                return s + ":///tmp/" + gen_random_string(20);
+            }
+
+            return s + "://" + gen_random_string(20);
+        }
+
+        // It doesn't match just the transport. Look for a partial or
+        // complete URN:
+        if (s.find("://") != string::npos)
+        {
+            int xs = 0;
+
+            // is urn in form 'ipc://foo.bar.XXXX'? replace all
+            // trailing Xs with an equivalent number of randomly
+            // generated alphanumeric characters
+            if (boost::regex_search(s, result, p_xs))
+            {
+                string match = result[0];
+                string replacement = gen_random_string(match.size());
+                return boost::regex_replace(s, p_xs, replacement);
+            }
+
+            // otherwise just return as given.
+            return s;
+        }
+    }
+
+    if (boost::regex_search(s, result, p_tcp))
+    {
+        auto fn_equal_to = bind(equal_to<char>(), _1, ':');
+
+        if (count_if(s.begin(), s.end(), fn_equal_to) <= 2)
+        {
+            if (boost::regex_match(s, result, p_tcp))
+            {
+                // Found just the transport
+                return s + "://*:XXXXX";
+            }
+
+            // look for a partial or complete URN:
+            if (s.find("://") != string::npos)
+            {
+                // check to see if it has a port.
+                if (!boost::regex_search(s, result, p_port))
+                {
+                    if (boost::regex_search(s, result, p_bad_port))
+                    {
+                        // found some weird ':xxx' stuff
+                        return string();
+                    }
+
+                    return s + ":XXXXX";
+                }
+
+                // found a port, return as is.
+                return s;
+            }
+        }
+
+    }
+
+    return string(); // Nope.
+}
 
 /**
  * A simple utility to send stat from within a std::string over a 0MQ

@@ -38,11 +38,11 @@ headers_HEADERS = \
     DataInterface.h \
     FiniteStateMachine.h \
     Keymaster.h \
+    matrix_util.h \
     Semaphore.h \
     Thread.h \
     ThreadLock.h \
     Time.h \
-    Publisher.h \
     ZMQContext.h \
     ZMQDataInterface.h \
     netUtils.h \
@@ -57,18 +57,17 @@ libmatrix_la_SOURCES = \
     DataInterface.cc \
     FiniteStateMachine.cc \
     Keymaster.cc \
+    matrix_util.cc \
     Semaphore.cc \
     Time.cc \
     Thread.cc \
-    Publisher.cc \
     ZMQContext.cc \
     ZMQDataInterface.cc \
     netUtils.cc \
     yaml_util.cc \
     zmq_util.cc
 
-
-libmatrix_la_CXXFLAGS = -pthread -std=c++0x -g -D__XENO__
+libmatrix_la_CXXFLAGS = -pthread -std=c++0x -g 
 libmatrix_la_CFLAGS =  -pthread -g
 libmatrix_la_LDFLAGS = -lpthread
 
