@@ -34,12 +34,8 @@
 #include <errno.h>
 
 #include "Mutex.h"
+#include "Time.h"
 
-#ifdef __XENO__
-    #ifndef CLOCK_HOST_REALTIME
-        #define CLOCK_HOST_REALTIME 42
-    #endif
-#endif
 /****************************************************************//**
  * \class TCondition
  *
@@ -303,27 +299,14 @@ template <typename T> void TCondition<T>::broadcast(T const &s)
 template <typename T> bool TCondition<T>::wait(T const &s, int usecs)
 
 {
-    timeval curtime;
     timespec to;
     int status;
     bool rval = true;
-
-#ifdef __XENO__
-    time_t carry_sec;
-    clock_gettime(CLOCK_HOST_REALTIME, &to);
-    to.tv_nsec += (usecs % 1000000)*1000 + to.tv_nsec;
-    carry_sec   = to.tv_nsec / 1000000000;
-    to.tv_sec  += carry_sec;
-    to.tv_nsec -= carry_sec * 1000000000;
-    to.tv_sec  += usecs / 1000000;
     
-#else
-    gettimeofday(&curtime, 0);
-    to.tv_nsec = (usecs % 1000000 + curtime.tv_usec) * 1000;
-    to.tv_sec  = to.tv_nsec / 1000000000;
-    to.tv_nsec -= to.tv_sec * 1000000000;
-    to.tv_sec  +=  curtime.tv_sec + usecs / 1000000;
-#endif
+    Time::Time_t time_to_return;
+    
+    time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
+    Time::time2timespec(time_to_return, to);
 
     lock();
 
@@ -389,29 +372,15 @@ template <typename T> void TCondition<T>::wait_with_lock(T const &s)
 // Returns with condition locked.
 template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
 {
-    timeval curtime;
     timespec to;
     int status;
     bool rval = true;
 
-#ifdef __XENO__
-    time_t carry_sec;
-    clock_gettime(CLOCK_HOST_REALTIME, &to);
-    to.tv_nsec += (usecs % 1000000)*1000 + to.tv_nsec;
-    carry_sec   = to.tv_nsec / 1000000000;
-    to.tv_sec  += carry_sec;
-    to.tv_nsec -= carry_sec * 1000000000;
-    to.tv_sec  += usecs / 1000000;
+    Time::Time_t time_to_return;
     
-#else
-    gettimeofday(&curtime, 0);
-    to.tv_nsec = (usecs % 1000000 + curtime.tv_usec) * 1000;
-    to.tv_sec  = to.tv_nsec / 1000000000;
-    to.tv_nsec -= to.tv_sec * 1000000000;
-    to.tv_sec  +=  curtime.tv_sec + usecs / 1000000;
-#endif
+    time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
+    Time::time2timespec(time_to_return, to);
     
-    // lock();
     status = pthread_cond_timedwait(&_cond, &mutex, &to);
 
     if (status == ETIMEDOUT)

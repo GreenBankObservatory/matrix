@@ -34,6 +34,23 @@
 using namespace std;
 using namespace Time;
 
+// Functor to check component states. Could do this differently if we had find_not_if (C++11)
+struct NotInState
+{
+    NotInState(std::string s) : compare_state(s) {}
+    // return true if states are not equal
+    bool operator()(std::pair<const std::string, Controller::ComponentInfo> &p)
+    {
+        if (p.second.active)
+        {
+            return p.second.state != compare_state;
+        }
+        return false;
+    }
+
+    std::string compare_state;
+};
+
 
 
 string lstrip(const string s)
@@ -143,9 +160,9 @@ bool Controller::check_all_in_state(string statename)
 bool Controller::wait_all_in_state(string statename, int usecs)
 {
     ThreadLock<decltype(state_condition)> l(state_condition);
-    timespec curtime;
-    Time_t time_to_quit = getUTC() + ((Time_t)usecs)*1000L;
-
+    timespec curtime, to;
+    
+    Time_t time_to_quit = getUTC() + ((Time_t)usecs)*1000L;    
     while ( !check_all_in_state(statename) )
     {
         state_condition.wait_locked_with_timeout(usecs);
@@ -199,11 +216,12 @@ bool Controller::_set_system_mode(string mode)
     }
     current_mode = mode;
     // disable all components for mode change
+    string root = "components.";
     ThreadLock<ComponentMap> l(components);
     for (auto p=components.begin(); p!=components.end(); ++p)
     {
         p->second.active = false;
-        keymaster->put(p->first + ".active", false);
+        keymaster->put(root + p->first + ".active", false);
     }
     l.unlock();
     
@@ -222,7 +240,7 @@ bool Controller::_set_system_mode(string mode)
     {
         bool active = active_components.find(p->first) != active_components.end();
         p->second.active = active;
-        keymaster->put(p->first + ".active", active);
+        keymaster->put(root + p->first + ".active", active);
         result = true;
     }
 
@@ -251,7 +269,7 @@ bool Controller::_create_component_instances()
     
     for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
     {
-        string comp_instance_name = "components." + it->first.as<string>();
+        string comp_instance_name = it->first.as<string>();
         YAML::Node type = it->second["type"];
         
         if (!type)
@@ -265,14 +283,15 @@ bool Controller::_create_component_instances()
         else
         {        
             auto fmethod = factory_methods.find(type.as<string>());
+            string root = "components.";
             // subscribe to the components .state key before creating it
-            string key = comp_instance_name + ".state";
+            string key = root + comp_instance_name + ".state";
             keymaster->subscribe(key, 
                                  new KeymasterMemberCB<Controller>(this, 
                                      &Controller::component_state_changed));
             // create a .command key for the component to listen to
-            keymaster->put(comp_instance_name + ".command", "none", true);
-            keymaster->put(comp_instance_name + ".active", false,   true);
+            keymaster->put(root + comp_instance_name + ".command", "none", true);
+            keymaster->put(root + comp_instance_name + ".active", false,   true);
             // Now do the actual creation          
             components[comp_instance_name].instance = shared_ptr<Component>( 
                 (*fmethod->second)(comp_instance_name, keymaster_url) );
@@ -299,19 +318,18 @@ bool Controller::_configure_component_modes()
     {
         for (YAML::const_iterator md = km_mode.begin(); md != km_mode.end(); ++md)
         {
-            //active_mode_components[md->first.as<string>()] = set<std::string>();
             for (YAML::const_iterator conn = md->second.begin(); conn != md->second.end(); ++conn)
             {
                 YAML::Node n = *conn;
                 if (n.size() > 0)
                 {
                     active_mode_components[md->first.as<string>()]
-                        .insert("components." + n[0].as<string>());
+                        .insert(n[0].as<string>());
                 }
                 if (n.size() > 2)
                 {
                     active_mode_components[md->first.as<string>()]
-                        .insert("components." + n[2].as<string>());                    
+                        .insert(n[2].as<string>());
                 }
             }
         }
@@ -325,17 +343,22 @@ bool Controller::_configure_component_modes()
 }
 
 
-
-
-
-
 // A callback called when the keymaster publish's a components state change.
 // Not sure about the type of the component arg. 
 // I am assuming there will be a last path component of either .state or .status
 void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
 {
-    size_t pos = yml_path.find_last_of('.');
-    string component_name = yml_path.substr(0,pos);
+    size_t p1, p2;
+
+    if ((p1  = yml_path.find_first_of('.')) == string::npos ||
+        (p2  = yml_path.find_last_of('.')) == string::npos)
+    {
+        cerr << "Bad state string from keymaster:" << yml_path << endl;
+        return;
+    }
+
+    string component_name = yml_path.substr(p1+1,p2-p1-1);
+
     ThreadLock<ComponentMap> l(components);
     if (components.find(component_name) == components.end())
     {
@@ -344,11 +367,10 @@ void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
         return;
     }
     
-    auto p = make_pair(yml_path, new_state.as<string>());
+    auto p = make_pair(component_name, new_state.as<string>());
     state_report_fifo.put(p); 
     
     components[component_name].state = new_state.as<string>();
-    components.unlock();
     state_condition.signal();
 }
 
@@ -397,7 +419,7 @@ bool Controller::_send_event(std::string event)
     {
         if (p->second.active || event == "do_init")
         {
-            keymaster->put(p->first + ".command", myevent);
+            keymaster->put("components." + p->first + ".command", myevent);
         }
     }
     return true;
@@ -412,7 +434,6 @@ void Controller::_service_loop()
     while(!done)
     {
         state_report_fifo.get(report);
-        // cout << __classmethod__ << report.first << " is now " << report.second << endl;
     }
 }
 

@@ -169,8 +169,6 @@ public:
     /// shutdown the controller and its components
     void terminate();
     
-      
-protected:    
     struct ComponentInfo
     {
         std::shared_ptr<Component> instance;   
@@ -178,27 +176,12 @@ protected:
         std::string status;
         bool active;
     };
+      
+protected:    
     typedef std::map<std::string, Component::ComponentFactory> ComponentFactoryMap;
     typedef Protected<std::map<std::string, ComponentInfo> > ComponentMap;
     typedef Protected<std::map<std::string, std::set<std::string> > > ActiveModeComponentSet;
     typedef std::pair<std::string, std::string> StateReport;
-
-    // Functor to check component states. Could do this differently if we had find_not_if (C++11)
-    struct NotInState
-    {
-        NotInState(std::string s) : compare_state(s) {}
-        // return true if states are not equal
-        bool operator()(std::pair<const std::string, Controller::ComponentInfo> &p)
-        {
-            if (p.second.active)
-            {
-                return p.second.state != compare_state;
-            }
-            return false;
-        }
-
-        std::string compare_state;
-    };
     
     /// Application specific implementations. This class provides default implementations.
     virtual bool _set_system_mode(std::string);

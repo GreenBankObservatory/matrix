@@ -21,19 +21,11 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#ifndef NANutils_h
-#define NANutils_h
 
-    // Return a Not-A-Number double
-    extern double NANDvalue();
-    
-    // Return a Not-A-Number float
-    extern float NANFvalue();
+#include "Thread.h"
 
-    // Test for a Not-A-Number double
-    int isNAND(double);
-    
-    // Test for a Not-A-Number double
-    int isNANF(float);
-#endif
-    
+// This has to exist somewhere in the matrix library.
+// It can be moved if we ever make a matrix_utils.cc
+// But its here for now.
+ThreadBase::CreateHook ThreadBase::thread_create_hook = 0;
+

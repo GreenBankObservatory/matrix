@@ -38,7 +38,8 @@ namespace Time
 {
 #ifdef __XENO__
      // xenomai's ntp adjusted RT clock
-    #define USE_THE_CLOCK 42
+    // #define USE_THE_CLOCK 42
+    #define USE_THE_CLOCK CLOCK_REALTIME
 #else
     // Use the standard (also ntp tempered) clock
     #define USE_THE_CLOCK CLOCK_REALTIME

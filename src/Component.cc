@@ -97,7 +97,9 @@ bool Component::state_changed()
     return _state_changed();
 }
 
-/// callback for the Created to Standby state transition
+/// Note that in the following do_ methods, if the returned value 
+/// is not true, the state change will not occur.
+/// Callback for the Created to Standby state transition
 bool Component::do_initialize()
 {
     return _do_initialize();
@@ -121,10 +123,16 @@ bool Component::do_stop()
     return _do_stop();
 }
 
-/// callback for the Ready to Standby state transition
+/// callback for the Ready to Standby state transition.
 bool Component::do_standby()
 {
     return _do_standby();
+}
+
+/// callback for handling an error while in the running state
+bool Component::do_runtime_error()
+{
+    return _do_runtime_error();
 }
 
 void Component::server_loop()
@@ -153,11 +161,11 @@ void Component::_server_loop()
 // virtual private implementations of the public interface
 void Component::_contact_keymaster(string keymaster_url)
 {
+    string root = "components.";
     keymaster.reset( new Keymaster(keymaster_url) );
     // perform other user-defined initializations in derived class  
-    keymaster->put(my_instance_name + ".state", fsm.getState(), true);
-    // keymaster->put(my_instance_name + ".command", "register", true);
-    keymaster->subscribe(my_instance_name + ".command", 
+    keymaster->put(root + my_instance_name + ".state", fsm.getState(), true);
+    keymaster->subscribe(root + my_instance_name + ".command", 
                          new KeymasterMemberCB<Component>(this, 
                          &Component::command_changed) );
 
@@ -170,48 +178,54 @@ void Component::_contact_keymaster(string keymaster_url)
 // keymaster for publishing.
 void Component::_initialize_fsm()
 {
-    //          current state:     on event:    next state:
-    fsm.addTransition("Created", "do_init", "Standby");
-    // Commented out to prevent spurious state events before component is fully initialized.
-    fsm.addLeaveAction("Created", new Action<Component>(this, &Component::do_initialize) );
-    // fsm.addLeaveAction("Created", new Action<Component>(this, &Component::handle_leaving_state) );    
+    // Setup the default state machine, and install the predicate methods which
+    // get called when the respect event is received, and return a boolean
+    // indicating whether or not the event handling was successful (i.e
+    // whether or not the state change should take place.)
+    //
+    //          current state:     on event:    next state:  predicate method:
+    fsm.addTransition("Created",  "do_init",    "Standby",
+                      new Action<Component>(this, &Component::do_initialize) );     
+    fsm.addTransition("Standby",  "get_ready",  "Ready", 
+                       new Action<Component>(this, &Component::do_ready) );
+    fsm.addTransition("Ready",    "start",      "Running",
+                      new Action<Component>(this, &Component::do_start) );
+    fsm.addTransition("Running",  "stop",       "Ready",
+                      new Action<Component>(this, &Component::do_stop) );
+    fsm.addTransition("Running",  "error",      "Ready",
+                      new Action<Component>(this, &Component::do_runtime_error) );                      
+    fsm.addTransition("Ready",    "do_standby", "Standby",
+                      new Action<Component>(this, &Component::do_standby) );
+
+    // Now add method callbacks which announce the state changes when a new state is entered.
+    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
     
-    fsm.addTransition("Standby", "get_ready",  "Ready");
-    fsm.addEnterAction("Standby", new Action<Component>(this, &Component::do_standby) );
-    fsm.addLeaveAction("Standby", new Action<Component>(this, &Component::handle_leaving_state) );
+    fsm.addEnterAction("Running", new Action<Component>(this, &Component::handle_entering_state) );
     
-    fsm.addTransition("Ready",   "start",      "Running");
-    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::do_ready) );
-    fsm.addLeaveAction("Ready", new Action<Component>(this, &Component::handle_leaving_state) );
-    
-    fsm.addTransition("Running", "stop",       "Ready");
-    fsm.addEnterAction("Running", new Action<Component>(this, &Component::do_start) );
-    fsm.addLeaveAction("Running", new Action<Component>(this, &Component::handle_leaving_state) );
-    
-    fsm.addTransition("Running", "error",      "Ready");
-    
-    fsm.addTransition("Ready",   "do_standby", "Standby");
+    fsm.addEnterAction("Standby", new Action<Component>(this, &Component::handle_entering_state) );
+
+    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
     
     fsm.setInitialState("Created");
     fsm.run_consistency_check();
 }
 
+// announce that a state has been left
 bool Component::handle_leaving_state()
 {
-    // cout << "Debug:" << my_instance_name << " leaving state " << fsm.getState() << endl;
     return _handle_leaving_state();
 }
 
+// announce that a new state has been entered.
 bool Component::handle_entering_state()
 {
-    // cout << "Debug:" << my_instance_name << " entering state " << fsm.getState() << endl;
     return _handle_entering_state();
 }
 
 bool Component::_handle_leaving_state()
 {
-    
 }
+
 bool Component::_handle_entering_state()
 {
     // propagate the state change to the keymaster...
@@ -237,7 +251,7 @@ std::string Component::_get_state()
 bool Component::_report_state(std::string newstate)
 {
     if (keymaster)
-        keymaster->put(my_instance_name + ".state", newstate);
+        keymaster->put("components." + my_instance_name + ".state", newstate);
     return true;
 }
 
@@ -278,31 +292,31 @@ void Component::_terminate()
 
 bool Component::_do_initialize()
 {
-    state_changed();
     return true;
 }
 
 bool Component::_do_standby()
 {
-    state_changed();
     return true;
 }
 
 bool Component::_do_ready()
 {
-    state_changed();
     return true;
 }
 
 bool Component::_do_start()
 {
-    state_changed();
     return true;
 }
 
 bool Component::_do_stop()
 {
-    state_changed();
+    return true;
+}
+
+bool Component::_do_runtime_error()
+{
     return true;
 }
 

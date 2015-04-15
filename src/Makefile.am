@@ -59,6 +59,7 @@ libmatrix_la_SOURCES = \
     Keymaster.cc \
     Semaphore.cc \
     Time.cc \
+    Thread.cc \
     Publisher.cc \
     ZMQContext.cc \
     ZMQDataInterface.cc \
@@ -67,7 +68,7 @@ libmatrix_la_SOURCES = \
     zmq_util.cc
 
 
-libmatrix_la_CXXFLAGS = -pthread -std=c++0x -g -O0
+libmatrix_la_CXXFLAGS = -pthread -std=c++0x -g -D__XENO__
 libmatrix_la_CFLAGS =  -pthread -g
 libmatrix_la_LDFLAGS = -lpthread
 

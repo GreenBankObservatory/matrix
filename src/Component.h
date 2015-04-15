@@ -127,6 +127,9 @@ public:
     
     /// callback for the Ready to Standby state transition
     bool do_standby();
+    
+    /// callback for handling an error while in the running state
+    bool do_runtime_error();
        
 protected:
     // virtual implementations of the public interface
@@ -180,6 +183,8 @@ protected:
     
     /// callback for the Ready to Standby state transition
     virtual bool _do_standby();
+    
+    virtual bool _do_runtime_error();
 
     
     std::string my_instance_name;

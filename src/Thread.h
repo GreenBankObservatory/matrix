@@ -60,14 +60,35 @@
  *
  *******************************************************************/
 
+/// A base class to hold the thread creation hook.
+/// The default is to do nothing. It is provided for other systems
+/// (e.g. xenomai RTOS) to do some initialization at thread start.
+/// To be safe, the set_thread_create_hook() should be called
+/// prior to creating any threads.
+class ThreadBase 
+{
+public:
+    typedef void (*CreateHook) ();
+    static void set_thread_create_hook(CreateHook h) 
+    {
+        thread_create_hook = h;
+    }
+protected:
+    static CreateHook thread_create_hook;
+};
+
 template<typename T>
-class Thread
+class Thread : public ThreadBase
 {
     typedef Thread<T> THREAD;
 
     /// Redirect to member function.
     static void *thread_proc(void *thread)
     {
+        if (thread_create_hook)
+        {
+            (thread_create_hook)();
+        }
         return reinterpret_cast<THREAD *>(thread)->run();
     }
 
