@@ -27,23 +27,23 @@
 #include<string>
 
 
-/// A Zero-MQ based implementation of a DataSource. Handles
+/// A Zero-MQ based implementation of a TransportServer. Handles
 /// all of the defined ZMQ transport types.
-class ZMQDataSource : public DataSource
+class ZMQTransportServer : public TransportServer
 {
 public:
-    ZMQDataSource(std::string keymaster_url, std::string key);
-    virtual ~ZMQDataSource();
+    ZMQTransportServer(std::string keymaster_url, std::string key);
+    virtual ~ZMQTransportServer();
 
 private:
-    bool _publish(std::string key, void *data, size_t size_of_data);
+    bool _publish(std::string key, const void *data, size_t size_of_data);
     bool _publish(std::string key, std::string data);
 
     struct PubImpl;
     std::shared_ptr<PubImpl> _impl;
 
-    friend class DataSource;
-    static DataSource *factory(std::string, std::string);
+    friend class TransportServer;
+    static TransportServer *factory(std::string, std::string);
 };
 
 /// A concrete DataSink using the Zero-MQ based tranport.

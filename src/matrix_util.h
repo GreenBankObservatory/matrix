@@ -29,9 +29,36 @@
 #define _MATRIX_UTIL_H_
 
 #include <string>
+#include <boost/algorithm/string.hpp>
 
 namespace mxutils
 {
+/**
+ * \class fn_string_join is a simple functor that provides a handy way to
+ * join strings from a container of strings, using the delimiter
+ * provided. It may be used stand-alone, but is most useful with
+ * high-level functions like transform, etc.
+ *
+ */
+
+    struct fn_string_join
+    {
+        fn_string_join(std::string delim)
+        {
+            _delim = delim;
+        }
+
+        template <typename T>
+        std::string operator()(T x)
+        {
+            return boost::algorithm::join(x, _delim);
+        }
+
+    private:
+
+        std::string _delim;
+    };
+
 
     bool is_numeric_p(char c);
     std::string strip_non_numeric(const std::string &s);

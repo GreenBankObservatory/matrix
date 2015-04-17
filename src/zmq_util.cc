@@ -9,7 +9,7 @@
  *  the Free Software Foundation; either version 2 of the License, or
  *  (at your option) any later version.
  *
- *  This program is distributed in the hope that it will be useful, but
+ *  This program is distributed in the hopey that it will be useful, but
  *  WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  *  General Public License for more details.
@@ -67,8 +67,13 @@ std::string gen_random_string(const int len)
         "0123456789"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
+    static bool initialized = false;
 
-    srandom(time(NULL));
+    if (!initialized)
+    {
+        srandom(time(NULL));
+        initialized = true;
+    }
 
     for (int i = 0; i < len; ++i)
     {

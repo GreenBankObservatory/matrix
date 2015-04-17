@@ -23,6 +23,8 @@
 #ifndef DataInterface_h
 #define DataInterface_h
 
+#include "Mutex.h"
+
 #include <string>
 #include <memory>
 #include <exception>
@@ -33,93 +35,175 @@
 /// The intent is to provide a transport independent interface for publishing
 /// data using various 0MQ and/or real-time extensions.
 
+class TransportServer;
+
 /**
-DataSources:
-------------
-A Component data source specification which specifies a DataSource
-binding (using the derived ZMQDataSource) to the tcp and inproc transport
-transport will contain keymaster keys from the configuration file:
-
-      components:
-         myProducer:
-            type: DataProducer
-            source:
-                A: transport [tcp, inproc, rtinproc]
-
-Resulting in the following keys in the keymaster database:
-
-   * components.myProducer.source.A.transport[0] = "tcp"
-   * components.myProducer.source.A.transport[1] = "inproc"
-   * components.myProducer.source.A.transport[2] = "rtinproc"
-
-As the Component creates and binds the DataSource to the various transports
-it adds urn nodes which detail the run-time bound urns. Continuing with
-the example above, the Component would add to the keymaster database:
-
-   * components.myProducer.source.A.urn[0] = "tcp://*.9925"
-   * components.myProducer.source.A.urn[1] = "inproc://myLogger_A"
-   * components.myProducer.source.A.urn[2] = "rtinproc://0x26A4000"
-
-Thus indicating to DataSources exactly how to bind to the desired
-transport. DataSinks, given the path to the DataSource and which
-transport to use can then easily locate the (optionally) dynamically
-assigned tranport port number or address.
-
-***/
+ * These classes will provide a couple of layers of abstration to data
+ * connections.
+ *
+ * At the top level are data sources and sinks. In the simplest terms, a
+ * data sink represents one data stream (one type or named data
+ * entity). A sink of 'Foo' connects to a source of 'Foo'. Sources and
+ * sinks don't care, from a programmatic standpoint, how the data gets
+ * to where it is going. Sinks send data, sources get data, how doesn't
+ * matter at this level.
+ *
+ * At a lower level are the Transport classes. Transports provide the
+ * 'how' mechanism to conduct data from point A (the server) to point B
+ * (the client or clients). This may be a semaphore queue (such as
+ * tsemfifo), ZMQ sockets, shared memory, real time queues, etc. One
+ * transport may also be able to serve several data sources under the
+ * hood. It is this abstraction that may be extended to provide
+ * different mechanisms to get data from A to B.
+ */
 
 /**
  * \class DataSource
  *
- * This is the base class for a data source. DataSource uses a static
- * method to create the appropriate DataSource type given a vector of
- * transports. Because the code that creates an object need not know
- * about the specific implementation of DataSource, this allows base
- * classes, such as the Component base class, to create even
- * user-derived DataSources.  So, given this YAML configuration:
+ * A data source provides the input end of a data's path to the
+ * consumer, or sink. The interface is the same regardless of the data
+ * or the underlying Transport. Data sources are specified in the YAML
+ * configuration using the 'Source' keyword as follows:
  *
- *     components:
- *       nettask:
- *         Transports:
- *           A:
- *             Specified: [my_transport]
+ *     nettask:
+ *     ...
+ *     ...
+ *     Source:
+ *       Data: A
+ *       Log: A
+ *       Foo: A
  *
- * The configuration specifies a 'my_transport' transport. The following
- * code would automatically generate a MyDataSource object, without that
- * typename appearing anywhere in the calling code:
+ * Here 'Source' is a dictionary of 3 associations. The key is the
+ * source name. The value is itself a key to the transport that this
+ * source will need to use to send data. So this denotes 3 DataSources,
+ * all sharing the same transport 'A'. An example use would be:
  *
- *     std::shared_ptr<DataSource> ds;
- *     std::string keymaster = "inproc://matrix.keymaster";
- *     std::string key = "components.nettask.Transports.A";
- *     ds = DataSource::create(keymaster, key);
+ *     auto log = new DataSource("Log", km_urn, component_key);
+ *     log->put(logmsg);
  *
- * In this example, 'create(...)' takes a keymaster urn and a key. It
- * creates a Keymaster client, and fetches the value of 'key'. Looking
- * for 'Specified', it finds the vector [my_transport]. Using this
- * vector it looks up the correct factory method, and creates the
- * correct object.
+ * The constructor takes three arguments:
+ *
+ *  - the data name
+ *  - the keymaster urn
+ *  - the component key
+ *
+ * These are all it needs to set itself up. Using 'km_urn', the
+ * constructor can connect to the Keymaster and obtain the component
+ * node specified by 'component_key'. Using this YAML node it sees that
+ * there is indeed a data source "Log", and that it uses transport
+ * "A". Using this information it can create and/or obtain a reference
+ * to the correct transport. From this point on, 'log->put(data)' will
+ * then translate to a 't->put("log", data)', where 't' is the correct
+ * transport specified in the configuration.
+ *
+ */
+
+class DataSource
+{
+public:
+    DataSource(std::string name, std::string km_urn, std::string component_name);
+    ~DataSource() throw() {};
+
+    bool publish(std::string);
+    bool publish(const void *, size_t);
+
+private:
+    std::string _name;
+    std::string _km_urn;
+    std::string _component_name;
+    std::shared_ptr<TransportServer> _ts;
+
+    // this static member holds all the constructed transport servers
+    // available. It is keyed by the component and transport
+    // names. Because it may be accessed from any number of threads and
+    // components it is also Protected.
+    typedef std::map<std::string, std::shared_ptr<TransportServer> > transport_map_t;
+    typedef Protected<std::map<std::string, transport_map_t> > component_map_t;
+
+    static component_map_t transports;
+    // this static function will return a shared pointer to a
+    // constructed transport, constructing one if it doesn't already exist.
+    static std::shared_ptr<TransportServer> get_transport(std::string km_urn,
+                                                          std::string component_name,
+                                                          std::string transport_name);
+};
+
+/**
+ * \class TransportServer
+ *
+ * The Transport server takes data given to it by the DataSource and
+ * transmits it to the recipient via some sort of transport
+ * technology. The details of the underlying transport are private and
+ * not known to the DataSource. Several implementations may be used:
+ * ZMQ, shared memory, semafore FIFOS, etc.
+
+ * Transports are specified in the YAML configuration using the
+ * 'Transport' keyword inside of a component specification as follows:
+ *
+ *     nettask:
+ *       Transports:
+ *         A:
+ *           Specified: [inproc, tcp]
+ *           AsConfigured: [inproc://slizlieollwd, tcp://ajax.gb.nrao.edu:32553]
+ *       ...
+ *       ...
+ *
+ * Here the component, 'nettask', has 1 transport service, 'A'. It is
+ * specified to support the 'inproc' and 'tcp' transports via the
+ * 'Specified' keyword. Note that the value of this key is a vector;
+ * thus more than one transport may be specified, but they must be
+ * compatible. Here, 'inproc' and 'tcp' transports are both supported by
+ * 0MQ, which also supports the 'ipc' transport. Thus if this list
+ * contains any combination of the three a ZMQ based TransportServer
+ * will be created. DataSource 'Log' will use this Transport because the
+ * key 'Log' has as its value the key 'A', which specifies this
+ * transport.
+ *
+ * When the transport is constructed it will turn the 'Specified' list
+ * of transports into an 'AsConfigured' list of URLs that may be used by
+ * clients to access this service. (Clients will transparently access
+ * these via the TransportClient class & Keymaster.)
+ *
+ * Note here that in transforming the transport specification into URLs
+ * the software generates random, temporary URLs. IPC and INPROC get a
+ * string of random alphanumeric characters, and TCP gets turned into a
+ * tcp url that contains the canonical host name and an ephemeral port
+ * randomly chosen. This can be controlled by providing partial or full
+ * URLs in place of the transport specifier:
+ *
+ *      nettask:
+ *        Transports:
+ *          A:
+ *            Specified: [inproc://matrix.nettask.XXXXX, tcp://*]
+ *            AsConfigured: [inproc://matrix.nettask.a4sLv, tcp://ajax.gb.nrao.edu:52016]
+ *
+ * The 'AsSpecified' values will be identical for inproc and ipc, with
+ * the exception that any 'XXXXX' values at the end of the URL will be
+ * replaced by a string of random alphanumeric characters of the same
+ * length; and for TCP the canonical host name will replace the '*' (as
+ * it is needed by potential clients) and a randomly assigned port
+ * number from the ephemeral port range will be provided, if no port is
+ * given.
  *
  * NOTE ON EXTENDING THIS CLASS: Users who wish to create their own
- * derivations of DataSource, as in the example above, need only create
+ * derivations of TransportServer, as in the example above, need only create
  * the new class with a static 'factory' method that has the signature
- * `DataSource *(*)(std::string, std::string)`. The static
- * 'DataSource::factories' map must then be updated with this new
+ * `TransportServer *(*)(std::string, std::string)`. The static
+ * 'TransportServer::factories' map must then be updated with this new
  * factory method, with the supported transport as keys. Note that the
  * transport names must be unique! If a standard name, or one defined
  * earlier, is reused, the prefious factory will be unreachable.
  *
- *     // 1) declare the new DataSource class
- *     class MyDataSource : public DataSource
+ *     // 1) declare the new TransportServer class
+ *     class MyTransportServer : public TransportServer
  *     {
  *     public:
- *         MyDataSource(std::string, std::string);
- *         ~MyDataSource();
- *         bool register_urn(std::string);
- *         bool unregister_urn(std::string);
- *         bool bind(std::vector<std::string>);
+ *         MyTransportServer(std::string, std::string);
+ *         ~MyTransportServer();
  *         bool publish(std::string, const void *, size_t);
  *         bool publish(std::string, std::string);
  *
- *         static DataSource *factory(std::string, std::string);
+ *         static TransportServer *factory(std::string, std::string);
  *     };
  *
  *     // 2) implement the new class
@@ -127,18 +211,18 @@ assigned tranport port number or address.
  *
  *     // 3) Add the new factory
  *     vector<string> transports = {'my_transport'};
- *     DataSource::add_factory(transports, DataSource *(*)(string, string));
+ *     TransportServer::add_factory(transports, TransportServer *(*)(string, string));
  *
  */
 
-class DataSource
+class TransportServer
 {
 public:
-    DataSource(std::string keymaster_url, std::string key);
-    virtual ~DataSource();
+    TransportServer(std::string keymaster_url, std::string key);
+    virtual ~TransportServer();
 
     bool bind(std::vector<std::string> urns);
-    bool publish(std::string key, void *data, size_t size_of_data);
+    bool publish(std::string key, const void *data, size_t size_of_data);
     bool publish(std::string key, std::string data);
 
     // exception type for this class.
@@ -152,7 +236,7 @@ public:
                       std::vector<std::string> t = std::vector<std::string>())
         {
             std::string transports = boost::algorithm::join(t, ", ");
-            msg = std::string("Cannot create DataSource for transports "
+            msg = std::string("Cannot create TransportServer for transports "
                               + transports + ": " + err_msg);
         }
 
@@ -166,19 +250,19 @@ public:
         }
     };
 
-    typedef DataSource *(*factory_sig)(std::string, std::string);
+    typedef TransportServer *(*factory_sig)(std::string, std::string);
 
     // Manage the factories map:
     static void add_factory(std::vector<std::string>, factory_sig);
 
     // 'create()' will map from the transport(s) it finds at
-    // 'transport_key' to the correct DataSource type
-    static std::shared_ptr<DataSource> create(std::string km_urn, std::string transport_key);
+    // 'transport_key' to the correct TransportServer type
+    static std::shared_ptr<TransportServer> create(std::string km_urn, std::string transport_key);
 
 protected:
 
     virtual bool _bind(std::vector<std::string> urns);
-    virtual bool _publish(std::string key, void *data, size_t size_of_data);
+    virtual bool _publish(std::string key, const void *data, size_t size_of_data);
     virtual bool _publish(std::string key, std::string data);
 
     bool _register_urn(std::vector<std::string> urns);
@@ -191,20 +275,22 @@ private:
     // the factories map. For types that handle multiple transports
     // there will be more than one entry for that factory. This is of
     // little consequence.
-    static std::map<std::string, factory_sig> factories;
+    typedef std::map<std::string, factory_sig> factory_map_t;
+    static factory_map_t factories;
+    static Mutex factories_mutex;
 };
 
-inline bool DataSource::bind(std::vector<std::string> urns)
+inline bool TransportServer::bind(std::vector<std::string> urns)
 {
     return _bind(urns);
 }
 
-inline bool DataSource::publish(std::string key, void *data, size_t size_of_data)
+inline bool TransportServer::publish(std::string key, const void *data, size_t size_of_data)
 {
     return _publish(key, data, size_of_data);
 }
 
-inline bool DataSource::publish(std::string key, std::string data)
+inline bool TransportServer::publish(std::string key, std::string data)
 {
     return _publish(key, data);
 }
@@ -216,14 +302,14 @@ inline bool DataSource::publish(std::string key, std::string data)
 /**
 DataSinks:
 ----------
-After the Component DataSources are constructed, the Controller may issue
+After the Component TransportServers are constructed, the Controller may issue
 a "prepare" event to instruct the Components to connect their DataSinks
-to the now bound DataSources. Each DataSink then searches the keymaster
-for the bound urn for the DataSource it needs. Recall that for DataSinks, each
-component is provided a path of the DataSource, and a transport to
-use. An example of the keys for the DataSource might be (repeating a
-portion of the the example from the DataSource page) the key/values for the
-bound DataSource 'A' would be:
+to the now bound TransportServers. Each DataSink then searches the keymaster
+for the bound urn for the TransportServer it needs. Recall that for DataSinks, each
+component is provided a path of the TransportServer, and a transport to
+use. An example of the keys for the TransportServer might be (repeating a
+portion of the the example from the TransportServer page) the key/values for the
+bound TransportServer 'A' would be:
 
    * components.myProducer.source.A.urn[0] = "tcp://*.9925"
    * components.myProducer.source.A.urn[1] = "inproc://myLogger_A"
@@ -240,7 +326,7 @@ So provided a hypothetical entry for the connections section:
             VEGAS_1:
                 - [myProducer, A, myLogger, input_data, tcp]
 
-The myLogger Component input_data DataSink wanting to get data from the DataSource noted above
+The myLogger Component input_data DataSink wanting to get data from the TransportServer noted above
 would generate and query for the key:
 
    * components.myProducer.sink.A.urn
