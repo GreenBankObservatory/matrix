@@ -1,0 +1,139 @@
+---
+
+# Keymaster
+
+Keymaster:
+  URLS:
+    Initial:
+      - inproc://matrix.keymaster
+      - tcp://*:42000
+
+# Components in the system
+#
+# Each component has a name by which it is known. Some components have 0
+# or more data sources, and 0 or more data sinks. The sources are known
+# by their URLs. The sinks are just listed by name (for now).
+
+components:
+  logger:
+    PubURL: [tcp://*:6666]
+  sink:
+    - Log
+
+  nettask:
+    Transports:
+      A:
+        Specified: [inproc]
+
+    Sources:
+      Data: A
+      Log: A
+      Foo: A
+
+  gputask:
+    source:
+      A:
+        Transports: [inproc]
+      B:
+        Transports: [inproc]
+    data:
+      Data: B
+      Log: A
+    sink:
+      - Data
+
+  cputask:
+    source:
+      A:
+        Transports: [inproc]
+      B:
+        Transports: [inproc]
+    data:
+      Data: B
+      Log: A
+    sink:
+      - Data
+
+  guppitask:
+    source:
+      A:
+        Transports: [inproc]
+      B:
+        Transports: [inproc]
+    data:
+      Data: B
+      Log: A
+    sink:
+      - Data
+
+  vegas_disk:
+    sink:
+      A: inproc
+
+  guppi_disk:
+    sink:
+      - Data
+
+# Connection mapping for the various configurations, or modes. Specifies
+# the logical connection between all data producers and all data
+# consumers.
+#
+# The mapping is a list of lists. Each element of the outer list is
+# itself a 4 or 5-element list that specifies one logical connection,
+# i.e. what data one sink will consume and from whom it will consume it.
+#
+# The format of this list is:
+#
+#   [source_component, source_name, sink_component, sink_name, transport]
+#
+# source_component: The name of the component that is producing the data.
+#
+# source_name: The name of the data being produced by 'source_component'
+# that the sink wishes to consume. The source component maps this to a
+# particular 0MQ server or Xenomai queue that will emit the data. (The
+# sink class implementation obtains this mapping by looking at the
+# source's YAML configuration to make the proper ZMQ socket/xenomai
+# queue connection.)
+#
+# sink_component: The name of the consuming component.
+#
+# sink_name: The name of the sink that is to consume the source
+# data. This sink will obtain the correct URL to connect to by looking
+# at the source component's configuration via the Keymaster.
+#
+# transport: optional. It is needed only in the cases where the source
+# server is a 0MQ server, and that server is bound to more than one 0MQ
+# transport.  In those cases the sink encounters an abiguity: which URL
+# should my socket connect to? This entry disambiguates this.
+#
+# So, if you see the following:
+#
+#    - [foocomponent, bar, bazcomponent, quux, inproc]
+#
+# it may be read "bazcomponent's sink 'quux' consumes foocomponent's
+# source 'bar'. When making the connection choose the 'inproc' URL
+# if more than one is available."
+#
+
+connections:
+  VEGAS_HBW:
+    - [nettask, Data, cputask, Data]
+    - [cputask, Data, vegas_disk, Data]
+    - [nettask, Log, Logger, Log]
+    - [cputask, Log, Logger, Log]
+    - [vegas_disk, Log, Logger, Log]
+
+  VEGAS_LBW:
+    - [nettask, Data, gputask, Data, inproc]
+    - [gputask, Data, cputask, Data]
+    - [cputask, Data, vegas_disk, Data]
+    - [nettask, Log, Logger, log]
+    - [gputask, Log, Logger, log]
+    - [cputask, Log, Logger, log]
+    - [vegas_disk, Log, Logger, log]
+
+  GUPPI:
+    - [nettask, Data, guppitask, Data]
+    - [guppitask, Data, guppi_disk, Data]
+    - [nettask, Log, Logger, Log]
+    - [guppitask, Log, Logger, Log]
