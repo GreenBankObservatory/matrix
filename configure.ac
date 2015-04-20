@@ -33,6 +33,9 @@ AC_PREREQ([2.59])
 # required - args are: Project name, version, contacts
 AC_INIT([Matrix], [0.1], [jbrandt AT nrao.edu, rcreager AT nrao.edu])
 
+
+AC_CONFIG_MACRO_DIR([m4])
+
 # unique source file --- primitive safety check
 AC_CONFIG_SRCDIR([src/Controller.cc])
 
@@ -44,6 +47,7 @@ AC_CONFIG_SRCDIR([src/Controller.cc])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.9.6])
 
 # Checks for programs.
+AM_PROG_AR
 # Project uses plain C source
 AC_PROG_CC
 # Project has C++ source
