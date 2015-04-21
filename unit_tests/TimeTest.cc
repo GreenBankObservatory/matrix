@@ -25,6 +25,7 @@
 #include "TimeTest.h"
 #include "Time.h"
 #include <sys/time.h>
+#include <math.h>
 
 using namespace std;
 using namespace Time;
@@ -49,7 +50,8 @@ void TimeTest::test_conversions()
     tm gmt;
     timespec ts;
     timeval tv;
-    int mjd;
+    unsigned int mjd,msec;
+    double secs;
     Time_t T1, T2;
     
     tv.tv_sec = (365*3 + 31+5)*86400 + 9*3600; // seconds at Feb 5 1973, 9:00:00.5 UTC
@@ -62,9 +64,8 @@ void TimeTest::test_conversions()
     T2 = timespec2Time(ts);
     
     CPPUNIT_ASSERT(T1 == T2);
-    
+
     int yr, month, dayom, hour, mins;
-    double secs;
     
     calendarDate(T1, yr, month, dayom, hour, mins, secs);
     // printf("%d / %d / %d  %d:%d:%f\n", yr, month, dayom, hour, mins, secs);
@@ -90,6 +91,12 @@ void TimeTest::test_conversions()
     CPPUNIT_ASSERT(mins == result.tm_min);
     CPPUNIT_ASSERT((int)secs == result.tm_sec);
            
+    T1 = timeStamp2Time(50000, 20000);
+    time2TimeStamp(T1, mjd, msec);
+    time2TimeStamp(T1, mjd, secs);
+    CPPUNIT_ASSERT(mjd == 50000);
+    CPPUNIT_ASSERT( fabs((secs*1E3) - msec) < 1 );
+    
 }
 
 

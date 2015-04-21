@@ -49,9 +49,10 @@ namespace Time
     void   time2timeval(const Time_t, timeval &);
 
     int    MJD(const Time_t);
-    Time_t timestamp(int MJD, int msec_since_midnight);
-    void   time2timestamp(const Time_t, int &mjd, int &msec_since_midnight);
-    void   time2timestamp(const Time_t, int &mjd, double &msec_since_midnight);
+    
+    Time_t timeStamp2Time(uint32_t mjd, uint32_t msec);
+    void   time2TimeStamp(const Time_t, uint32_t &mjd, uint32_t &msec_since_midnight);
+    void   time2TimeStamp(const Time_t, uint32_t &mjd, double   &msec_since_midnight);
 
     // Analog to gmtime()
     bool   calendarDate(const Time_t, int &year,   int &month, int &dayofmonth,

@@ -89,7 +89,7 @@ int MJD(const Time_t t)
 }
 
 // Note: This routine can only calculate MJD's for dates after 1970/1/1
-Time_t TimeStamp2Time(unsigned int mjd, unsigned int msec)
+Time_t timeStamp2Time(uint32_t mjd, uint32_t msec)
 {
     Time_t t = ((Time_t)(mjd - MJD_1970_EPOCH)) * NANOSEC_PER_DAY;
     t += ((Time_t)(msec)) * 1000000LL;
@@ -97,10 +97,17 @@ Time_t TimeStamp2Time(unsigned int mjd, unsigned int msec)
 }
 
 // Same restriction as above, truncates precision down to millisecond level
-void  Time2TimeStamp(const Time_t t, unsigned int *mjd, unsigned int *msec)
+void  time2TimeStamp(const Time_t t, uint32_t &mjd, uint32_t &msec)
 {
-    *mjd  = MJD(t);
-    *msec = (unsigned int)((t/1000000LL)%86400000LL);
+    mjd  = MJD(t);
+    msec = (unsigned int)((t/1000000LL)%86400000LL);
+}
+
+// Same restriction as above, truncates precision down to millisecond level
+void  time2TimeStamp(const Time_t t, uint32_t &mjd, double &msec)
+{
+    mjd  = MJD(t);
+    msec = static_cast<double>(t%86400000000000LL)*1E-9;
 }
 
 //                           N/A  J   F   M   A   M   J   J   A   S   O   N   D
