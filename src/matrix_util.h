@@ -29,6 +29,12 @@
 #define _MATRIX_UTIL_H_
 
 #include <string>
+#include <sstream>
+#include <iostream>
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
 
 namespace mxutils
@@ -62,6 +68,27 @@ namespace mxutils
 
     bool is_numeric_p(char c);
     std::string strip_non_numeric(const std::string &s);
+
+/**
+ * Outputs a vector to an ostream
+ *
+ * @param v: the vector to be output
+ *
+ * @param o: the ostream type
+ *
+ */
+
+    template <typename T>
+    void output_vector(std::vector<T> v, std::ostream &o)
+    {
+        std::ostringstream str;
+        str << "[";
+        std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
+        std::string s = str.str();
+        std::string y(s.begin(), s.end() - 2);
+        y += "]";
+        o << y;
+    }
 
 /**
  * These template specializations convert 's' to a value of type T and

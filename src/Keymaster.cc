@@ -438,11 +438,8 @@ void KeymasterServer::KmImpl::server_task()
 
         try
         {
-            vector<string> keys;
-            boost::split(keys, dp.key, boost::is_any_of("."));
-
             // Publish "Root" if there is no key
-            if (keys.empty())
+            if (dp.key.empty())
             {
                 ostringstream yr;
                 yr << dp.node;
@@ -451,6 +448,9 @@ void KeymasterServer::KmImpl::server_task()
             }
             else
             {
+                vector<string> keys;
+                boost::split(keys, dp.key, boost::is_any_of("."));
+
                 // Publish with keys
                 for (int i = 1; i < keys.size() + 1; ++i)
                 {
@@ -580,15 +580,11 @@ void KeymasterServer::KmImpl::state_manager_task()
 
                         if (keychain == "Root")
                         {
-                            yaml_result r(true, _root_node, "Root");
-                            rval << r;
-                        }
-                        else
-                        {
-                            yaml_result r = get_yaml_node(_root_node, keychain);
-                            rval << r;
+                            keychain = "";
                         }
 
+                        yaml_result r = get_yaml_node(_root_node, keychain);
+                        rval << r;
                         z_send(state_sock, rval.str());
                     }
                     else
@@ -605,6 +601,12 @@ void KeymasterServer::KmImpl::state_manager_task()
                     if (frame.size() > 1)
                     {
                         string keychain = frame[0];
+
+                        if (keychain == "Root")
+                        {
+                            keychain = "";
+                        }
+
                         string yaml_string = frame[1];
                         bool create = false;
 
@@ -1151,6 +1153,13 @@ void Keymaster::_subscriber_task()
                     z_recv(pipe, key);
                     z_recv(pipe, f_ptr);
 
+                    // Publisher publishes this as 'Root'. A
+                    // subscription with an empty key subscribes to all keys.
+                    if (key.empty())
+                    {
+                        key = "Root";
+                    }
+
                     _callbacks[key] = f_ptr;
                     sub_sock.setsockopt(ZMQ_SUBSCRIBE, key.c_str(), key.length());
                     z_send(pipe, 1);
@@ -1159,6 +1168,12 @@ void Keymaster::_subscriber_task()
                 {
                     string key;
                     z_recv(pipe, key);
+
+                    if (key.empty())
+                    {
+                        key = "Root";
+                    }
+
                     sub_sock.setsockopt(ZMQ_UNSUBSCRIBE, key.c_str(), key.length());
 
                     if (_callbacks.find(key) != _callbacks.end())
