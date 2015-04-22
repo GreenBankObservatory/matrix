@@ -44,10 +44,12 @@
 #include "cmdparam.h"
 #include "matrix_util.h"
 
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace mxutils;
+using namespace std::placeholders;
 
 string CmdParam::_def_buf("-8181");
 
@@ -64,19 +66,23 @@ string CmdParam::_def_buf("-8181");
  *
  */
 
+static string trim(string in)
+{
+    boost::trim(in);
+    return in;
+}
+
 bool CmdParam::new_list(string cmdline)
 
 {
-    // int i;
-    // char *c, *paramlist, *cp[3], *endptr;
-    // auto_array<char *> pl;
-
+    string cmdl;
 
     clear();
-    _cmd_str = cmdline; // save the original.
+    // strip out spaces at the end & save original
+    _cmd_str = cmdl = trim(cmdline);
 
     vector<string> parts;
-    boost::split(parts, cmdline, boost::is_any_of(_delimiter), boost::token_compress_on);
+    boost::split(parts, cmdl, boost::is_any_of(_delimiter), boost::token_compress_on);
 
     if (parts.empty())
     {
@@ -131,14 +137,23 @@ bool CmdParam::_parse_parameters(vector<string> rawlist)
         // opens a quoted string
         if (i->at(0) == '"')
         {
-            bits.push_back(*i);
+            // don't include the quote, it's just for this.
+            bits.push_back(string(i->begin() + 1, i->end()));
 
             // continue adding to this param as long as back is not end
             // of quote
             while (i->at(i->size() - 1) != '"')
             {
                 ++i;
-                bits.push_back(*i);
+
+                if (i->at(i->size() - 1) == '"')
+                {
+                    bits.push_back(string(i->begin(), i->end() - 1));
+                }
+                else
+                {
+                    bits.push_back(*i);
+                }
             }
         }
         else

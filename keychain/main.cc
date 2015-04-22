@@ -30,11 +30,13 @@
 #include "ThreadLock.h"
 #include "Keymaster.h"
 #include "zmq_util.h"
+#include "matrix_util.h"
 
 #include <sys/select.h>
 #include <signal.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -43,9 +45,13 @@
 #include <set>
 #include <list>
 #include <iostream>
+#include <algorithm>
+#include <iterator>
+#include <iomanip>
 
 using namespace std;
 using namespace mxutils;
+using namespace std::placeholders;
 
 typedef void (*V_FP)(CmdParam &);
 
@@ -53,10 +59,12 @@ void add_cmd(string key, V_FP func);
 
 void ls(CmdParam &);
 void tree(CmdParam &);
-void down(CmdParam &);
-void up(CmdParam &);
+void cd(CmdParam &);
+void pwd(CmdParam &);
 void read(CmdParam &);
 void write(CmdParam &);
+void new_node(CmdParam &);
+void del_node(CmdParam &);
 void help(CmdParam &);
 
 bool init(int argc, char *argv[]);
@@ -69,10 +77,17 @@ volatile bool quit = false;
 CmdParam cmdline;
 bool output = true;
 
-YAML::Node root_node;
 YAML::Node current_node;
 Mutex node_mtx;
-list<string> current_path;
+vector<string> current_path = {""};
+vector<string> yaml_type_names =
+{
+    "Undefined",
+    "Null",
+    "Scalar",
+    "Sequence",
+    "Map"
+};
 
 shared_ptr<Keymaster> keymaster;
 
@@ -84,11 +99,300 @@ private:
     {
         ThreadLock<Mutex> l(node_mtx);
         l.lock();
-        root_node = val;
+        current_node = YAML::Clone(val);
     }
 };
 
 KeychainCallback km_cb;
+
+/**
+ * Returns a keychain from a vector of keys, according to the following
+ * rules:
+ *
+ *   * if vector cp is empty, return ""
+ *   * if cp.size() == 1 return cp.front()
+ *   * if cp.size() > 1
+ *      * if cp.front().empty(), skip the front, join the rest on '.'
+ *      * otherwise join all of cp on '.'
+ *
+ * The idea is to ensure that the keychain will always be "", or "key",
+ * or "key1.key2.key3" etc. and never have a leading period.
+ *
+ * @param cp: the vector of keys with which to create the keychain
+ *
+ * @return a keychain string as described above.
+ *
+ */
+
+string key_from(vector<string> &cp)
+{
+    if (cp.size() == 0)
+    {
+        return "";
+    }
+    else if (cp.size() == 1)
+    {
+        return cp.front();
+    }
+    else
+    {
+        fn_string_join fn(".");
+
+        if (cp.front().empty())
+        {
+            return fn(vector<string>(cp.begin() + 1, cp.end()));
+        }
+        else
+        {
+            return fn(cp);
+        }
+    }
+}
+
+/**
+ * For key completion. Any string given to readline will be deleted by readline.
+ *
+ * @param char *s: The string to copy
+ *
+ * @return a new string allocated on the heap.
+ *
+ */
+
+static char *dupstr(char *s)
+{
+    char *r;
+
+    r = (char *)malloc(strlen(s) + 1);
+    strcpy (r, s);
+    return (r);
+}
+
+/**
+ * Generator function for key completion. The goal is to autocomplete on
+ * a key at the current level, and if a period '.' is given in that key
+ * to decend to the next level (if that key is good) and autocomplete
+ * there on a new set of keys, etc.
+ *
+ * @param state: indicates whether to start from scratch. When 0, we
+ * start fresh by generating a list of possible completions at this
+ * level.
+ *
+ * @param text: the text to consider.
+ *
+ * @return returns a char * to an allocated string if there is a match,
+ * or NULL otherwise.
+ *
+ */
+
+static char * key_generator(const char *text, int state)
+{
+    static vector<string> possibles, keys;
+    static int list_index, parts = 0;
+    string name, entered(text);
+    int new_count;
+
+    // starting from scratch:
+    if (!state)
+    {
+        list_index = 0;
+        parts = 0;
+        possibles.clear();
+        keys.clear();
+        YAML::iterator i;
+
+        for (i = current_node.begin(); i != current_node.end(); ++i)
+        {
+            ostringstream str;
+            str << i->first;
+            possibles.push_back(str.str());
+        }
+
+        possibles.push_back(string("")); // term.
+    }
+
+    auto fn_equal_to = bind(equal_to<char>(), _1, '.');
+
+    // the given key has a period in it. Split the key, saving all but
+    // the last part in 'keys'. The last part is what we need to
+    // autocomplete on.
+    if (entered.find(".") != string::npos)
+    {
+        keys.clear();
+        boost::split(keys, entered, boost::is_any_of("."));
+        entered = keys.back();
+        keys.pop_back();
+        string s(text); // use just to count dots '.'
+
+        // Check if the count has changed. If so, another key has been
+        // added to the keychain, so decend into the next level and
+        // compile a new list of possible completions
+        if ((new_count = count_if(s.begin(), s.end(), fn_equal_to)) > parts)
+        {
+            parts = new_count;
+            list_index = 0;
+            yaml_result yr = get_yaml_node(current_node, key_from(keys));
+
+            if (yr.result)
+            {
+                YAML::iterator i;
+                possibles.clear();
+                list_index = 0;
+
+                for (i = yr.node.begin(); i != yr.node.end(); ++i)
+                {
+                    ostringstream str;
+                    str << i->first;
+                    possibles.push_back(str.str());
+                }
+
+                possibles.push_back(string(""));
+            }
+            else
+            {
+                return (char *)NULL;
+            }
+        }
+    }
+
+    // look for the last component of the keychain.
+    while (!(name = possibles[list_index]).empty())
+    {
+        list_index++;
+
+        // if found, assemble the entire keychain and return.
+        if (name.find(entered) != string::npos)
+        {
+            keys.push_back(name);
+            string complete = key_from(keys);
+            return dupstr((char *)complete.c_str());
+        }
+    }
+
+    return (char *)NULL;
+}
+
+/**
+ * Handles the key completion for readline.
+ *
+ * @param text: the given text
+ *
+ * @param start: the column # on the line where this text starts
+ *
+ * @param end: the column # on the line where this text ends
+ *
+ * @return A list of possible matches.
+ *
+ */
+
+static char **key_completion(const char *text , int start,  int end)
+{
+    char **matches;
+    matches = (char **)NULL;
+
+    if (start > 1)
+    {
+        matches = rl_completion_matches((char*)text, &key_generator);
+    }
+    else
+    {
+        rl_bind_key('\t', rl_abort);
+    }
+
+    return matches;
+}
+
+/**
+ * Changes the key level. When the utility starts, the level is 'Root',
+ * at the top. When the user wishes to go down [cd key1.key2] this
+ * routine navigates 'current_node' down to the new level, recording the
+ * current path "key1.key2", and requesting a new current_node from the
+ * keymaster at this level. It also subscribes the new path from the
+ * keymaster, so that any changes to the node at this new level is
+ * automatically recorded.
+ *
+ * If a path is given with a leading period, i.e. ".foo.bar", the
+ * command will attempt to switch to an absolute path "foo.bar" based on
+ * "Root". If not, the command assumes this is a relative path.
+ *
+ * If ".." is given, the command will move up one level.
+ *
+ * @param level: The new desired level. "key" attempts to move down to
+ * "key" from the current level. ".." moves up one level (unless already
+ * at the top). "key1.key2" attempts to move to "key2" of the node at
+ * "key1" in this level. ".key1.key2" attempts to move to the node at
+ * "key2" in the node at "key1" from the top level.
+ *
+ */
+
+void change_level(string level)
+{
+    string old_key;
+    string new_key;
+
+    old_key = key_from(current_path);
+
+    // go up one level
+    if (level == "..")
+    {
+        if (!old_key.empty()) // not at the top
+        {
+            keymaster->unsubscribe(old_key);
+            current_path.pop_back();
+            new_key = key_from(current_path);
+            keymaster->subscribe(new_key, &km_cb);
+            current_node = keymaster->get(new_key);
+        }
+        else
+        {
+            cout << "Already at top." << endl;
+        }
+    }
+    else if (level.at(0) == '.') // absolute path
+    {
+        YAML::Node new_node;
+        vector<string> nks;
+
+        // a boost::split on "." would produce nks == {"", ""}, so
+        // we must catch this and fix it up.
+        if (level == ".")
+        {
+            nks = {""};
+        }
+        else
+        {
+            boost::split(nks, level, boost::is_any_of("."));
+        }
+
+        new_key = key_from(nks);
+        new_node = keymaster->get(new_key);
+        keymaster->subscribe(new_key, &km_cb);
+        // now that all throwable keymaster stuff is done, make the
+        // switch:
+        current_path = nks;
+        current_node = new_node;
+    }
+    else // relative path from here
+    {
+        yaml_result yr = get_yaml_node(current_node, level);
+
+        if (yr.result == true)
+        {
+            current_node = YAML::Clone(yr.node);
+            vector<string> nks;
+            boost::split(nks, level, boost::is_any_of("."));
+            current_path.insert(current_path.end(), nks.begin(), nks.end());
+            new_key = key_from(current_path);
+            keymaster->subscribe(new_key, &km_cb);
+        }
+        else
+        {
+            cout << "Could not switch to " << level << endl;
+            cout << yr.err << endl;
+        }
+    }
+
+    cout << "." << key_from(current_path) << endl;
+}
 
 /**
  * Program entry point.  Initializes and runs the program.
@@ -116,8 +420,8 @@ int main(int argc, char *argv[])
 }
 
 /**
- * Run loop for mcbcmd.  Uses the GNU readline library to provide
- *  command line services (edit and history.)
+ * Run loop.  Uses the GNU readline library to provide command line
+ *  services (edit, history, and tab-completion of keys)
  *
  */
 
@@ -127,18 +431,22 @@ void run()
     V_FP f;
     map<string, V_FP>::iterator i;
     string Exit("exit"), Quit("quit");
-    string in_buf;
+    char *line;
 
 
+    rl_attempted_completion_function = key_completion;
     using_history();
 
     while (!quit)
     {
-        in_buf = readline("km > ");
+        string prompt = "-- ~." + key_from(current_path) + "~\n$ ";
 
-        if (in_buf[0] != '\0' && !quit)  // quit might be set, and waiting for <CR>
+        line = readline(prompt.c_str());
+
+        if (line[0] != '\0' && !quit)  // quit might be set, and waiting for <CR>
         {
-            cmdline.new_list(in_buf);
+            rl_bind_key('\t', rl_complete);
+            cmdline.new_list(line);
 
             if (Exit == cmdline.cmd() || Quit == cmdline.cmd())
             {
@@ -151,16 +459,39 @@ void run()
 
                 if (f)
                 {
-                    f(cmdline);
+                    try
+                    {
+                        f(cmdline);
+                    }
+                    catch (KeymasterException e)
+                    {
+                        cout << cmdline.cmd() << ": " << e.what() << endl;
+                    }
+                    catch (runtime_error e)
+                    {
+                        if (cmdline.cmd() == "read")
+                        {
+                            // TBF. Read doesn't work very well. May
+                            // remove it.
+                            f = cmds["tree"];
+                            f(cmdline);
+                        }
+                        else
+                        {
+                            cout << cmdline.cmd() << ": " << e.what() << endl;
+                        }
+                    }
                 }
 
-                add_history(in_buf.c_str());
+                add_history(line);
             }
             else
             {
                 cout << cmdline.cmd() << ": command not found" << endl;
             }
         }
+
+        free(line);
     }
 }
 
@@ -208,19 +539,27 @@ bool init(int argc, char *argv[])
         }
 
         keymaster.reset(new Keymaster(url));
+        vector<string> km_pub_urls = keymaster->get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
+
+        output_vector(km_pub_urls, cout);
+        cout << endl;
+
         keymaster->subscribe("Root", &km_cb);
-        root_node = keymaster->get("Root");
-        current_node = root_node;
+        current_node = keymaster->get("Root");
 
         signal(SIGINT, sig_handler);
         signal(SIGTERM, sig_handler);
 
         add_cmd("ls", ls);
+        add_cmd("dir", ls);     // alias
         add_cmd("tree", tree);
-        add_cmd("down", down);
-        add_cmd("up", up);
+        add_cmd("cd", cd);
+        add_cmd("pwd", pwd);
         add_cmd("read", read);
         add_cmd("write", write);
+        add_cmd("new", new_node);
+        add_cmd("del", del_node);
+        add_cmd("rm", del_node);
         add_cmd("help", help);
     }
     catch (KeymasterException e)
@@ -233,10 +572,22 @@ bool init(int argc, char *argv[])
 
 }
 
+/**
+ * Lists all the nodes at the current level, or at the provided key down
+ * from the current level. ("ls .." is not supported.)
+ *
+ * @param p: The parameter object. If there is a parameter, use it as
+ * the key to list.
+ *
+ */
+
 void ls(CmdParam &p)
 {
     static string help = "ls\n"
-        "\tlists the keys at the current level.\n";
+        "\tlists the key names at the current level, or at the given key:\n"
+        "usage:\n"
+        "\tls\n"
+        "\tls <key>";
 
     if (print_help(p, help))
     {
@@ -246,17 +597,52 @@ void ls(CmdParam &p)
     ThreadLock<Mutex> l(node_mtx);
     l.lock();
     YAML::iterator yi;
+    YAML::Node n;
 
-    for (yi = current_node.begin(); yi != current_node.end(); ++yi)
+    if (p.count() > 0)
     {
-        cout << yi->first << endl;
+        n = current_node[p[0]];
+    }
+    else
+    {
+        n = current_node;
+    }
+
+    if (n.Type() == YAML::NodeType::Map)
+    {
+        cout << setw(15) << left << "Type:" << setw(50) << "Name:" << endl;
+
+        for (yi = n.begin(); yi != n.end(); ++yi)
+        {
+            ostringstream str;
+            str << yi->first;
+
+            cout << "  " << setw(15) << left << yaml_type_names[yi->second.Type()]
+                 << setw(50) << str.str() << endl;
+        }
+    }
+    else
+    {
+        cout << "Not a map." << endl;
     }
 }
+
+/**
+ * Outputs the entire contents of the node in YAML format
+ *
+ * @param p: The command's parameters. If there is one, it is assumed to
+ * be a key to the node to be output.
+ *
+ */
 
 void tree(CmdParam &p)
 {
     static string help = "tree\n"
-        "\tprints the entire node at this level in tree form.\n";
+        "\tprints the entire node at this level or at the level specified\n"
+        "\tby the given key in tree form.\n"
+        "usage:\n"
+        "\ttree\n"
+        "\ttree <key>\n";
 
     if (print_help(p, help))
     {
@@ -265,13 +651,34 @@ void tree(CmdParam &p)
 
     ThreadLock<Mutex> l(node_mtx);
     l.lock();
-    cout << current_node << endl;
+
+    if (p.count() > 0)
+    {
+        cout << current_node[p[0]] << endl;
+    }
+    else
+    {
+        cout << current_node << endl;
+    }
 }
 
-void down(CmdParam &p)
+/**
+ * Changes level. May go to any node, relative or absolute, or up one
+ * step at a time.
+ *
+ * @param p: A parameter must be supplied, which is a relative or
+ * absolute key, or ".." to indicate that it is to move up one level.
+ *
+ */
+
+void cd(CmdParam &p)
 {
-    static string help = "down <node_name>\n"
-        "\tdescends into the named node.\n";
+    static string help = "cd <..>|<node_name>\n"
+        "\tchanges into the named node, ascending if parameter is '..'.\n"
+        "usage:\n"
+        "\tcd .key # moves to absolute level 'key' at top level\n"
+        "\tcd key  # moves to level 'key' relative from current location\n"
+        "\tcd ..   # moves up one level\n";
 
     if (print_help(p, help))
     {
@@ -281,27 +688,51 @@ void down(CmdParam &p)
     if (p.count() == 0)
     {
         cout << "Usage: " << help << endl;
+        return;
     }
 
-    if (current_node.find(p[0]))
-    {
-        current_path.push_back(p[0]);
-        fn_string_join fn(".");
-        string keychain = fn(current_path);
-        current_node = keymaster->get(keychain);
-    }
+    ThreadLock<Mutex> l(node_mtx);
+    l.lock();
+    change_level(p[0]);
 }
 
-void up(CmdParam &p)
+/**
+ * Outputs the current level.
+ *
+ * @param p: not used.
+ *
+ */
+
+void pwd(CmdParam &p)
 {
-    static string help = "up\n"
-        "\tAscends the node tree one level.\n";
+    static string help = "pwd\n"
+        "\treports the current node level.";
 
     if (print_help(p, help))
     {
         return;
     }
+
+    if (p.count() != 0)
+    {
+        cout << "Usage: " << help << endl;
+        return;
+    }
+
+    ThreadLock<Mutex> l(node_mtx);
+    l.lock();
+
+    cout << "." << key_from(current_path) << endl;
 }
+
+/**
+ * Reads the current or specified node (relative to current), printing
+ * out the node type and values of the node and any subordinate nodes.
+ *
+ * @param p: If it contains a parameter this is assumed to be a key to a
+ * node to be read. Otherwise reads the current node.
+ *
+ */
 
 void read(CmdParam &p)
 {
@@ -312,19 +743,205 @@ void read(CmdParam &p)
     {
         return;
     }
+
+    ThreadLock<Mutex> l(node_mtx);
+    l.lock();
+
+    YAML::Node n;
+
+    if (p.count() == 0)
+    {
+        n = current_node;
+    }
+    else
+    {
+        n = current_node[p[0]];
+    }
+
+    if (n)
+    {
+        string str_val, space(2, ' ');
+        vector<string> str_seq;
+        map<string, string> str_map;
+
+        switch (n.Type())
+        {
+        case YAML::NodeType::Map:
+            cout << space << "type: NodeType::Map" << endl;
+            cout << space << n << endl;
+            break;
+
+        case YAML::NodeType::Sequence:
+            cout << space << "type: NodeType::Sequence" << endl;
+            str_seq = n.as<vector<string> >();
+            cout << space << "value: ";
+            output_vector(str_seq, cout);
+            cout << endl;
+            break;
+
+        case YAML::NodeType::Scalar:
+            cout << space << "type: NodeType::Scalar" << endl;
+            cout << space << "value: " << n.as<string>() << endl;
+            break;
+
+        case YAML::NodeType::Null:
+            cout << space << "Type is Null!" << endl;
+            break;
+
+        case YAML::NodeType::Undefined:
+            cout << space << "Type is Undefined!" << endl;
+            break;
+
+        default:
+            cout << space << "What?!?" << endl;
+        }
+    }
+    else
+    {
+        cout << "No such node: " << p[0] << endl;
+    }
+
 }
 
 void write(CmdParam &p)
 {
-    static string help = "write <node_name> <YAML_value>\n"
-        "\twrites to the named YAML node. The node must be\n"
-        "a child of the current node.\n"
-        "Example:\n"
-        "\twrite foo {bar: cat, baz: dog}\n";
+    static string help = "write [node_name] <YAML_value>\n"
+        "\twrites to the named YAML node. If 'node_name' is specified the node must already\n"
+        "\texist and must be a child of the current node. If 'node_name' is not specified\n"
+        "\t'YAML_value' will be written to the current node.\n"
+        "\n\tThe 'YAML_value' must be a single-line ASCII representation of the value. Any\n"
+        "\trepresentation that requires spaces should be enclosed in double quotes:\n"
+        "\n\t  Scalar: 5, 43.2, frog, \"the quick brown fox\"\n"
+        "\tSequence: \"[value, value, value, ...]\" where each value may be a Scalar,\n"
+        "\t          another Sequence, or a Map.\n"
+        "\t     Map: \"{key: value, key: value, ...}\". 'value' may be a Scalar, Sequence,\n"
+        "\t          or another Map.\n"
+       "Example:\n"
+        "\twrite foo \"{bar: cat, baz: dog, quux: [1, 2, 3]}\"\n";
 
     if (print_help(p, help))
     {
         return;
+    }
+
+    ThreadLock<Mutex> l(node_mtx);
+    l.lock();
+
+    yaml_result yr;
+    string key, val;
+    YAML::Node n;
+    YAML::Node new_current_node = YAML::Clone(current_node);
+
+    if (p.count() == 2) // key and val, current_node[key] = val
+    {
+        key = p[0];
+        val = p[1];
+    }
+    else if (p.count() == 1) // only val given, current_node = val
+    {
+        key = "";
+        val = p[0];
+    }
+    else
+    {
+        cout << help << endl;
+    }
+
+    n = YAML::Load(val);
+    yr = put_yaml_node(new_current_node, key, n);
+
+    if (yr.result)
+    {
+        keymaster->put(key_from(current_path), new_current_node);
+        // current_node will be updated by the callback when the
+        // Keymaster publishes the changes.
+    }
+    else
+    {
+        cout << p.cmd() << " " << key << " " << val << " failed: " << yr.err << endl;
+    }
+}
+
+void new_node(CmdParam &p)
+{
+    static string help = "new <node_name> <YAML_value>\n"
+        "\tcreates the named YAML node. The node will be a child of the current node.\n"
+        "\n\tThe 'YAML_value' must be a single-line ASCII representation of the value. Any\n"
+        "\trepresentation that requires spaces should be enclosed in double quotes:\n"
+        "\n\t  Scalar: 5, 43.2, frog, \"the quick brown fox\"\n"
+        "\tSequence: \"[value, value, value, ...]\" where each value may be a Scalar,\n"
+        "\t          another Sequence, or a Map.\n"
+        "\t     Map: \"{key: value, key: value, ...}\". 'value' may be a Scalar, Sequence,\n"
+        "\t          or another Map.\n"
+       "Example:\n"
+        "\tnew foo \"{bar: cat, baz: dog, quux: [1, 2, 3]}\"\n";
+
+    if (print_help(p, help))
+    {
+        return;
+    }
+
+    ThreadLock<Mutex> l(node_mtx);
+    l.lock();
+
+    if (p.count() == 2) // key and val, current_node[key] = val
+    {
+        yaml_result yr;
+        YAML::Node n = YAML::Load(p[1]);
+        YAML::Node new_current_node = YAML::Clone(current_node);
+        yr = put_yaml_node(new_current_node, p[0], n, true);
+
+        if (yr.result)
+        {
+            keymaster->put(key_from(current_path), new_current_node, true);
+        }
+        else
+        {
+            cout << p.cmd_str() << " failed:\n\t" << yr.err
+                 << endl << "Parent node must not be Scalar." << endl;
+        }
+    }
+    else
+    {
+        cout << help << endl;
+    }
+}
+
+void del_node(CmdParam &p)
+{
+    static string help = "del <node_name>\n"
+        "\tdeletes the named YAML node. The node must be\n"
+        "\ta child of the current node.\n"
+        "Example:\n"
+        "\tdel foo\n";
+
+    if (print_help(p, help))
+    {
+        return;
+    }
+
+    if (p.count() != 1)
+    {
+        cout << "Need a node key to delete!\nUsage: " << help << endl;
+        return;
+    }
+
+    ThreadLock<Mutex> l(node_mtx);
+    l.lock();
+
+    string key = p[0];
+
+    YAML::Node new_current_node = YAML::Clone(current_node);
+    yaml_result yr = delete_yaml_node(new_current_node, key);
+
+    if (yr.result)
+    {
+        keymaster->put(key_from(current_path), new_current_node);
+        // current_node will be updated by the callback if the put succeeds.
+    }
+    else
+    {
+        cout << "Error deleting key " << key << ": " << yr.err << endl;
     }
 }
 
@@ -383,457 +1000,7 @@ void help(CmdParam &p)
             cout << cl.cmd() << ": help for command not found" << endl;
         }
     }
-
 }
-
-// /**
-//  * Same as monitor, but from an SIB context: SIB id and offset instead
-//  *  of address.
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void read(CmdParam &p)
-
-// {
-//     unsigned short id, offs, data;
-//     SIB *sib;
-//     char const *help = "read <sib> <offs>\n"
-//         "\tReads a value from offset 'offs' on SIB 'sib''.\n"
-//         "\tThe value 'offs' is an unsigned 16-bit value. All parameters\n"
-//         "\tare given as hexadecimal values.";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     if (p.Count() != 2)
-//     {
-//         cerr << "read requires 2 parameters: SIB id and offset, in hex" << endl;
-//         return;
-//     }
-
-//     if (!convert(p[0], id, 16, true))
-//     {
-//         return;
-//     }
-
-//     if (!convert(p[1], offs, 16, true))
-//     {
-//         return;
-//     }
-
-//     try
-//     {
-//         if (sibs.find(id) == sibs.end())
-//         {
-//             sib =  new SIB(id);
-//             sibs[id] = sib;
-//         }
-//         else
-//         {
-//             sib = sibs[id];
-//         }
-
-//         data = sib->read(offs);
-//     }
-//     catch (MCB::Exception e)
-//     {
-//         cerr << "read exception: " << e.what() << endl;
-//         return;
-//     }
-
-//     if (output)
-//     {
-//         cout << hex << data << endl;
-//     }
-
-// }
-
-// /**
-//  * Writes data to a SIB offset.  Same as 'control()', but from the
-//  *  SIB perspective.
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void write(CmdParam &p)
-
-// {
-//     unsigned short id, offs, data, mask = 0;
-//     SIB *sib;
-//     char const *help = "write <sib> <offs> <data>\n"
-//         "\tWrites value 'data' to the offset 'offs' of SIB 'sib'.\n"
-//         "\tThe values 'offs' and 'data' are both unsigned 16-bit\n"
-//         "\tvalues. All parameters are given as hexadecimal values.";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     if (p.Count() < 3 || p.Count() > 4)
-//     {
-//         cerr << "write requires 3 or 4 parameters: SIB id, offset, data [, mask]" << endl;
-//         return;
-//     }
-
-//     if (!convert(p[0], id, 16, true))
-//     {
-//         return;
-//     }
-
-//     if (!convert(p[1], offs, 16, true))
-//     {
-//         return;
-//     }
-
-//     if (!convert(p[2], data, 16, true))
-//     {
-//         return;
-//     }
-
-//     if (p.Count() == 4)
-//     {
-//         if (!convert(p[3], mask, 16, true))
-//         {
-//             return;
-//         }
-//     }
-
-//     try
-//     {
-//         if (sibs.find(id) == sibs.end())
-//         {
-//             sib = new SIB(id);
-//             sibs[id] = sib;
-//         }
-//         else
-//         {
-//             sib = sibs[id];
-//         }
-
-//         sib->write(offs, data, mask);
-//     }
-//     catch (MCB::Exception e)
-//     {
-//         cerr << "write exception: " << e.what() << endl;
-//         return;
-//     }
-
-//     if (output)
-//     {
-//         cout << "OK" << endl;
-//     }
-
-// }
-
-// /**
-//  * Lists the MCB devices controlled on the host.
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void mcblist(CmdParam &p)
-
-// {
-//     set<String> mcb_set;
-//     set<String>::iterator si;
-//     char const *help = "mcblist\n"
-//         "\tPrints a tree listing of all MCBs on the host.";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     try
-//     {
-//         MCBMap::Instance()->get_mcb_set(host_name.c_str(), mcb_set);
-//         cout << host_name << ":" << endl;
-
-//         for (si = mcb_set.begin(); si != mcb_set.end(); ++si)
-//         {
-//             cout << "\t|" << endl;
-//             cout << "\t->" << *si << endl;
-//         }
-//     }
-//     catch (MCB::Exception e)
-//     {
-//         cerr << "read exception: " << e.what() << endl;
-//         return;
-//     }
-
-// }
-
-// /**
-//  * Same as mcblist, but also includes SIBs for each MCB
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void siblist(CmdParam &p)
-
-// {
-//     set<String> mcb_set;
-//     set<String>::iterator si;
-//     MCB *mcb;
-//     MCB::sib_list sl;
-//     MCB::sib_list::iterator sli;
-//     char const *help = "siblist\n"
-//         "\tPrints a tree listing of all SIBs, branching from the\n"
-//         "\tMCBs supporting the SIBs.";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     try
-//     {
-// 	// get the MCBs on a host (/dev/ttyS0, /dev/ttyS1, etc.
-//         MCBMap::Instance()->get_mcb_set(host_name.c_str(), mcb_set);
-//         cout << host_name << ":" << endl;
-
-// 	// for each MCB, do:
-//         for (si = mcb_set.begin(); si != mcb_set.end(); ++si)
-//         {
-//             cout << "\t|" << endl;
-//             cout << "\t->" << *si << endl;
-
-// 	    // get the MCB object associated with that MCB name ("/dev/ttyS0", etc.)
-//             mcb = MCBMap::Instance()->get_mcb_by_name(si->c_str(), host_name.c_str());
-// 	    // get a list of the SIBs connected to that MCB
-//             mcb->sibs(sl);
-
-//             for (sli = sl.begin(); sli != sl.end(); ++sli)
-//             {
-//                 cout << "\t\t|" << endl;
-//                 cout << "\t\t->id: " << hex << sli->id << " addr: " << sli->addr
-//                      << " len: " << sli->len << endl;
-//             }
-//         }
-//     }
-//     catch (MCB::Exception e)
-//     {
-//         cerr << "read exception: " << e.what() << endl;
-//         return;
-//     }
-// }
-
-// /**
-//  * Handler for the 'help' command.  Shows all commands.
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void help(CmdParam &p)
-
-// {
-//     char buf[100];
-//     map<String, V_FP>::const_iterator mi;
-//     char const *help = "help [cmdname]\n"
-//                        "\tPrints out a list of all mcbcmd's commands.  If provided with\n"
-//                        "\t'cmdname', prints out the help for that command.";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     if (p.Count() == 0)
-//     {
-//         for (mi = cmds.begin(); mi != cmds.end(); ++mi)
-//         {
-//             cout << mi->first << endl;
-//         }
-
-//         cout << endl;
-//         cout << "type 'help <cmdname>' for help on that command." << endl;
-//     }
-//     else
-//     {
-//         V_FP f;
-//         CmdParam cl(' ');
-//         sprintf(buf, "%s %s", p[0], "help");
-//         cl.NewList(buf);
-
-//         if ((mi = cmds.find(cl.Cmd())) != cmds.end())
-//         {
-//             f = mi->second;
-
-//             if (f)
-//             {
-//                 f(cl);
-//             }
-//         }
-//         else
-//         {
-//             cout << cl.Cmd() << ": help for command not found" << endl;
-//         }
-//     }
-
-// }
-
-// /**
-//  * Prints out the map of SIB name to number and MCB
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void sibmap(CmdParam &p)
-
-// {
-//     size_t max_name = 0, max_host = 0, max_port = 0;
-//     size_t id_col, host_col, port_col, line_len;
-//     char line[128], buf[32];
-//     const char *sib_name = "Name", *sib_id = "ID";
-//     const char *sib_host = "Host", *sib_port = "MCB";
-//     set<MCBMap::SIBKeys> sibs;
-//     set<MCBMap::SIBKeys>::iterator si;
-//     char const *help = "map\n"
-//         "\tPrints out a list of all SIBs and their mapping data.\n"
-//         "\tFormat: <sibname> <id> <host> <mcb>.\n"
-//         "\twhere:\t'sibname' is the name as found in SIBMap.conf;\n"
-//         "\t\t'id' is the SIB ID, in hex;\n"
-//         "\t\t'host' is the computer hosting the MCB;\n"
-//         "\t\t'port' is the name of the MCB on that computer.";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     MCBMap::Instance()->get_sib_set(sibs);
-
-//     for (si = sibs.begin(); si != sibs.end(); ++si)
-//     {
-//         if (si->name.length() > max_name)
-//         {
-//             max_name = si->name.length();
-//         }
-
-//         if (si->host.length() > max_host)
-//         {
-//             max_host = si->host.length();
-//         }
-
-//         if (si->port.length() > max_port)
-//         {
-//             max_port = si->port.length();
-//         }
-//     }
-
-//     id_col = max_name + 2;
-//     host_col = id_col + 4;
-//     port_col = host_col + max_host + 2;
-//     memset(line, 0x20, sizeof line);
-//     memcpy(line, sib_name, strlen(sib_name));
-//     memcpy(&line[id_col], sib_id, strlen(sib_id));
-//     memcpy(&line[host_col], sib_host, strlen(sib_host));
-//     sprintf(&line[port_col], sib_port);
-//     cout << line << endl;
-//     line_len = strlen(line) + max_port - 3;
-//     memset(line, '-', line_len);
-//     line[line_len] = 0;
-//     cout << line << endl;
-
-//     for (si = sibs.begin(); si != sibs.end(); ++si)
-//     {
-//         memset(line, 0x20, sizeof line);
-//         memcpy(line, si->name.c_str(), si->name.length());
-//         sprintf(buf, "%02hX", si->ID);
-//         memcpy(&line[id_col], buf, strlen(buf));
-//         memcpy(&line[host_col], si->host.c_str(), si->host.length());
-//         sprintf(&line[port_col], si->port.c_str());
-//         cout << line << endl;
-//     }
-// }
-
-// /**
-//  * Runs the given command a specified number of times, returning timing
-//  *  stats
-//  *
-//  * @param CmdPram &p: The command and parameters that the user typed
-//  *        in.
-//  *
-//  */
-
-// void repeat(CmdParam &p)
-
-// {
-//     unsigned int k, n;
-//     CmdParam mycmd(' ');
-//     V_FP f;
-//     TimeStamp start, end;
-//     map<String, V_FP>::iterator i;
-//     char const *help = "repeat n \"<cmd> ...\"\n"
-//         "\tAssumes the first parameter given (n) is the number of times to\n"
-//         "\trepeat the following command line.  For example:\n"
-//         "\trepeat 10 read 7 FF";
-
-
-//     if (print_help(p, help))
-//     {
-//         return;
-//     }
-
-//     if (p.Count() != 2)
-//     {
-//         cerr << "repeat requires at least 2 parameters: iterations and command string" << endl;
-//         return;
-//     }
-
-//     if (!convert(p[0], n, 10, true))
-//     {
-//         return;
-//     }
-
-//     mycmd.NewList(p[1]);
-//     start = getTimeOfDay();
-
-//     if ((i = cmds.find(mycmd.Cmd())) != cmds.end())
-//     {
-//         f = i->second;
-
-//         if (!f)
-//         {
-//             cout << "Command " << mycmd.Cmd() << " not found.  Aborting..." << endl;
-//             return;
-//         }
-//     }
-
-//     output = false;
-
-//     for (k = 0; k < n; ++k)
-//     {
-//         f(mycmd);
-//     }
-
-//     output = true;
-//     end = getTimeOfDay();
-//     cout << mycmd.Cmd() << " executed in " << (end - start).Sec() / double(n) << " seconds" << endl;
-
-// }
 
 /**
  * Prints a function's help string if requested.
