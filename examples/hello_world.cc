@@ -52,9 +52,9 @@ public:
         while(1)
         {
             sleep(1);
-            YAML::Node tm = keymaster->get(my_instance_name + ".time");
+            YAML::Node tm = keymaster->get("components." + my_instance_name + ".time");
             cout << "Clock says " << tm.as<string>() << endl;
-            keymaster->put(my_instance_name + ".time", ++ticks, true);
+            keymaster->put("components." + my_instance_name + ".time", ++ticks, true);
         }
     }
     static Component *factory(string myname,string k)

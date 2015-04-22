@@ -364,6 +364,12 @@ void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
     {
         cerr  << __classmethod__ << " unknown component:" 
               << component_name << endl;
+        cerr << "known components are:" << endl;
+        for (auto i=components.begin(); i!=components.end(); ++i)
+        {
+            cerr << i->first << endl;
+        }
+        cerr << "end of list" << endl;
         return;
     }
     

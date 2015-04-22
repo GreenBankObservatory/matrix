@@ -68,8 +68,6 @@ std::string gen_random_string(const int len)
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
 
-    srandom(time(NULL));
-
     for (int i = 0; i < len; ++i)
     {
         s.push_back(alphanum[random() % (sizeof(alphanum) - 1)]);

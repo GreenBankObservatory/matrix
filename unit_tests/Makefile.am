@@ -29,17 +29,15 @@ noinst_PROGRAMS = matrix_unittest
 
 matrix_unittest_SOURCES = \
 	ControllerTest.cc \
-	DataInterfaceTest.cc \
 	StateTransitionTest.cc \
 	TimeTest.cc \
 	keymaster_test.cc \
 	matrix_unittest.cc \
-	publisher_test.cc \
 	utility_test.cc
 
 matrix_unittest_CXXFLAGS = -std=c++0x -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src -O0 -g
 #matrix_unittest_LDADD = -L../src/.libs -lmatrix /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt
-matrix_unittest_LDADD = ../src/.libs/libmatrix.a /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt
+matrix_unittest_LDADD = ../src/.libs/libmatrix.a /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a -lboost_regex -lrt
 
 distclean-local:
 	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in

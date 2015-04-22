@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     runner.addTest(TimeTest::suite());
     // runner.addTest(DataInterfaceTest::suite());
     runner.addTest(ControllerTest::suite());
-    runner.addTest(PublisherTest::suite());
+    // runner.addTest(PublisherTest::suite());
     runner.addTest(UtilityTest::suite());
     runner.addTest(KeymasterTest::suite());
     runner.run();

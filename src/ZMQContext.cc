@@ -31,6 +31,7 @@
 
 #include "ZMQContext.h"
 #include "ThreadLock.h"
+#include <cstdlib>
 
 boost::shared_ptr<ZMQContext> ZMQContext::_instance;
 Mutex ZMQContext::_instance_lock;
@@ -78,6 +79,11 @@ Mutex ZMQContext::_instance_lock;
 ZMQContext::ZMQContext() : _context(1)
 
 {
+    timespec ts;
+    unsigned int seed;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    seed = static_cast<unsigned int>((ts.tv_sec * 1000000000LL + ts.tv_nsec) % 0x100000000);
+    srandom(seed);
 }
 
 /****************************************************************//**
