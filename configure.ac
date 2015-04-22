@@ -197,6 +197,7 @@ AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  unit_tests/Makefile
-                 examples/Makefile])
+                 examples/Makefile
+                 keychain/Makefile])
 
 AC_OUTPUT

@@ -26,7 +26,7 @@
 #===============================================================================
 
 
-SUBDIRS = src unit_tests examples
+SUBDIRS = src unit_tests examples keychain
 
 ACLOCAL_AMFLAGS = -I m4
 

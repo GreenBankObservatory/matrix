@@ -27,9 +27,9 @@
 
 noinst_PROGRAMS = hello_world
 
-hello_world_SOURCES = hello_world.cc 
+hello_world_SOURCES = hello_world.cc
 hello_world_CXXFLAGS = -std=c++0x  -I../src
-hello_world_LDADD = -L../src/.libs -lmatrix -lrt
+hello_world_LDADD = -L../src/.libs -lmatrix -lrt -lboost_regex
 
 distclean-local:
 	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
