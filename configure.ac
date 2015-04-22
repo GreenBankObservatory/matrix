@@ -47,7 +47,6 @@ AC_CONFIG_SRCDIR([src/Controller.cc])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.9.6])
 
 # Checks for programs.
-AM_PROG_AR
 # Project uses plain C source
 AC_PROG_CC
 # Project has C++ source
