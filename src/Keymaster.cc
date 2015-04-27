@@ -30,6 +30,7 @@
 #include "ThreadLock.h"
 #include "tsemfifo.h"
 #include "Thread.h"
+#include "ThreadLock.h"
 #include "zmq_util.h"
 #include "netUtils.h"
 #include "yaml_util.h"
@@ -825,13 +826,17 @@ void KeymasterServer::terminate()
  *
  */
 
-Keymaster::Keymaster(string keymaster_url)
+Keymaster::Keymaster(string keymaster_url, bool shared)
     :
     _km(ZMQContext::Instance()->get_context(), ZMQ_REQ),
     _pipe_url(string("inproc://") + gen_random_string(20)),
     _subscriber_thread(this, &Keymaster::_subscriber_task),
     _subscriber_thread_ready(false)
 {
+    if (shared)
+        _shared_lock.reset(new Mutex);
+    else
+        _shared_lock.reset(new NoLock);
     try
     {
         _km.connect(keymaster_url.c_str());
@@ -887,11 +892,14 @@ YAML::Node Keymaster::get(std::string key)
 {
     string cmd("GET"), response;
     vector<string> frames;
-
+    ThreadLock<Mutex> lck(*_shared_lock);
+    
     z_send(_km, cmd, ZMQ_SNDMORE);
     z_send(_km, key);
     z_recv(_km, response);
     z_recv_multipart(_km, frames);
+    lck.unlock();
+    
 
     _r.from_yaml_node(YAML::Load(response));
 
@@ -936,7 +944,8 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
     string cmd("PUT"), create_flag("create"), response;
     ostringstream msg;
     vector<string> frames;
-
+    ThreadLock<Mutex> lck(*_shared_lock);
+    
     z_send(_km, cmd, ZMQ_SNDMORE);
     z_send(_km, key, ZMQ_SNDMORE);
     msg << n;
@@ -953,6 +962,7 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
 
     z_recv(_km, response);
     z_recv_multipart(_km, frames);
+    lck.unlock();
 
     _r.from_yaml_node(YAML::Load(response));
 
@@ -983,11 +993,13 @@ void Keymaster::del(std::string key)
 {
     string cmd("DEL"), response;
     vector<string> frames;
+    ThreadLock<Mutex> lck(*_shared_lock);
 
     z_send(_km, cmd, ZMQ_SNDMORE);
     z_send(_km, key);
     z_recv(_km, response);
     z_recv_multipart(_km, frames);
+    lck.unlock();
 
     _r.from_yaml_node(YAML::Load(response));
 
@@ -1040,6 +1052,8 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
 
     // Next, request the subscription by posting a request to the
     // subscriber thread.
+    ThreadLock<Mutex> lck(*_shared_lock);
+    
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
@@ -1047,6 +1061,7 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
     z_send(pipe, f);
     int rval;
     z_recv(pipe, rval);
+    lck.unlock();
 }
 
 /**
@@ -1060,12 +1075,14 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
 void Keymaster::unsubscribe(string key)
 {
     // request that the subscriber thread unsubscribe from 'key'
+    ThreadLock<Mutex> lck(*_shared_lock);
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, UNSUBSCRIBE, ZMQ_SNDMORE);
     z_send(pipe, key);
     int rval;
     z_recv(pipe, rval);
+    lck.unlock();
 }
 
 /**
@@ -1077,10 +1094,12 @@ void Keymaster::_run()
 {
     if (!_subscriber_thread.running())
     {
+        ThreadLock<Mutex> lck(*_shared_lock);
         if ((_subscriber_thread.start() != 0) || (!_subscriber_thread_ready.wait(true, 1000000)))
         {
             throw(runtime_error("Keymaster: unable to start subscriber thread"));
         }
+        lck.unlock();
     }
 }
 

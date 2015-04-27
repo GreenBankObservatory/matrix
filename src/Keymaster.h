@@ -175,11 +175,17 @@ private:
 };
 
 
+class NoLock : public Mutex
+{
+    void lock() {};
+    void unlock() {};
+};
+
 class Keymaster
 {
 public:
 
-    Keymaster(std::string keymaster_url);
+    Keymaster(std::string keymaster_url, bool shared = false);
     ~Keymaster();
 
     YAML::Node get(std::string key);
@@ -210,7 +216,7 @@ private:
     std::map<std::string, KeymasterCallbackBase *> _callbacks;
     Thread<Keymaster> _subscriber_thread;
     TCondition<bool> _subscriber_thread_ready;
-
+    std::shared_ptr<Mutex> _shared_lock;
 };
 
 template <typename T>
@@ -225,5 +231,6 @@ void Keymaster::put(std::string key, T v, bool create)
     YAML::Node n(v);
     put(key, n, create);
 }
+
 
 #endif

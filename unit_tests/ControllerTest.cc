@@ -48,18 +48,42 @@ public:
 // test for approximate equivalent time
 void ControllerTest::test_init()
 {
-    Controller simple("hello_world.yaml");
+    auto k=new KeymasterServer("hello_world.yaml");
+    k->run();
+    Controller simple(k, "control", "inproc://matrix.keymaster");
     simple.add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
     
+    // For poking at the simple controller:
+    cout << "calling basic_init" << endl;
     CPPUNIT_ASSERT( simple.basic_init());
+    cout << "basic_init" << endl;
+
     CPPUNIT_ASSERT( simple.initialize());
     
-    CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
-    CPPUNIT_ASSERT( simple.set_system_mode("default") );    
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 100000000) );
+
+    // Configure the component set for the 'default' mode.    
+    CPPUNIT_ASSERT( simple.set_system_mode("default") );
+       
     CPPUNIT_ASSERT( simple.ready());
+    
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
-    CPPUNIT_ASSERT( simple.start());
-    CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
+    // poke commands in using direct keymaster puts. In a loop to
+    // give it some more exercise.
+    unique_ptr<Keymaster> km(new Keymaster("inproc://matrix.keymaster"));
+
+    for (int j=0; j<20; ++j) 
+    {    
+        km->put("controller.control.command", "start", true);
+        CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
+
+        km->put("controller.control.command", "stop", true);
+        CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
+    }    
+    
+    simple.start();
+    cout << "sent command" << endl;
+    CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 20000000) );
     CPPUNIT_ASSERT( simple.stop());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
     
@@ -79,14 +103,9 @@ void ControllerTest::test_init()
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
     CPPUNIT_ASSERT( simple.standby());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
+    //  Time::thread_delay(20000000000);
     
-    simple.terminate();
-    
-    timespec slp;
-    slp.tv_sec = 1;
-    slp.tv_nsec = 0;
-
-    cout << "terminated" << endl << endl;
+    // simple.terminate();
 }
 
 

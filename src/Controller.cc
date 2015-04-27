@@ -20,6 +20,7 @@
 //  National Radio Astronomy Observatory
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
+
 #include <string>
 #include <map>
 #include <iostream>
@@ -33,6 +34,8 @@
 
 using namespace std;
 using namespace Time;
+
+#define dbprintf if(verbose) printf
 
 // Functor to check component states. Could do this differently if we had find_not_if (C++11)
 struct NotInState
@@ -51,264 +54,67 @@ struct NotInState
     std::string compare_state;
 };
 
+static map<int, string> state_enums =
+{
+    {1, string("Created")},
+    {2, string("Standby")},
+    {3, string("Ready")},
+    {4, string("Running")}
+};
+
+static int state_2_enum(std::string s)
+{
+    for (auto i = state_enums.begin(); i!= state_enums.end(); ++i)
+    {
+        if (i->second == s)
+        {
+            return i->first;
+        }
+    }
+    return 0;
+}
+
+static bool state_compare(std::pair<const std::string, Controller::ComponentInfo> &a,
+                          std::pair<const std::string, Controller::ComponentInfo> &b)
+{
+    return (state_2_enum(a.second.state) < state_2_enum(b.second.state));
+}
 
 
-string lstrip(const string s)
+static string lstrip(const string s)
 {
     size_t d = s.find_first_of(".");
     if (d == string::npos)
     {
         return s;
     }
-    return s.substr(d+1, string::npos);    
+    return s.substr(d+1, string::npos);
 }
 
-Controller::Controller(string config_file) : 
-    state_condition(false), 
-    conf_file(config_file), 
-    keymaster_url("inproc://matrix.keymaster"),
-    state_report_fifo(),
-    done(false),
-    state_thread(this, &Controller::service_loop),
-    thread_started(false)
+Controller::Controller(KeymasterServer *k, string name, string km_url) :
+    Component(name, km_url),
+    state_condition(false),
+    km_server(),
+    state_fifo(),
+    state_thread_started(false),
+    state_thread(this, &Controller::component_state_reporting_loop)
 {
+    km_server.reset(k);
+    // re-write the base part of the full instance name to
+    // be outside of the component directory
+    my_full_instance_name = "controller." + my_instance_name;
 }
 
 Controller::~Controller()
 {
 }
 
-/// Initialize the system. This should be called once after system
-/// startup.
-bool Controller::basic_init()
+void Controller::add_component_factory(std::string name, Component::ComponentFactory func)
 {
-    return _basic_init();
-}
-
-bool Controller::create_the_state_machine()
-{
-    return _create_the_state_machine();
-}
-
-/// Change/set the system mode. This updates the active
-/// fields of components which are included in the 
-bool Controller::set_system_mode(string mode)
-{
-    return _set_system_mode(mode);
-}
-
-bool Controller::create_the_keymaster()
-{
-    return _create_the_keymaster();
-}
-
-bool Controller::create_component_instances()
-{
-    return _create_component_instances();
+    factory_methods[name] = func;
 }
 
 bool Controller::configure_component_modes()
-{
-    return _configure_component_modes();
-}
-
-bool Controller::initialize()
-{
-    return _initialize();
-}
-
-bool Controller::standby()
-{
-    return _standby();
-}
-
-bool Controller::ready()
-{
-    return _ready();
-}
-
-bool Controller::start()
-{
-    return _start();
-}
-
-bool Controller::stop()
-{
-    return _stop();
-}
-
-bool Controller::exit_system()
-{
-    return _exit_system();
-}
-
-bool Controller::send_event(string event)
-{
-    return _send_event(event);
-}
-
-bool Controller::check_all_in_state(string statename)
-{
-    NotInState not_in_state(statename);
-    ThreadLock<decltype(components)> l(components);
-    auto rtn = find_if(components.begin(), components.end(), not_in_state);
-    // If we get to the end of the list, all components are in the desired state
-    return rtn == components.end();
-}
-
-// 
-bool Controller::wait_all_in_state(string statename, int usecs)
-{
-    ThreadLock<decltype(state_condition)> l(state_condition);
-    timespec curtime, to;
-    
-    Time_t time_to_quit = getUTC() + ((Time_t)usecs)*1000L;    
-    while ( !check_all_in_state(statename) )
-    {
-        state_condition.wait_locked_with_timeout(usecs);
-        if (getUTC() >= time_to_quit)
-        {
-            return false;
-        }
-    }    
-    return true;
-}
-
-void Controller::service_loop()
-{
-    _service_loop();
-}
-
-void Controller::terminate()
-{
-    _terminate();
-}
-
-bool Controller::_create_the_state_machine()
-{
-    fsm.addTransition("Created",  "do_init",         "Standby");
-    fsm.addTransition("Standby",  "get_ready",       "Ready");
-    fsm.addTransition("Ready",    "start",           "Running");
-    fsm.addTransition("Running",  "error",           "Ready");    
-    fsm.addTransition("Running",  "stop",            "Ready");
-    fsm.addTransition("Ready",    "do_standby",      "Standby");    
-    fsm.setInitialState("Created");    
-}
-
-bool Controller::_basic_init()
-{
-    bool result;
-    result = create_the_state_machine() &&
-             create_the_keymaster() &&
-             configure_component_modes() &&
-             create_component_instances();
-    return result;
-}
-
-bool Controller::_set_system_mode(string mode)
-{
-    bool result = false;
-    // modes can only be changed when components are in Standby
-    if (!check_all_in_state("Standby"))
-    {
-        cerr << "Not all components are in Standby state!" << endl;
-        return false;
-    }
-    current_mode = mode;
-    // disable all components for mode change
-    string root = "components.";
-    ThreadLock<ComponentMap> l(components);
-    for (auto p=components.begin(); p!=components.end(); ++p)
-    {
-        p->second.active = false;
-        keymaster->put(root + p->first + ".active", false);
-    }
-    l.unlock();
-    
-    auto modeset = active_mode_components.find(mode);
-    if (modeset == active_mode_components.end())
-    {
-        // no components or no entry for this mode. we are done.
-        // TBD is this really an error???
-        return false;
-    }
-        
-    auto active_components = modeset->second;
-    // All components are in Standby, so we just need to set/reset active flag
-    l.lock();
-    for (auto p=components.begin(); p!=components.end(); ++p)
-    {
-        bool active = active_components.find(p->first) != active_components.end();
-        p->second.active = active;
-        keymaster->put(root + p->first + ".active", active);
-        result = true;
-    }
-
-    return result;
-}
-
-bool Controller::_create_the_keymaster()
-{
-    km_server.reset( new KeymasterServer(conf_file) );
-    km_server->run();
-
-    keymaster.reset( new Keymaster(keymaster_url) );
-    keymaster->put("controller.active", 1, true);
-    return true;
-}
-
-bool Controller::_create_component_instances()
-{
-    state_thread.start();
-    if (!thread_started.value())
-        thread_started.wait(true);
-
-    YAML::Node km_components = keymaster->get("components");
-    bool result;
-    ThreadLock<ComponentMap> l(components);
-    
-    for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
-    {
-        string comp_instance_name = it->first.as<string>();
-        YAML::Node type = it->second["type"];
-        
-        if (!type)
-        {
-            throw ControllerException("No type field for component " + type.as<string>());
-        }
-        else if (factory_methods.find(type.as<string>()) == factory_methods.end())
-        {
-            throw ControllerException("No factory for component of type " + type.as<string>());
-        }     
-        else
-        {        
-            auto fmethod = factory_methods.find(type.as<string>());
-            string root = "components.";
-            // subscribe to the components .state key before creating it
-            string key = root + comp_instance_name + ".state";
-            keymaster->subscribe(key, 
-                                 new KeymasterMemberCB<Controller>(this, 
-                                     &Controller::component_state_changed));
-            // create a .command key for the component to listen to
-            keymaster->put(root + comp_instance_name + ".command", "none", true);
-            keymaster->put(root + comp_instance_name + ".active", false,   true);
-            // Now do the actual creation          
-            components[comp_instance_name].instance = shared_ptr<Component>( 
-                (*fmethod->second)(comp_instance_name, keymaster_url) );
-            // temporarily mark the component as active. It will be reset
-            // when the system mode is set.   
-            components[comp_instance_name].active = true;
-        }
-    }
-    return true;
-}
-
-void Controller::component_state_changed(string yml_path, YAML::Node new_status)
-{
-    _component_state_changed(yml_path, new_status);
-}
-
-bool Controller::_configure_component_modes()
 {
     // Now search connection info for modes where this component is active
     YAML::Node km_mode = keymaster->get("connections");
@@ -324,16 +130,16 @@ bool Controller::_configure_component_modes()
                 if (n.size() > 0)
                 {
                     active_mode_components[md->first.as<string>()]
-                        .insert(n[0].as<string>());
+                    .insert(n[0].as<string>());
                 }
                 if (n.size() > 2)
                 {
                     active_mode_components[md->first.as<string>()]
-                        .insert(n[2].as<string>());
+                    .insert(n[2].as<string>());
                 }
             }
         }
-    } 
+    }
     catch (YAML::Exception e)
     {
         cerr << e.what() << endl;
@@ -342,81 +148,162 @@ bool Controller::_configure_component_modes()
     return true;
 }
 
-
-// A callback called when the keymaster publish's a components state change.
-// Not sure about the type of the component arg. 
-// I am assuming there will be a last path component of either .state or .status
-void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
+bool Controller::create_component_instances()
 {
-    size_t p1, p2;
+    YAML::Node km_components = keymaster->get("components");
 
-    if ((p1  = yml_path.find_first_of('.')) == string::npos ||
-        (p2  = yml_path.find_last_of('.')) == string::npos)
-    {
-        cerr << "Bad state string from keymaster:" << yml_path << endl;
-        return;
-    }
-
-    string component_name = yml_path.substr(p1+1,p2-p1-1);
-
+    dbprintf("Controller::_create_component_instances\n");
+    bool result;
     ThreadLock<ComponentMap> l(components);
-    if (components.find(component_name) == components.end())
+
+    for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
     {
-        cerr  << __classmethod__ << " unknown component:" 
-              << component_name << endl;
-        cerr << "known components are:" << endl;
-        for (auto i=components.begin(); i!=components.end(); ++i)
+        string comp_instance_name = it->first.as<string>();
+        YAML::Node type = it->second["type"];
+
+        if (!type)
         {
-            cerr << i->first << endl;
+            throw ControllerException("No type field for component " + type.as<string>());
         }
-        cerr << "end of list" << endl;
-        return;
+        else if (factory_methods.find(type.as<string>()) == factory_methods.end())
+        {
+            throw ControllerException("No factory for component of type " + type.as<string>());
+        }
+        else
+        {
+            auto fmethod = factory_methods.find(type.as<string>());
+            string root = "components.";
+            // subscribe to the components .state key before creating it
+            string key = root + comp_instance_name + ".state";
+
+            keymaster->subscribe(key,
+                                 new KeymasterMemberCB<Controller>(this,
+                                         &Controller::component_state_changed));
+            // create a .command key for the component to listen to
+            keymaster->put(root + comp_instance_name + ".command", "do_init", true);
+            keymaster->put(root + comp_instance_name + ".active", false,   true);
+            // Now do the actual creation
+            components[comp_instance_name].instance = shared_ptr<Component>(
+                        (*fmethod->second)(comp_instance_name, keymaster_url) );
+            // temporarily mark the component as active. It will be reset
+            // when the system mode is set.
+            components[comp_instance_name].instance->basic_init();
+            components[comp_instance_name].active = true;
+        }
     }
-    
-    auto p = make_pair(component_name, new_state.as<string>());
-    state_report_fifo.put(p); 
-    
-    components[component_name].state = new_state.as<string>();
-    state_condition.signal();
+    return true;
 }
 
-bool Controller::_initialize()
+// Verify all components are in the desired state
+bool Controller::check_all_in_state(string statename)
 {
-    return send_event("do_init");
+    NotInState not_in_state(statename);
+    ThreadLock<decltype(components)> l(components);
+    auto rtn = find_if(components.begin(), components.end(), not_in_state);
+    // If we get to the end of the list, all components are in the desired state
+    return rtn == components.end();
 }
 
-bool Controller::_standby()
+// Wait for components to reach a desired state with a timeout.
+bool Controller::wait_all_in_state(string statename, int usecs)
 {
-    return send_event("do_standby");
+    ThreadLock<decltype(state_condition)> l(state_condition);
+    timespec curtime, to;
+
+    Time_t time_to_quit = getUTC() + ((Time_t)usecs)*1000L;
+    while ( !check_all_in_state(statename) )
+    {
+        state_condition.wait_locked_with_timeout(usecs);
+        if (getUTC() >= time_to_quit)
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
-bool Controller::_ready()
+/// Change/set the system mode. This updates the active
+/// fields of components which are included in the
+bool Controller::set_system_mode(string mode)
 {
-    return send_event("get_ready");
+    bool result = false;
+    // modes can only be changed when components are in Standby
+    if (!check_all_in_state("Standby"))
+    {
+        cerr << "Not all components are in Standby state!" << endl;
+        string root = "components.";
+        ThreadLock<ComponentMap> lk(components);
+        for (auto p=components.begin(); p!=components.end(); ++p)
+        {
+            if (p->second.active == true &&
+                    p->second.state != "Standby")
+            {
+                cerr << p->first << " is in state " << p->second.state << endl;
+            }
+        }
+        lk.unlock();
+        return false;
+    }
+    current_mode = mode;
+    // disable all components for mode change
+    string root = "components.";
+    ThreadLock<ComponentMap> l(components);
+    for (auto p=components.begin(); p!=components.end(); ++p)
+    {
+        p->second.active = false;
+        keymaster->put(root + p->first + ".active", false);
+    }
+    l.unlock();
+
+    auto modeset = active_mode_components.find(mode);
+    if (modeset == active_mode_components.end())
+    {
+        // no components or no entry for this mode. we are done.
+        // TBD is this really an error???
+        return false;
+    }
+
+    auto active_components = modeset->second;
+    // All components are in Standby, so we just need to set/reset active flag
+    l.lock();
+    for (auto p=components.begin(); p!=components.end(); ++p)
+    {
+        bool active = active_components.find(p->first) != active_components.end();
+        p->second.active = active;
+        keymaster->put(root + p->first + ".active", active);
+        result = true;
+    }
+
+    return result;
 }
 
-bool Controller::_start()
+
+void Controller::terminate()
 {
-    return send_event("start");
+    _terminate();
 }
 
-bool Controller::_stop()
+// Controller final methods
+void Controller::system_mode_changed(string yml_path, YAML::Node updated_mode)
 {
-    return send_event("stop");
+    if (!set_system_mode(updated_mode.as<string>()))
+    {
+        cerr << "Setting system mode to "
+             << updated_mode.as<string>() << " failed" << endl;
+    }
+    keymaster->put(my_full_instance_name + ".active_configuration",
+                   current_mode, true);
 }
 
-bool Controller::_exit_system()
+void Controller::component_state_changed(string yml_path, YAML::Node new_status)
 {
-    cout << __classmethod__ << " - not implemented" << endl;
-    return false;
+    _component_state_changed(yml_path, new_status);
 }
 
-void Controller::add_component_factory(std::string name, Component::ComponentFactory func)
-{
-    factory_methods[name] = func;
-}    
 
-bool Controller::_send_event(std::string event)
+
+// Send an event filtered by the components active status.
+bool Controller::send_event(std::string event)
 {
     YAML::Node myevent(event);
     // for each component, if its active in the current mode, then
@@ -431,16 +318,190 @@ bool Controller::_send_event(std::string event)
     return true;
 }
 
-// net yet sure how this will be used ...
-void Controller::_service_loop()
+void Controller::component_state_reporting_loop()
 {
     StateReport report;
-    thread_started.signal(true);
+    Keymaster km(keymaster_url);
+    state_thread_started.signal(true);
 
     while(!done)
     {
-        state_report_fifo.get(report);
+        state_fifo.get(report);
+
+        auto p = std::max_element(components.begin(), components.end(), state_compare);
+        dbprintf("%s Max state is %s\n", __PRETTY_FUNCTION__,
+                 p->second.state.c_str());
+        try
+        {
+            km.put(my_full_instance_name + ".state", p->second.state, true);
+        }
+        catch (KeymasterException g)
+        {
+            cerr << g.what() << endl;
+            throw g;
+        }
     }
+
+}
+
+// virtual methods
+bool Controller::_basic_init()
+{
+    bool result;
+
+    result = configure_component_modes() &&
+             create_component_instances();
+    try
+    {
+        // perform other user-defined initializations in derived class
+        keymaster->put(my_full_instance_name + ".state", fsm.getState(), true);
+        keymaster->subscribe(my_full_instance_name + ".command",
+                             new KeymasterMemberCB<Component>(this,
+                                     &Component::command_changed) );
+        keymaster->subscribe(my_full_instance_name + ".configuration",
+                             new KeymasterMemberCB<Controller>(this,
+                                     &Controller::system_mode_changed) );
+
+    }
+    catch (KeymasterException e)
+    {
+        cerr << __PRETTY_FUNCTION__ << " exception: " << e.what() << endl;
+        return false;
+    }
+
+
+    cmd_thread.start();
+    cmd_thread_started.wait(true);
+    state_thread.start();
+    state_thread_started.wait(true);
+    return result;
+}
+
+// A callback called when the keymaster publish's a components state change.
+// Not sure about the type of the component arg.
+// I am assuming there will be a last path component of either .state or .status
+void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
+{
+    size_t p1, p2;
+
+    if ((p1  = yml_path.find_first_of('.')) == string::npos ||
+            (p2  = yml_path.find_last_of('.')) == string::npos)
+    {
+        cerr << "Bad state string from keymaster:" << yml_path << endl;
+        return;
+    }
+
+    string component_name = yml_path.substr(p1+1,p2-p1-1);
+
+    ThreadLock<ComponentMap> l(components);
+    if (components.find(component_name) == components.end())
+    {
+        cerr  << __classmethod__ << " unknown component:"
+              << component_name << " with state " << new_state
+              << endl;
+        cerr << "known components are:" << endl;
+        for (auto i=components.begin(); i!=components.end(); ++i)
+        {
+            cerr << i->first << endl;
+        }
+        cerr << "end of list" << endl;
+        return;
+    }
+    dbprintf("%s component:%s state now %s\n",
+             __PRETTY_FUNCTION__, component_name.c_str(),
+             new_state.as<string>().c_str());
+
+    auto p = make_pair(component_name, new_state.as<string>());
+    state_fifo.put(p);
+
+    components[component_name].state = new_state.as<string>();
+    state_condition.signal();
+}
+
+
+string Controller::_get_state()
+{
+    return Component::_get_state();
+}
+
+// These are programmitic hooks into the Controller.
+// They are equivalent to setting the .command field of the controller
+// via a keymaster.
+bool Controller::_initialize()
+{
+    try
+    {
+        keymaster->put(my_full_instance_name + ".command", "do_init", true);
+    }
+    catch (KeymasterException e)
+    {
+        cerr << e.what() << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Controller::_ready()
+{
+    try
+    {
+        keymaster->put(my_full_instance_name + ".command", "get_ready", true);
+    }
+    catch (KeymasterException e)
+    {
+        cerr << e.what() << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Controller::_standby()
+{
+    try
+    {
+        keymaster->put(my_full_instance_name + ".command", "do_standby", true);
+    }
+    catch (KeymasterException e)
+    {
+        cerr << e.what() << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Controller::_start()
+{
+    try
+    {
+        keymaster->put(my_full_instance_name + ".command", "start", true);
+    }
+    catch (KeymasterException e)
+    {
+        cerr << e.what() << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Controller::_stop()
+{
+    try
+    {
+        keymaster->put(my_full_instance_name + ".command", "stop", true);
+    }
+    catch (KeymasterException e)
+    {
+        cerr << e.what() << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Controller::_process_command(std::string cmd)
+{
+    dbprintf("%s cmd=%s\n", __PRETTY_FUNCTION__, cmd.c_str());
+    send_event(cmd);
+    return Component::_process_command(cmd);
 }
 
 void Controller::_terminate()
@@ -450,14 +511,23 @@ void Controller::_terminate()
     {
         i->second.instance->terminate();
     }
-    
+
+    if (cmd_thread.running())
+    {
+        cmd_thread.stop();
+    }
+
     if (state_thread.running())
     {
         state_thread.stop();
-        done = true;
     }
-    state_report_fifo.release();
+    done = true;
+    command_fifo.release();
+    state_fifo.release();
 
 }
+
+
+
 
 

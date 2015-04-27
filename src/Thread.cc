@@ -23,6 +23,7 @@
 
 
 #include "Thread.h"
+#include "Time.h"
 
 // This has to exist somewhere in the matrix library.
 // It can be moved if we ever make a matrix_utils.cc

@@ -61,6 +61,12 @@ namespace Time
     Time_t date2Time(const int year, const int month, const int dayofmonth,
                    const int msec_since_midnight = 0);
 
+    /// Delay the calling thread by nsecs nanoseconds.
+    void thread_delay(Time::Time_t nsecs);
+
+    /// Sleep until the time specified
+    void thread_sleep_until(Time::Time_t abstime);
+
 };
 
 

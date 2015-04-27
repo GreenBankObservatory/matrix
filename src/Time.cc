@@ -201,4 +201,22 @@ calendarDate(const Time_t t,   int &year,   int &month, int &dayofmonth,
     return 1;
 }
 
+#define TIMER_RELATIVETIME (0)
+
+/// Delay the calling thread by nsecs nanoseconds.
+void thread_delay(Time::Time_t nsecs)
+{
+    struct timespec rqtp;
+    time2timespec(nsecs, rqtp);
+    clock_nanosleep(CLOCK_REALTIME, TIMER_RELATIVETIME, &rqtp, 0);
 }
+
+/// Sleep until the time specified
+void thread_sleep_until(Time::Time_t abstime)
+{
+    struct timespec rqtp;
+    time2timespec(abstime, rqtp);
+    clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &rqtp, 0);
+}
+
+};

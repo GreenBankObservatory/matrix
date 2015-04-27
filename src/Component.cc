@@ -24,25 +24,30 @@
 #include "Component.h"
 #include <yaml-cpp/yaml.h>
 #include <iostream>
+#include <cstdio>
 #include "Keymaster.h"
 
 using namespace std;
 using namespace YAML;
 using namespace FSM;
 
+#define dbprintf if(verbose) printf
 
 /// The arg 'myname' is the so called instance name from the
 /// configuration file.
-Component::Component(string myname, string keymaster_url) :
+Component::Component(string myname, string km_url) :
+    keymaster_url(km_url),
     my_instance_name(myname),
+    my_full_instance_name("components." + my_instance_name),
     keymaster(),
-    server_thread(this, &Component::server_loop),
-    command_fifo(),
     done(false),
-    thread_started(false)
+    command_fifo(),
+    cmd_thread_started(false),
+    cmd_thread(this, &Component::command_loop),
+    verbose(false)
 {
-    initialize_fsm(); 
-    contact_keymaster(keymaster_url);   
+    initialize_fsm();
+    _contact_keymaster(keymaster_url);
 }
 
 Component::~Component()
@@ -50,36 +55,10 @@ Component::~Component()
 
 }
 
-void Component::contact_keymaster(string keymaster_url)
+// Perform initialization.
+bool Component::basic_init()
 {
-    _contact_keymaster(keymaster_url);
-}
-
-/// Fill-in a state machine with the basic states and events
-void Component::initialize_fsm()
-{
-    _initialize_fsm();
-}
-
-// callback for command keyword changes (TBD)
-bool Component::process_command(string cmd)
-{
-    return _process_command(cmd);
-}
-
-string Component::get_state()
-{
-    return _get_state();
-}
-
-bool Component::report_state(string state)
-{
-    return _report_state(state);
-}
-
-bool Component::create_data_connections()
-{
-    return _create_data_connections();
+    return _basic_init();
 }
 
 bool Component::close_data_connections()
@@ -92,12 +71,17 @@ void Component::command_changed(string key, YAML::Node n)
     _command_changed(key, n);
 }
 
-bool Component::state_changed()
+void Component::command_loop()
 {
-    return _state_changed();
+    _command_loop();
 }
 
-/// Note that in the following do_ methods, if the returned value 
+bool Component::create_data_connections()
+{
+    return _create_data_connections();
+}
+
+/// Note that in the following do_ methods, if the returned value
 /// is not true, the state change will not occur.
 /// Callback for the Created to Standby state transition
 bool Component::do_initialize()
@@ -135,79 +119,9 @@ bool Component::do_runtime_error()
     return _do_runtime_error();
 }
 
-void Component::server_loop()
+string Component::get_state()
 {
-    _server_loop();
-}
-
-void Component::terminate()
-{
-    _terminate();
-}
-
-void Component::_server_loop()
-{
-    thread_started.signal(true);
-    string command;
-    while (!done)
-    {
-        command_fifo.get(command);
-        // cout << "Component:" << my_instance_name << " command now " << command << endl;
-        process_command(command);
-    }
-}
-
-
-// virtual private implementations of the public interface
-void Component::_contact_keymaster(string keymaster_url)
-{
-    string root = "components.";
-    keymaster.reset( new Keymaster(keymaster_url) );
-    // perform other user-defined initializations in derived class  
-    keymaster->put(root + my_instance_name + ".state", fsm.getState(), true);
-    keymaster->subscribe(root + my_instance_name + ".command", 
-                         new KeymasterMemberCB<Component>(this, 
-                         &Component::command_changed) );
-
-    server_thread.start();
-    thread_started.wait(true);
-}
-    
-// Setup the states for the default state machine. Attach callbacks
-// such that when the state changes, the change is reported to the
-// keymaster for publishing.
-void Component::_initialize_fsm()
-{
-    // Setup the default state machine, and install the predicate methods which
-    // get called when the respect event is received, and return a boolean
-    // indicating whether or not the event handling was successful (i.e
-    // whether or not the state change should take place.)
-    //
-    //          current state:     on event:    next state:  predicate method:
-    fsm.addTransition("Created",  "do_init",    "Standby",
-                      new Action<Component>(this, &Component::do_initialize) );     
-    fsm.addTransition("Standby",  "get_ready",  "Ready", 
-                       new Action<Component>(this, &Component::do_ready) );
-    fsm.addTransition("Ready",    "start",      "Running",
-                      new Action<Component>(this, &Component::do_start) );
-    fsm.addTransition("Running",  "stop",       "Ready",
-                      new Action<Component>(this, &Component::do_stop) );
-    fsm.addTransition("Running",  "error",      "Ready",
-                      new Action<Component>(this, &Component::do_runtime_error) );                      
-    fsm.addTransition("Ready",    "do_standby", "Standby",
-                      new Action<Component>(this, &Component::do_standby) );
-
-    // Now add method callbacks which announce the state changes when a new state is entered.
-    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
-    
-    fsm.addEnterAction("Running", new Action<Component>(this, &Component::handle_entering_state) );
-    
-    fsm.addEnterAction("Standby", new Action<Component>(this, &Component::handle_entering_state) );
-
-    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
-    
-    fsm.setInitialState("Created");
-    fsm.run_consistency_check();
+    return _get_state();
 }
 
 // announce that a state has been left
@@ -222,44 +136,96 @@ bool Component::handle_entering_state()
     return _handle_entering_state();
 }
 
-bool Component::_handle_leaving_state()
+// Sends the init event to all Components, placing them all in the Standby
+// state. This should be called prior to setting the system mode with
+// set_system_mode().
+bool Component::initialize()
 {
+    return _initialize();
 }
 
-bool Component::_handle_entering_state()
+
+/// Fill-in a state machine with the basic states and events
+void Component::initialize_fsm()
 {
-    // propagate the state change to the keymaster...
-    state_changed();
-    return true;
-}
- 
-/// A new Controller command has arrived. Process it.
-bool Component::_process_command(std::string cmd)
-{
-    // cout << "Component::process_command command now " << cmd << endl;
-    fsm.handle_event(cmd);
-    return true;
-}
-    
-///  Return the current Component state.
-std::string Component::_get_state()
-{
-    return fsm.getState();
-}
-    
-/// Send a state change to the keymaster.
-bool Component::_report_state(std::string newstate)
-{
-    if (keymaster)
-        keymaster->put("components." + my_instance_name + ".state", newstate);
-    return true;
+    _initialize_fsm();
 }
 
-/// Make data connections based on the current configuration. Normally
-/// occurs in the Standby to Ready state.
-bool Component::_create_data_connections()
+// callback for command keyword changes (TBD)
+bool Component::process_command(string cmd)
 {
-    return false;
+    return _process_command(cmd);
+}
+
+// Issue 'do_ready' event to active components. This will transition
+// active components from the Standby to the Ready state.
+bool Component::ready()
+{
+    return _ready();
+}
+
+bool Component::report_state(string state)
+{
+    return _report_state(state);
+}
+
+
+bool Component::state_changed()
+{
+    return _state_changed();
+}
+
+
+// The opposite of the get_ready event. This will transition
+// active components from the Ready to the Standby state.
+bool Component::standby()
+{
+    return _standby();
+}
+
+// Issue the start event to active components. This will transition
+// active components from the Ready to the Running state.
+bool Component::start()
+{
+    return _start();
+}
+
+// Issue the stop event to active components. This will transition
+// active components from the Running to the Ready state.
+bool Component::stop()
+{
+    return _stop();
+}
+
+
+void Component::terminate()
+{
+    _terminate();
+}
+
+// Default or Component specific implementations
+// of the public interfaces.
+/***********************************************************************/
+
+bool Component::_basic_init()
+{
+    try
+    {
+        // perform other user-defined initializations in derived class
+        keymaster->put(my_full_instance_name + ".state", fsm.getState(), true);
+        keymaster->subscribe(my_full_instance_name + ".command",
+                             new KeymasterMemberCB<Component>(this,
+                                     &Component::command_changed) );
+    }
+    catch (KeymasterException e)
+    {
+        cerr << __PRETTY_FUNCTION__ << " exception: " << e.what() << endl;
+        return false;
+    }
+
+    cmd_thread.start();
+    cmd_thread_started.wait(true);
+    return true;
 }
 
 /// tear down data connections.
@@ -270,24 +236,46 @@ bool Component::_close_data_connections()
 
 void Component::_command_changed(string path, YAML::Node n)
 {
+    dbprintf("Component::_command_changed for %s to %s\n",
+             path.c_str(), n.as<string>().c_str());
     string cmd = n.as<string>();
     command_fifo.put(cmd);
 }
 
-bool Component::_state_changed(void)
+// A dedicated thread which executes commands as they come in via the
+// command event fifo.
+void Component::_command_loop()
 {
-    return report_state( get_state() );
+    cmd_thread_started.signal(true);
+    string command;
+    while (!done)
+    {
+        try
+        {
+            command_fifo.get(command);
+        }
+        catch (Exception e)
+        {
+            cerr << e.what() << endl;
+            throw e;
+        }
+        process_command(command);
+    }
 }
 
-void Component::_terminate()
+// virtual private implementations of the public interface
+bool Component::_contact_keymaster(string keymaster_url)
 {
-    if (server_thread.running())
-    {
-        server_thread.stop();
-        done = true;
-    }
-    command_fifo.release();
-    keymaster.reset();
+    // Use the true flag to enable the thread safe mode of keymaster.
+    keymaster.reset( new Keymaster(keymaster_url, true) );
+    return true;
+}
+
+/// Make data connections based on the current configuration. Normally
+/// occurs in the Standby to Ready state.
+bool Component::_create_data_connections()
+{
+    return false;
 }
 
 bool Component::_do_initialize()
@@ -318,6 +306,127 @@ bool Component::_do_stop()
 bool Component::_do_runtime_error()
 {
     return true;
+}
+
+///  Return the current Component state.
+std::string Component::_get_state()
+{
+    return fsm.getState();
+}
+
+bool Component::_handle_leaving_state()
+{
+}
+
+bool Component::_handle_entering_state()
+{
+    // propagate the state change to the keymaster...
+    state_changed();
+    return true;
+}
+
+bool Component::_initialize()
+{
+    return true;
+}
+
+// Setup the states for the default state machine. Attach callbacks
+// such that when the state changes, the change is reported to the
+// keymaster for publishing.
+void Component::_initialize_fsm()
+{
+    // Setup the default state machine, and install the predicate methods which
+    // get called when the respect event is received, and return a boolean
+    // indicating whether or not the event handling was successful (i.e
+    // whether or not the state change should take place.)
+    //
+    //          current state:     on event:    next state:  predicate method:
+    fsm.addTransition("Created",  "do_init",    "Standby",
+                      new Action<Component>(this, &Component::do_initialize) );
+    fsm.addTransition("Standby",  "get_ready",  "Ready",
+                      new Action<Component>(this, &Component::do_ready) );
+    fsm.addTransition("Ready",    "start",      "Running",
+                      new Action<Component>(this, &Component::do_start) );
+    fsm.addTransition("Running",  "stop",       "Ready",
+                      new Action<Component>(this, &Component::do_stop) );
+    fsm.addTransition("Running",  "error",      "Ready",
+                      new Action<Component>(this, &Component::do_runtime_error) );
+    fsm.addTransition("Ready",    "do_standby", "Standby",
+                      new Action<Component>(this, &Component::do_standby) );
+
+    // Now add method callbacks which announce the state changes when a new state is entered.
+    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
+
+    fsm.addEnterAction("Running", new Action<Component>(this, &Component::handle_entering_state) );
+
+    fsm.addEnterAction("Standby", new Action<Component>(this, &Component::handle_entering_state) );
+
+    fsm.addEnterAction("Ready", new Action<Component>(this, &Component::handle_entering_state) );
+
+    fsm.setInitialState("Created");
+    fsm.run_consistency_check();
+}
+
+/// A new Controller command has arrived. Process it.
+bool Component::_process_command(std::string cmd)
+{
+    dbprintf("Component::process_command: %s command now %s\n" ,
+             my_instance_name.c_str(), cmd.c_str());
+    if (!fsm.handle_event(cmd))
+    {
+        cerr << "Component FSM "<< my_instance_name << " rejected event "
+             << cmd << " while in state:" << fsm.getState() << endl;
+    }
+    return true;
+}
+
+/// Create DataSink connections and enter the Ready state
+bool Component::_ready()
+{
+    return true;
+}
+
+/// Send a state change to the keymaster.
+bool Component::_report_state(std::string newstate)
+{
+    keymaster->put(my_full_instance_name + ".state", newstate);
+    return true;
+}
+
+bool Component::_state_changed(void)
+{
+    return report_state( get_state() );
+}
+
+
+/// Close DataSink connections and enter the Standby state
+bool Component::_standby()
+{
+    return true;
+}
+
+/// From the Ready state, prepare to run and enter the Running state.
+bool Component::_start()
+{
+    return true;
+}
+
+/// From the Running state, shutdown and enter the Ready state.
+bool Component::_stop()
+{
+    return true;
+}
+
+void Component::_terminate()
+{
+    if (cmd_thread.running())
+    {
+        cmd_thread.stop();
+        done = true;
+    }
+    command_fifo.release();
+
+    keymaster.reset();
 }
 
 

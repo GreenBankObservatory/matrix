@@ -88,7 +88,8 @@ public:
     
 };
 
-TestController::TestController(string conf_file) : Controller(conf_file)
+TestController::TestController(string conf_file) : 
+    Controller(new KeymasterServer(conf_file), "control", "inproc://matrix.keymaster")
 {
     add_component_factory("ClockComponent",     &ClockComponent::factory);
     add_component_factory("IndicatorComponent", &IndicatorComponent::factory);
