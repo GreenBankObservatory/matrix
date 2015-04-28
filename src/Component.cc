@@ -374,8 +374,9 @@ bool Component::_process_command(std::string cmd)
              my_instance_name.c_str(), cmd.c_str());
     if (!fsm.handle_event(cmd))
     {
-        cerr << "Component FSM "<< my_instance_name << " rejected event "
-             << cmd << " while in state:" << fsm.getState() << endl;
+        // cerr << "Component FSM "<< my_instance_name << " rejected event "
+        //     << cmd << " while in state:" << fsm.getState() << endl;
+        // This gets reported by FSM.
     }
     return true;
 }

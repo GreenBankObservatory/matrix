@@ -91,15 +91,28 @@ static string lstrip(const string s)
     return s.substr(d+1, string::npos);
 }
 
-Controller::Controller(KeymasterServer *k, string name, string km_url) :
+shared_ptr<KeymasterServer>     Controller::the_keymaster_server;
+Controller::ComponentFactoryMap Controller::factory_methods;
+
+//Static method
+void Controller::create_keymaster_server(std::string config_file)
+{
+    the_keymaster_server.reset(new KeymasterServer(config_file));
+    the_keymaster_server->run();
+}
+
+void Controller::destroy_keymaster_server()
+{
+    the_keymaster_server.reset();
+}
+
+Controller::Controller(string name, string km_url) :
     Component(name, km_url),
     state_condition(false),
-    km_server(),
     state_fifo(),
     state_thread_started(false),
     state_thread(this, &Controller::component_state_reporting_loop)
 {
-    km_server.reset(k);
     // re-write the base part of the full instance name to
     // be outside of the component directory
     my_full_instance_name = "controller." + my_instance_name;
@@ -111,7 +124,7 @@ Controller::~Controller()
 
 void Controller::add_component_factory(std::string name, Component::ComponentFactory func)
 {
-    factory_methods[name] = func;
+    Controller::factory_methods[name] = func;
 }
 
 bool Controller::configure_component_modes()

@@ -201,6 +201,8 @@ bool State::handle_event(std::string event, string &nxt_state)
     if (tr == transitionmap.end())
     {
         // dont have any legal transitions for this event
+        cerr << "FSM: Event:" << event << " unrecognized -- no actions taken" 
+             << endl;
         return false;
     }
     if (tr->second.check_predicates())

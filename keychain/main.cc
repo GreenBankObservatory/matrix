@@ -755,7 +755,23 @@ void read(CmdParam &p)
     }
     else
     {
-        n = current_node[p[0]];
+        if (p[0].at(0) == '.')
+        {
+            // handle the full path specified case
+            string fullpath = p[0].substr(1, string::npos);
+            YAML::Node reply = keymaster->get(fullpath);
+            cout << reply << endl;
+            return;
+        }
+        yaml_result r = get_yaml_node(current_node, p[0]);
+        if (r.result)
+        {
+            n = r.node;
+        }
+        else
+        {
+            cout << "No such node " << p[0] << endl;
+        }
     }
 
     if (n)
@@ -836,6 +852,13 @@ void write(CmdParam &p)
     {
         key = p[0];
         val = p[1];
+        if (key[0] == '.')
+        {
+            // handle the full path specified case
+            string fullpath = key.substr(1,string::npos);
+            keymaster->put(fullpath, val);
+            return;
+        }
     }
     else if (p.count() == 1) // only val given, current_node = val
     {

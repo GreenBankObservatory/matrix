@@ -92,13 +92,13 @@ public:
 class Controller : public Component
 {
 public:
-    Controller(KeymasterServer *km, std::string name, std::string km_url);
+    Controller(std::string name, std::string km_url);
     virtual ~Controller();
 
     /// Add a component factory constructor for later use in creating
     /// the component instance. The factory signature should be
     /// `       Component * Classname::factory(string type, ComponentFactory);`
-    void add_component_factory(std::string name, Component::ComponentFactory func);
+    static void add_component_factory(std::string name, Component::ComponentFactory func);
 
     /// This reads the connections section of the keymaster database/config file
     /// and for each mode listed, creates a set of instance names of the
@@ -139,6 +139,9 @@ public:
         std::string status;
         bool active;
     };
+    
+    static void create_keymaster_server(std::string config_file);
+    static void destroy_keymaster_server();
 
 protected:
 
@@ -191,17 +194,11 @@ protected:
 
     // Data members:
 
-    /// A place to store Component factory methods
-    /// indexed by Component type, not name.
-    ComponentFactoryMap factory_methods;
-
     // Maps component names to component related data
     ComponentMap components;
     ActiveModeComponentSet active_mode_components;
 
     // A condition variable for waiting on state updates (TBD)
-
-    std::shared_ptr<KeymasterServer> km_server;
     std::string current_mode;
 
     // std::string keymaster_url;
@@ -209,6 +206,11 @@ protected:
     tsemfifo<std::pair<std::string, std::string> > state_fifo;
     TCondition<bool> state_thread_started;
     Thread<Controller> state_thread;
+    
+    /// A place to store Component factory methods
+    /// indexed by Component type, not name.
+    static ComponentFactoryMap factory_methods;    
+    static std::shared_ptr<KeymasterServer> the_keymaster_server;    
 };
 
 

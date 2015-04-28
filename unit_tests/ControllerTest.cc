@@ -48,15 +48,11 @@ public:
 // test for approximate equivalent time
 void ControllerTest::test_init()
 {
-    auto k=new KeymasterServer("hello_world.yaml");
-    k->run();
-    Controller simple(k, "control", "inproc://matrix.keymaster");
-    simple.add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
+    Controller::add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
+    Controller::create_keymaster_server("hello_world.yaml");
+    Controller simple("control", "inproc://matrix.keymaster");
     
-    // For poking at the simple controller:
-    cout << "calling basic_init" << endl;
     CPPUNIT_ASSERT( simple.basic_init());
-    cout << "basic_init" << endl;
 
     CPPUNIT_ASSERT( simple.initialize());
     
@@ -82,7 +78,6 @@ void ControllerTest::test_init()
     }    
     
     simple.start();
-    cout << "sent command" << endl;
     CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 20000000) );
     CPPUNIT_ASSERT( simple.stop());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
@@ -103,9 +98,10 @@ void ControllerTest::test_init()
     CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
     CPPUNIT_ASSERT( simple.standby());
     CPPUNIT_ASSERT( simple.wait_all_in_state("Standby", 1000000) );
-    //  Time::thread_delay(20000000000);
+    // Time::thread_delay(200000000000);
     
     // simple.terminate();
+    Controller::destroy_keymaster_server();
 }
 
 

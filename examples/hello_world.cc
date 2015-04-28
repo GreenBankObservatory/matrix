@@ -84,12 +84,12 @@ public:
 class TestController : public Controller
 {
 public:
-    TestController(string conf_file);
+    TestController();
     
 };
 
-TestController::TestController(string conf_file) : 
-    Controller(new KeymasterServer(conf_file), "control", "inproc://matrix.keymaster")
+TestController::TestController() : 
+    Controller("control", "inproc://matrix.keymaster")
 {
     add_component_factory("ClockComponent",     &ClockComponent::factory);
     add_component_factory("IndicatorComponent", &IndicatorComponent::factory);
@@ -109,7 +109,8 @@ int main(int argc, char **argv)
 
     ThreadBase::set_thread_create_hook(hook);
 
-    TestController simple(string("hello_world.yaml"));
+    Controller::create_keymaster_server("hello_world.yaml");
+    TestController simple;
     
 
     // wait for the keymaster events which report components in the Standby state.
