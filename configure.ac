@@ -33,6 +33,9 @@ AC_PREREQ([2.59])
 # required - args are: Project name, version, contacts
 AC_INIT([Matrix], [0.1], [jbrandt AT nrao.edu, rcreager AT nrao.edu])
 
+
+AC_CONFIG_MACRO_DIR([m4])
+
 # unique source file --- primitive safety check
 AC_CONFIG_SRCDIR([src/Controller.cc])
 
@@ -194,6 +197,7 @@ AC_CONFIG_HEADERS([include/config.h])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  unit_tests/Makefile
-                 examples/Makefile])
+                 examples/Makefile
+                 keychain/Makefile])
 
 AC_OUTPUT

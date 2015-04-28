@@ -263,6 +263,12 @@ namespace mxutils
 
         try
         {
+            if (keychain.empty())
+            {
+                yaml_result r(true, node, "");
+                return r;
+            }
+
             boost::split(keys, keychain, boost::is_any_of("."));
             nodes.push_back(node);
             bool rval = walk_the_nodes(keys, nodes, false);
@@ -313,6 +319,16 @@ namespace mxutils
 
         try
         {
+            // if key == "" we want the top-level node. Just replace
+            // 'node' with 'val'.
+            if (keychain.empty())
+            {
+                node = val;
+                nodes.push_back(node);
+                keys.push_back("");
+                return set_yaml_result(keys, nodes, true);
+            }
+
             boost::split(keys, keychain, boost::is_any_of("."));
             nodes.push_back(node); // node[keys[0]]);
             bool rval = walk_the_nodes(keys, nodes, create);

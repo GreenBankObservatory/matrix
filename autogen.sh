@@ -27,6 +27,11 @@
 if [ ! -d ./include ]; then
     mkdir include
 fi
+
+if [ ! -d ./m4 ]; then
+    mkdir m4
+fi
+
 command -v libtool >/dev/null 2>&1
 if  [ $? -ne 0 ]; then
     echo "autogen.sh: error: could not find libtool.  libtool is required to run autogen.sh." 1>&2

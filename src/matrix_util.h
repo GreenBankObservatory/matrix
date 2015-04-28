@@ -29,12 +29,66 @@
 #define _MATRIX_UTIL_H_
 
 #include <string>
+#include <sstream>
+#include <iostream>
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
+#include <boost/algorithm/string.hpp>
 
 namespace mxutils
 {
+/**
+ * \class fn_string_join is a simple functor that provides a handy way to
+ * join strings from a container of strings, using the delimiter
+ * provided. It may be used stand-alone, but is most useful with
+ * high-level functions like transform, etc.
+ *
+ */
+
+    struct fn_string_join
+    {
+        fn_string_join(std::string delim)
+        {
+            _delim = delim;
+        }
+
+        template <typename T>
+        std::string operator()(T x)
+        {
+            return boost::algorithm::join(x, _delim);
+        }
+
+    private:
+
+        std::string _delim;
+    };
+
 
     bool is_numeric_p(char c);
     std::string strip_non_numeric(const std::string &s);
+
+/**
+ * Outputs a vector to an ostream
+ *
+ * @param v: the vector to be output
+ *
+ * @param o: the ostream type
+ *
+ */
+
+    template <typename T>
+    void output_vector(std::vector<T> v, std::ostream &o)
+    {
+        std::ostringstream str;
+        str << "[";
+        std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
+        std::string s = str.str();
+        std::string y(s.begin(), s.end() - 2);
+        y += "]";
+        o << y;
+    }
 
 /**
  * These template specializations convert 's' to a value of type T and

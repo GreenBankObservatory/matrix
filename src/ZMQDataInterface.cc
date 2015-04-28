@@ -46,11 +46,11 @@ using namespace std::placeholders;
 using namespace mxutils;
 
 /**
- * Creates a ZMQDataSource, returning a DataSource pointer to it. This
- * is a static function that can be used by DataSource::create() to
+ * Creates a ZMQTransportServer, returning a TransportServer pointer to it. This
+ * is a static function that can be used by TransportServer::create() to
  * create this type of object based solely on the transports provided to
- * create(). The caller of DataSource::create() thus needs no specific
- * knowledge of ZMQDataSource.
+ * create(). The caller of TransportServer::create() thus needs no specific
+ * knowledge of ZMQTransportServer.
  *
  * @param km_urn: the URN to the keymaster.
  *
@@ -59,36 +59,39 @@ using namespace mxutils;
  * the sub-keys of this node must be a key 'Specified', which returns a
  * vector of transports required for this data source.
  *
- * @return A DataSource * pointing to the created ZMQDataSource.
+ * @return A TransportServer * pointing to the created ZMQTransportServer.
  *
  */
 
-DataSource *ZMQDataSource::factory(string km_url, string key)
+TransportServer *ZMQTransportServer::factory(string km_url, string key)
 {
-    DataSource *ds = new ZMQDataSource(km_url, key);
+    TransportServer *ds = new ZMQTransportServer(km_url, key);
     return ds;
 }
 
-// Matrix will support ZMQDataSource out of the box, so we can go ahead
-// and initialize the static DataSource::factories here, pre-loading it
-// with the ZMQDataSource supported transports. Library users who
-// subclass their own DataSource will need to call
-// DataSource::add_factory() somewhere in their code, prior to creating
-// their custom DataSource objects, to add support for custom
+// Matrix will support ZMQTransportServer out of the box, so we can go ahead
+// and initialize the static TransportServer::factories here, pre-loading it
+// with the ZMQTransportServer supported transports. Library users who
+// subclass their own TransportServer will need to call
+// TransportServer::add_factory() somewhere in their code, prior to creating
+// their custom TransportServer objects, to add support for custom
 // transports.
-map<string, DataSource::factory_sig> DataSource::factories =
+map<string, TransportServer::factory_sig> TransportServer::factories =
+
 {
-    {"tcp",    &ZMQDataSource::factory},
-    {"ipc",    &ZMQDataSource::factory},
-    {"inproc", &ZMQDataSource::factory}
+    {"tcp",    &ZMQTransportServer::factory},
+    {"ipc",    &ZMQTransportServer::factory},
+    {"inproc", &ZMQTransportServer::factory}
 };
 
+Mutex TransportServer::factories_mutex;
+
 /**
- * \class PubImpl is the private implementation of the ZMQDataSource class.
+ * \class PubImpl is the private implementation of the ZMQTransportServer class.
  *
  */
 
-struct ZMQDataSource::PubImpl
+struct ZMQTransportServer::PubImpl
 {
     PubImpl(vector<string> urls);
     ~PubImpl();
@@ -121,8 +124,8 @@ struct ZMQDataSource::PubImpl
 };
 
 /**
- * Constructor of the implementation class of ZMQDataSource.  The
- * implementation class handles all the details; the ZMQDataSource class
+ * Constructor of the implementation class of ZMQTransportServer.  The
+ * implementation class handles all the details; the ZMQTransportServer class
  * merely provides the external interface.
  *
  * @param urns: The desired URNs, as a vector of strings. If
@@ -130,9 +133,9 @@ struct ZMQDataSource::PubImpl
  *
  */
 
-ZMQDataSource::PubImpl::PubImpl(vector<string> urns)
+ZMQTransportServer::PubImpl::PubImpl(vector<string> urns)
 :
-    _server_thread(this, &ZMQDataSource::PubImpl::server_task),
+    _server_thread(this, &ZMQTransportServer::PubImpl::server_task),
     _server_thread_ready(false),
     _data_queue(100),
     _ctx(ZMQContext::Instance()->get_context())
@@ -141,6 +144,8 @@ ZMQDataSource::PubImpl::PubImpl(vector<string> urns)
     int i = 0;
 
     // process the urns.
+    _publish_service_urls.clear();
+    _publish_service_urls.resize(urns.size());
     transform(urns.begin(), urns.end(), _publish_service_urls.begin(), &process_zmq_urn);
     auto str_not_empty = std::bind(not_equal_to<string>(), _1, string());
 
@@ -155,12 +160,11 @@ ZMQDataSource::PubImpl::PubImpl(vector<string> urns)
 
         if (_server_thread.start() != 0)
         {
-            error = string("ZMQDataSource data task was not started.");
+            error = string("ZMQTransportServer data task was not started.");
         }
-
-        if (!_server_thread_ready.wait(true, 1000000))
+        else if (!_server_thread_ready.wait(true, 1000000))
         {
-            error = string("ZMQDataSource data task never reported ready.");
+            error = string("ZMQTransportServer data task never reported ready.");
         }
 
         if (!error.empty())
@@ -176,7 +180,7 @@ ZMQDataSource::PubImpl::PubImpl(vector<string> urns)
  *
  */
 
-ZMQDataSource::PubImpl::~PubImpl()
+ZMQTransportServer::PubImpl::~PubImpl()
 
 {
     _data_queue.release();
@@ -191,7 +195,7 @@ ZMQDataSource::PubImpl::~PubImpl()
  *
  */
 
-vector<string> ZMQDataSource::PubImpl::get_urls()
+vector<string> ZMQTransportServer::PubImpl::get_urls()
 {
     return _publish_service_urls;
 }
@@ -203,7 +207,7 @@ vector<string> ZMQDataSource::PubImpl::get_urls()
  *
  */
 
-void ZMQDataSource::PubImpl::server_task()
+void ZMQTransportServer::PubImpl::server_task()
 
 {
     data_package dp;
@@ -226,7 +230,7 @@ void ZMQDataSource::PubImpl::server_task()
 
                 if (!getCanonicalHostname(_hostname))
                 {
-                    cerr << "ZMQDataSource: Unable to obtain canonical hostname: "
+                    cerr << "ZMQTransportServer: Unable to obtain canonical hostname: "
                          << strerror(errno) << endl;
                     return;
                 }
@@ -299,7 +303,7 @@ void ZMQDataSource::PubImpl::server_task()
 }
 
 /**
- * This is the ZMQDataSource's Data publishing facility.  It is a private
+ * This is the ZMQTransportServer's Data publishing facility.  It is a private
  * function that does all the work preparing data for publication.
  * The data and metadata are copied into a 'data_package' object and
  * posted on the publication semaphore queue. std::strings are used for
@@ -318,7 +322,7 @@ void ZMQDataSource::PubImpl::server_task()
  *
  */
 
-bool ZMQDataSource::PubImpl::publish(string key, string data)
+bool ZMQTransportServer::PubImpl::publish(string key, string data)
 {
     data_package dp;
 
@@ -327,8 +331,8 @@ bool ZMQDataSource::PubImpl::publish(string key, string data)
     return _data_queue.try_put(dp);
 }
 
-ZMQDataSource::ZMQDataSource(string keymaster_url, string key)
-    : DataSource(keymaster_url, key)
+ZMQTransportServer::ZMQTransportServer(string keymaster_url, string key)
+    : TransportServer(keymaster_url, key)
 {
     try
     {
@@ -341,7 +345,7 @@ ZMQDataSource::ZMQDataSource(string keymaster_url, string key)
 
         // register the AsConfigured urns:
         urns = _impl->get_urls();
-        km.put(_transport_key + ".AsConfigured", urns);
+        km.put(_transport_key + ".AsConfigured", urns, true);
     }
     catch (KeymasterException e)
     {
@@ -349,7 +353,7 @@ ZMQDataSource::ZMQDataSource(string keymaster_url, string key)
     }
 }
 
-ZMQDataSource::~ZMQDataSource()
+ZMQTransportServer::~ZMQTransportServer()
 {
     // releases queue, stops thread.
     _impl.reset();
@@ -357,22 +361,26 @@ ZMQDataSource::~ZMQDataSource()
     try
     {
         Keymaster km(_km_url);
+        cout << km.get("root") << endl;
+
         km.del(_transport_key + ".AsConfigured");
     }
     catch (KeymasterException e)
     {
-        cerr << "ZMQDataSource::~ZMQDataSource: could not remove 'AsConfigured' URNs" << endl;
+        // Just making sure no exception is thrown from destructor. The
+        // Keymaster client could throw if the KeymasterServer goes away
+        // prior to this call.
     }
 }
 
-bool ZMQDataSource::_publish(string key, void *data, size_t size_of_data)
+bool ZMQTransportServer::_publish(string key, const void *data, size_t size_of_data)
 {
     string data_buf(size_of_data, 0);
     memcpy((char *)data_buf.data(), data, size_of_data);
     return _impl->publish(key, data_buf);
 }
 
-bool ZMQDataSource::_publish(string key, string data)
+bool ZMQTransportServer::_publish(string key, string data)
 {
     return _impl->publish(key, data);
 }

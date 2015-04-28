@@ -26,15 +26,17 @@
 #===============================================================================
 
 
-SUBDIRS = src unit_tests examples
+SUBDIRS = src unit_tests examples keychain
+
+ACLOCAL_AMFLAGS = -I m4
 
 distclean-local:
-	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess 
-	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache 
+	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess
+	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache
 
 dist-hook:
-	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess 
-	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache 
+	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess
+	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache
 
 docs:
 	doxygen Doxyfile
