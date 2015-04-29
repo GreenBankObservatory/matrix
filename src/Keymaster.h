@@ -29,6 +29,7 @@
 #define _KEYMASTER_H_
 
 #include "yaml_util.h"
+#include "matrix_util.h"
 #include "Thread.h"
 #include "TCondition.h"
 
@@ -65,38 +66,11 @@ private:
     boost::shared_ptr<KeymasterServer::KmImpl> _impl;
 };
 
-class MatrixException : public std::runtime_error
-{
-public:
-
-    MatrixException(std::string msg, std::string etype)
-        : runtime_error(etype),
-          _msg(msg)
-    {
-    }
-
-    virtual ~MatrixException() throw ()
-    {
-    }
-
-
-    virtual const char* what() const throw()
-    {
-        std::ostringstream msg;
-        msg << std::runtime_error::what() << ": " << _msg;
-        return msg.str().c_str();
-    }
-
-private:
-
-    std::string _msg;
-};
-
 class KeymasterException : public MatrixException
 {
 public:
     KeymasterException(std::string msg) :
-        MatrixException(msg, "Keymaster exception") {}
+        MatrixException("KeymasterException", msg) {}
 };
 
 /**
@@ -141,7 +115,7 @@ private:
  *     {
  *         ...
  *         km = new Keymaster(km_url);
- *         km->subscribe("foo.bar.baz", my_cb);
+ *         km->subscribe("foo.bar.baz", &my_cb);
  *     }
  *
  */
@@ -207,8 +181,10 @@ private:
 
     void _subscriber_task();
     void _run();
+    void _handle_keymaster_server_exception();
+    std::shared_ptr<zmq::socket_t> _keymaster_socket();
 
-    zmq::socket_t _km;
+    std::shared_ptr<zmq::socket_t> _km_;
     mxutils::yaml_result _r;
     std::string _km_url;
     std::string _pipe_url;

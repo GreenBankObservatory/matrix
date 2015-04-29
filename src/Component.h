@@ -28,6 +28,7 @@
 #include "FiniteStateMachine.h"
 #include <tsemfifo.h>
 #include <Thread.h>
+#include "matrix_util.h"
 #include "Keymaster.h"
 
 class ComponentException : public MatrixException

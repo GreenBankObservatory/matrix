@@ -60,6 +60,7 @@ using namespace mxutils;
 #define SUBSCRIBE   1
 #define UNSUBSCRIBE 2
 #define QUIT        3
+#define KM_TIMEOUT  5000
 
 struct substring_p
 {
@@ -255,7 +256,7 @@ void KeymasterServer::KmImpl::terminate()
     {
         zmq::socket_t sock(ZMQContext::Instance()->get_context(), ZMQ_PAIR);
         sock.connect(_state_task_url.c_str());
-        z_send(sock, _state_task_quit);
+        z_send(sock, _state_task_quit, 0);
         sock.close();
         _state_manager_thread.stop_without_cancel();
     }
@@ -445,7 +446,7 @@ void KeymasterServer::KmImpl::server_task()
                 ostringstream yr;
                 yr << dp.node;
                 z_send(data_publisher, string("Root"), ZMQ_SNDMORE);
-                z_send(data_publisher, yr.str());
+                z_send(data_publisher, yr.str(), 0);
             }
             else
             {
@@ -464,7 +465,7 @@ void KeymasterServer::KmImpl::server_task()
                         // we just need the node that goes with the key.
                         yr << r.node;
                         z_send(data_publisher, key, ZMQ_SNDMORE);
-                        z_send(data_publisher, yr.str());
+                        z_send(data_publisher, yr.str(), 0);
                     }
                 }
             }
@@ -567,7 +568,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                     z_recv_multipart(state_sock, frame);
 
 		    // reply with something
-		    z_send(state_sock, "I'm not dead yet!");
+		    z_send(state_sock, "I'm not dead yet!", 0);
 		}
                 /////////////////// G E T ///////////////////
 		else if (key.size() == 3 && key == "GET")
@@ -586,12 +587,12 @@ void KeymasterServer::KmImpl::state_manager_task()
 
                         yaml_result r = get_yaml_node(_root_node, keychain);
                         rval << r;
-                        z_send(state_sock, rval.str());
+                        z_send(state_sock, rval.str(), 0);
                     }
                     else
                     {
                         string msg("ERROR: Keychain expected, but not received!");
-                        z_send(state_sock, msg);
+                        z_send(state_sock, msg, 0);
                     }
 		}
                 /////////////////// P U T ///////////////////
@@ -621,7 +622,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                         YAML::Node n = YAML::Load(yaml_string);
                         r = put_yaml_node(_root_node, keychain, n, create);
                         rval << r;
-                        z_send(state_sock, rval.str());
+                        z_send(state_sock, rval.str(), 0);
 
                         if (r.result)
                         {
@@ -631,7 +632,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                     else
                     {
                         string msg("ERROR: Keychain and value expected, but not received!");
-                        z_send(state_sock, msg);
+                        z_send(state_sock, msg, 0);
                     }
                 }
                 /////////////////// D E L ///////////////////
@@ -645,7 +646,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                         yaml_result r = delete_yaml_node(_root_node, keychain);
                         ostringstream rval;
                         rval << r;
-                        z_send(state_sock, rval.str());
+                        z_send(state_sock, rval.str(), 0);
 
                         if (r.result)
                         {
@@ -655,7 +656,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                     else
                     {
                         string msg("ERROR: Keychain expected, but not received!");
-                        z_send(state_sock, msg);
+                        z_send(state_sock, msg, 0);
                     }
                 }
                 else
@@ -663,7 +664,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                     z_recv_multipart(state_sock, frame);
                     ostringstream msg;
                     msg << "Unknown request '" << key;
-                    z_send(state_sock, msg.str());
+                    z_send(state_sock, msg.str(), 0);
                 }
 	    }
         }
@@ -828,7 +829,7 @@ void KeymasterServer::terminate()
 
 Keymaster::Keymaster(string keymaster_url, bool shared)
     :
-    _km(ZMQContext::Instance()->get_context(), ZMQ_REQ),
+    _km_url(keymaster_url),
     _pipe_url(string("inproc://") + gen_random_string(20)),
     _subscriber_thread(this, &Keymaster::_subscriber_task),
     _subscriber_thread_ready(false)
@@ -837,17 +838,6 @@ Keymaster::Keymaster(string keymaster_url, bool shared)
         _shared_lock.reset(new Mutex);
     else
         _shared_lock.reset(new NoLock);
-    try
-    {
-        _km.connect(keymaster_url.c_str());
-        _km_url = keymaster_url;
-    }
-    catch (zmq::error_t e)
-    {
-        ostringstream msg;
-        msg << "unable to open a connection to " << keymaster_url;
-        throw(KeymasterException(msg.str()));
-    }
 }
 
 /**
@@ -863,13 +853,66 @@ Keymaster::~Keymaster()
     {
         zmq::socket_t ctrl(ZMQContext::Instance()->get_context(), ZMQ_REQ);
         ctrl.connect(_pipe_url.c_str());
-        z_send(ctrl, QUIT);
+        z_send(ctrl, QUIT, 0);
         int rval;
         z_recv(ctrl, rval);
         _subscriber_thread.stop_without_cancel();
     }
 
-    _km.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+    if (_km_.get())
+    {
+        _km_->setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+        _km_->close();
+    }
+}
+
+/**
+ * Closes the socket to deal with problems such as the Keymaster
+ * server disappearing. Since the socket is a ZMQ_REQ socket, sending
+ * without being able to receive puts the socket into a state in which
+ * it cannot resend. The shared pointer is reset, so that the
+ * companion function `_keymaster_socket()` knows to create a new one
+ * and reconnect.
+ *
+ */
+
+void Keymaster::_handle_keymaster_server_exception()
+{
+    int zero = 0;
+
+    _km_->setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+    _km_->close();
+    _km_.reset();
+}
+
+/**
+ * Attempts to return a valid zmq::socket_t connected to the keymaster
+ * server. If the function is unable to connect the socket it throws a
+ * zmq::error_t. This handles the potential case of the keymaster
+ * going away before this client does. In that case,
+ * `_handle_keymaster_server_exception()` closes the socket and resets
+ * the shared pointer prior to `get()`, `put()` and `del()` throwing
+ * an exception. Instead of using the `_km_` shared pointer directly,
+ * `get()`, `put()` and `del()` all call this function to obtain a
+ * share of this pointer to the socket; if it was previously closed
+ * and reset, this will construct a new one and attempt to reconnect
+ * it.
+ *
+ * @return std::shared_ptr<zmq::socket_t>, which will point to a
+ * socket connected to the Keymaster server.
+ *
+ */
+
+shared_ptr<zmq::socket_t> Keymaster::_keymaster_socket()
+{
+    if (_km_.get())
+    {
+        return _km_;
+    }
+    
+    _km_.reset(new zmq::socket_t(ZMQContext::Instance()->get_context(), ZMQ_REQ));
+    _km_->connect(_km_url.c_str());
+    return _km_;
 }
 
 /**
@@ -891,23 +934,36 @@ Keymaster::~Keymaster()
 YAML::Node Keymaster::get(std::string key)
 {
     string cmd("GET"), response;
-    vector<string> frames;
     ThreadLock<Mutex> lck(*_shared_lock);
-    
-    z_send(_km, cmd, ZMQ_SNDMORE);
-    z_send(_km, key);
-    z_recv(_km, response);
-    z_recv_multipart(_km, frames);
-    lck.unlock();
-    
+    ostringstream msg;
 
-    _r.from_yaml_node(YAML::Load(response));
-
-    if (_r.result == false)
+    try
     {
-        ostringstream msg;
-        msg << "Failed to get key " << key << " from keymaster. Keymaster says: " << _r.err;
-        throw(KeymasterException(msg.str()));
+        lck.lock();
+        msg << "Failed to GET key '" << key << "' from keymaster. ";
+        shared_ptr<zmq::socket_t> km = _keymaster_socket();
+        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
+        z_send(*km, key, 0, KM_TIMEOUT);
+        // use a reasonable time-out, in case Keymaster is gone.
+        z_recv(*km, response, KM_TIMEOUT);
+        _r.from_yaml_node(YAML::Load(response));
+
+        if (_r.result == false)
+        {
+            msg << "Keymaster says: " << _r.err;
+            throw KeymasterException(msg.str());
+        }
+    }
+    catch (MatrixException e)
+    {
+        _handle_keymaster_server_exception();
+        msg << e.what();
+        throw KeymasterException(msg.str());
+    }
+    catch (zmq::error_t e)
+    {
+        msg << e.what();
+        throw KeymasterException(msg.str());
     }
 
     return YAML::Clone(_r.node);
@@ -943,34 +999,46 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
 {
     string cmd("PUT"), create_flag("create"), response;
     ostringstream msg;
-    vector<string> frames;
     ThreadLock<Mutex> lck(*_shared_lock);
-    
-    z_send(_km, cmd, ZMQ_SNDMORE);
-    z_send(_km, key, ZMQ_SNDMORE);
-    msg << n;
 
-    if (create)
+    try
     {
-        z_send(_km, msg.str(), ZMQ_SNDMORE);
-        z_send(_km, create_flag);
+        lck.lock();
+        msg << "Failed to PUT key '" << key << "' to keymaster. ";
+        shared_ptr<zmq::socket_t> km = _keymaster_socket();
+        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
+        z_send(*km, key, ZMQ_SNDMORE, KM_TIMEOUT);
+        msg << n;
+
+        if (create)
+        {
+            z_send(*km, msg.str(), ZMQ_SNDMORE, KM_TIMEOUT);
+            z_send(*km, create_flag, 0, KM_TIMEOUT);
+        }
+        else
+        {
+            z_send(*km, msg.str(), 0, KM_TIMEOUT);
+        }
+
+        z_recv(*km, response, KM_TIMEOUT);
+        _r.from_yaml_node(YAML::Load(response));
     }
-    else
+    catch (MatrixException e)
     {
-        z_send(_km, msg.str());
+        _handle_keymaster_server_exception();
+        msg << e.what();
+        throw KeymasterException(msg.str());
     }
-
-    z_recv(_km, response);
-    z_recv_multipart(_km, frames);
-    lck.unlock();
-
-    _r.from_yaml_node(YAML::Load(response));
+    catch (zmq::error_t e)
+    {
+        msg << e.what();
+        throw KeymasterException(msg.str());
+    }
 
     if (_r.result == false)
     {
         ostringstream msg;
-        msg << "Failed to put new value for key " << key
-            << " to the keymaster. Keymaster says: " << _r.err;
+        msg << "Keymaster says: " << _r.err;
         throw(KeymasterException(msg.str()));
     }
 }
@@ -992,21 +1060,34 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
 void Keymaster::del(std::string key)
 {
     string cmd("DEL"), response;
-    vector<string> frames;
     ThreadLock<Mutex> lck(*_shared_lock);
+    ostringstream msg;
 
-    z_send(_km, cmd, ZMQ_SNDMORE);
-    z_send(_km, key);
-    z_recv(_km, response);
-    z_recv_multipart(_km, frames);
-    lck.unlock();
-
-    _r.from_yaml_node(YAML::Load(response));
+    try
+    {
+        lck.lock();
+        msg << "Failed to delete key '" << key << "' from keymaster. ";
+        shared_ptr<zmq::socket_t> km = _keymaster_socket();
+        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
+        z_send(*km, key, 0, KM_TIMEOUT);
+        z_recv(*km, response, KM_TIMEOUT);
+        _r.from_yaml_node(YAML::Load(response));
+    }
+    catch (MatrixException e)
+    {
+        _handle_keymaster_server_exception();
+        msg << e.what();
+        throw KeymasterException(msg.str());
+    }
+    catch (zmq::error_t e)
+    {
+        msg << e.what();
+        throw KeymasterException(msg.str());
+    }
 
     if (_r.result == false)
     {
-        ostringstream msg;
-        msg << "Failed to delete key " << key << " from keymaster. Keymaster says: " << _r.err;
+        msg << "Keymaster says: " << _r.err;
         throw(KeymasterException(msg.str()));
     }
 }
@@ -1058,7 +1139,7 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
     z_send(pipe, key, ZMQ_SNDMORE);
-    z_send(pipe, f);
+    z_send(pipe, f, 0);
     int rval;
     z_recv(pipe, rval);
     lck.unlock();
@@ -1079,7 +1160,7 @@ void Keymaster::unsubscribe(string key)
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, UNSUBSCRIBE, ZMQ_SNDMORE);
-    z_send(pipe, key);
+    z_send(pipe, key, 0);
     int rval;
     z_recv(pipe, rval);
     lck.unlock();
@@ -1181,7 +1262,7 @@ void Keymaster::_subscriber_task()
 
                     _callbacks[key] = f_ptr;
                     sub_sock.setsockopt(ZMQ_SUBSCRIBE, key.c_str(), key.length());
-                    z_send(pipe, 1);
+                    z_send(pipe, 1, 0);
                 }
                 else if (msg == UNSUBSCRIBE)
                 {
@@ -1200,11 +1281,11 @@ void Keymaster::_subscriber_task()
                         _callbacks.erase(key);
                     }
 
-                    z_send(pipe, 1);
+                    z_send(pipe, 1, 0);
                 }
                 else if (msg == QUIT)
                 {
-                    z_send(pipe, 0);
+                    z_send(pipe, 0, 0);
                     break;
                 }
             }

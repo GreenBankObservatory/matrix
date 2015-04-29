@@ -37,6 +37,34 @@
 
 #include <boost/algorithm/string.hpp>
 
+class MatrixException : public std::runtime_error
+{
+public:
+
+    MatrixException(std::string etype, std::string msg)
+        : runtime_error(etype),
+          _msg(msg)
+    {
+    }
+
+    virtual ~MatrixException() throw ()
+    {
+    }
+
+
+    virtual const char* what() const throw()
+    {
+        std::ostringstream msg;
+        msg << std::runtime_error::what() << ": " << _msg;
+        return msg.str().c_str();
+    }
+
+private:
+
+    std::string _msg;
+};
+
+
 namespace mxutils
 {
 /**

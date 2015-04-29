@@ -27,6 +27,7 @@
  *******************************************************************/
 
 #include "zmq_util.h"
+#include "matrix_util.h"
 
 #include <algorithm>
 #include <functional>
@@ -41,6 +42,14 @@ using namespace std::placeholders;
 
 namespace mxutils
 {
+
+// receives using a time-out. Useful to prevent clients from
+// blocking forever.
+    void z_recv_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int to);
+
+// Sends using a time out.
+    void z_send_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int flags, int to);
+
 
 /**
  * Generates a string of length 'len' with random alpha-numeric
@@ -225,18 +234,18 @@ std::string process_zmq_urn(const std::string input)
  *
  */
 
-    void z_send(zmq::socket_t &sock, std::string data, int flags)
+    void z_send(zmq::socket_t &sock, std::string data, int flags, int to)
     {
         zmq::message_t msg(data.size());
         memcpy((char *)msg.data(), data.data(), data.size());
 
-        if (flags)
+        if (to)
         {
-            sock.send(msg, flags);
+            z_send_with_timeout(sock, msg, flags, to);
         }
         else
         {
-            sock.send(msg);
+            sock.send(msg, flags);
         }
     }
 
@@ -248,19 +257,29 @@ std::string process_zmq_urn(const std::string input)
  * confused by it. Thus, in C++, where a terminator is expected, one
  * must be provided.
  *
- * NOTE: This should ONLY be used if what is expected is an ASCII
- * string.
- *
  * @param sock: The socket that will be receiving the string.
  *
  * @param data: the received string.
  *
+ * @param to: A time-out value, in milliseconds. If not 0, it will be
+ * used. If 0, then a traditional 0MQ recv() is performed, which
+ * blocks indefinitely.
+ *
  */
 
-    void z_recv(zmq::socket_t &sock, std::string &data)
+    void z_recv(zmq::socket_t &sock, std::string &data, int to)
     {
         zmq::message_t msg;
-        sock.recv(&msg);
+
+        if (to)
+        {
+             z_recv_with_timeout(sock, msg, to);
+        }
+        else
+        {
+            sock.recv(&msg);
+        }
+
         data.clear();
         data.resize(msg.size() + 1, 0);
         memcpy((char *)data.data(), msg.data(), msg.size());
@@ -281,7 +300,7 @@ std::string process_zmq_urn(const std::string input)
  *
  */
 
-    void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags)
+    void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags, int to)
     {
         if (!sze)
         {
@@ -291,13 +310,13 @@ std::string process_zmq_urn(const std::string input)
         zmq::message_t msg(sze);
         memcpy((char *)msg.data(), buf, sze);
 
-        if (flags)
+        if (to)
         {
-            sock.send(msg, flags);
+            z_send_with_timeout(sock, msg, flags, to);
         }
         else
         {
-            sock.send(msg);
+            sock.send(msg, flags);
         }
     }
 
@@ -317,13 +336,26 @@ std::string process_zmq_urn(const std::string input)
  *        of the received data.  If the size of the buffer is smaller
  *        than the received data, the difference will be lost.
  *
+ * @param to: A time-out value, in milliseconds. If not 0, it will be
+ * used. If 0, then a traditional 0MQ recv() is performed, which
+ * blocks indefinitely.
+ *
  */
 
-    void z_recv(zmq::socket_t &sock, char *buf, size_t &sze)
+    void z_recv(zmq::socket_t &sock, char *buf, size_t &sze, int to)
     {
         zmq::message_t msg;
         size_t size;
-        sock.recv(&msg);
+
+        if (to)
+        {
+            z_recv_with_timeout(sock, msg, to);
+        }
+        else
+        {
+            sock.recv(&msg);
+        }
+
         size = std::min(sze, msg.size());
         memset(buf, 0, sze);
         memcpy(buf, msg.data(), size);
@@ -482,4 +514,39 @@ std::string process_zmq_urn(const std::string input)
         return true;
     }
 
+    void z_recv_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int to)
+    {
+        // Poll socket for a reply, with timeout
+        zmq::pollitem_t items[] = { { sock, 0, ZMQ_POLLIN, 0 } };
+        zmq::poll (&items[0], 1, to);
+
+        // If we got a reply, process it
+        if (items[0].revents & ZMQ_POLLIN)
+        {
+            // We got a reply from the server, all is well!
+            sock.recv(&msg);
+        }
+        else
+        {
+            throw MatrixException("z_recv_with_timeout",
+                                  "receive timed out without a response");
+        }
+    }
+
+    void z_send_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int flags, int to)
+    {
+        zmq::pollitem_t items[] = {{sock, 0, ZMQ_POLLOUT, 0}};
+        zmq::poll(&items[0], 1, to);
+
+        if (items[0].revents & ZMQ_POLLOUT)
+        {
+            // we can send at least 1 byte
+            sock.send(msg, flags);
+        }
+        else
+        {
+            throw MatrixException("z_send_with_timeout",
+                                  "send timed out.");
+        }
+    }
 }

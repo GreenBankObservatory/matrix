@@ -36,6 +36,18 @@
 namespace mxutils
 {
 
+    // Send and receive for std::strings.
+
+    void z_send(zmq::socket_t &sock, std::string data, int flags, int to = 0);
+    void z_recv(zmq::socket_t &sock, std::string &data, int to = 0);
+
+    // and for traditional strings/buffers.  (Set 'sze' to 0 if 'buf' is ASCII)
+    void z_send(zmq::socket_t &sock, const char *buf, size_t sze, int flags, int to = 0);
+    void z_recv(zmq::socket_t &sock, char *buf, size_t &sze, int to = 0);
+
+    // receives multiple frames in one call.
+    void z_recv_multipart(zmq::socket_t &sock, std::vector<std::string> &data);
+
     /**
      * A send function for simple data types.  These data types must be
      * contiguous in memory: ints, doubles, bools, and structs of these
@@ -47,20 +59,11 @@ namespace mxutils
      *
      */
 
-    template <class T> void z_send(zmq::socket_t &sock, T data, int flags = 0)
+    template <class T> void z_send(zmq::socket_t &sock, const T &data, int flags, int to = 0)
 
     {
-        zmq::message_t msg(sizeof data);
-        memcpy((char *)msg.data(), &data, sizeof data);
-
-        if (flags)
-        {
-            sock.send(msg, flags);
-        }
-        else
-        {
-            sock.send(msg);
-        }
+        size_t sze = sizeof data;
+        z_send(sock, (const char *)&data, sze, flags, to);
     }
 
     /**
@@ -69,28 +72,20 @@ namespace mxutils
      * contiguous in memory.
      *
      * @param sock: the socket to receive from
+     *
      * @param data: the data received.
+     *
+     * @param to: A time-out value, in milliseconds. If not 0, it will be
+     * used. If 0, then a traditional 0MQ recv() is performed, which
+     * blocks indefinitely.
      *
      */
 
-    template <class T> void z_recv(zmq::socket_t &sock, T &data)
+    template <class T> void z_recv(zmq::socket_t &sock, T &data, int to = 0)
     {
-        zmq::message_t msg;
-        sock.recv(&msg);
-        memcpy(&data, msg.data(), sizeof data);
+        size_t sze = sizeof data;
+        z_recv(sock, (char *)&data, sze, to);
     }
-
-    // These do the same as above, but for std::strings.
-
-    void z_send(zmq::socket_t &sock, std::string data, int flags = 0);
-    void z_recv(zmq::socket_t &sock, std::string &data);
-
-    // receives multiple frames in one call.
-    void z_recv_multipart(zmq::socket_t &sock, std::vector<std::string> &data);
-
-    // and for traditional strings/buffers.  (Set 'sze' to 0 if 'buf' is ASCII)
-    void z_send(zmq::socket_t &sock, const char *buf, size_t sze = 0, int flags = 0);
-    void z_recv(zmq::socket_t &sock, char *buf, size_t &sze);
 
     // bind a socket to an ephemeral port
     int zmq_ephemeral_bind(zmq::socket_t &s, std::string t, int retries = 10);
