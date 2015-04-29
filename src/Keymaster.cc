@@ -909,7 +909,7 @@ shared_ptr<zmq::socket_t> Keymaster::_keymaster_socket()
     {
         return _km_;
     }
-    
+
     _km_.reset(new zmq::socket_t(ZMQContext::Instance()->get_context(), ZMQ_REQ));
     _km_->connect(_km_url.c_str());
     return _km_;
@@ -1001,23 +1001,26 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
     ostringstream msg;
     ThreadLock<Mutex> lck(*_shared_lock);
 
+    // Prepare error message.
+    msg << "Failed to PUT key '" << key << "' to keymaster. ";
+
     try
     {
         lck.lock();
-        msg << "Failed to PUT key '" << key << "' to keymaster. ";
+        ostringstream val;
+        val << n;
         shared_ptr<zmq::socket_t> km = _keymaster_socket();
         z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
         z_send(*km, key, ZMQ_SNDMORE, KM_TIMEOUT);
-        msg << n;
 
         if (create)
         {
-            z_send(*km, msg.str(), ZMQ_SNDMORE, KM_TIMEOUT);
+            z_send(*km, val.str(), ZMQ_SNDMORE, KM_TIMEOUT);
             z_send(*km, create_flag, 0, KM_TIMEOUT);
         }
         else
         {
-            z_send(*km, msg.str(), 0, KM_TIMEOUT);
+            z_send(*km, val.str(), 0, KM_TIMEOUT);
         }
 
         z_recv(*km, response, KM_TIMEOUT);
@@ -1037,7 +1040,6 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
 
     if (_r.result == false)
     {
-        ostringstream msg;
         msg << "Keymaster says: " << _r.err;
         throw(KeymasterException(msg.str()));
     }
@@ -1134,7 +1136,7 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
     // Next, request the subscription by posting a request to the
     // subscriber thread.
     ThreadLock<Mutex> lck(*_shared_lock);
-    
+
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
