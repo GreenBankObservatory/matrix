@@ -133,6 +133,7 @@ bool Controller::configure_component_modes()
     YAML::Node km_mode = keymaster->get("connections");
 
     ThreadLock<decltype(active_mode_components)> l(active_mode_components);
+    l.lock();
     try
     {
         for (YAML::const_iterator md = km_mode.begin(); md != km_mode.end(); ++md)
@@ -167,7 +168,6 @@ bool Controller::create_component_instances()
 
     dbprintf("Controller::_create_component_instances\n");
     bool result;
-    ThreadLock<ComponentMap> l(components);
 
     for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
     {
@@ -184,6 +184,8 @@ bool Controller::create_component_instances()
         }
         else
         {
+            ThreadLock<ComponentMap> l(components);
+       
             auto fmethod = factory_methods.find(type.as<string>());
             string root = "components.";
             // subscribe to the components .state key before creating it
@@ -196,12 +198,14 @@ bool Controller::create_component_instances()
             keymaster->put(root + comp_instance_name + ".command", "do_init", true);
             keymaster->put(root + comp_instance_name + ".active", false,   true);
             // Now do the actual creation
+            l.lock(); 
             components[comp_instance_name].instance = shared_ptr<Component>(
                         (*fmethod->second)(comp_instance_name, keymaster_url) );
             // temporarily mark the component as active. It will be reset
             // when the system mode is set.
             components[comp_instance_name].instance->basic_init();
             components[comp_instance_name].active = true;
+            l.unlock();
         }
     }
     return true;
@@ -212,6 +216,7 @@ bool Controller::check_all_in_state(string statename)
 {
     NotInState not_in_state(statename);
     ThreadLock<decltype(components)> l(components);
+    l.lock();
     auto rtn = find_if(components.begin(), components.end(), not_in_state);
     // If we get to the end of the list, all components are in the desired state
     return rtn == components.end();
@@ -224,6 +229,7 @@ bool Controller::wait_all_in_state(string statename, int usecs)
     timespec curtime, to;
 
     Time_t time_to_quit = getUTC() + ((Time_t)usecs)*1000L;
+    l.lock();
     while ( !check_all_in_state(statename) )
     {
         state_condition.wait_locked_with_timeout(usecs);
@@ -246,6 +252,7 @@ bool Controller::set_system_mode(string mode)
         cerr << "Not all components are in Standby state!" << endl;
         string root = "components.";
         ThreadLock<ComponentMap> lk(components);
+        lk.lock();
         for (auto p=components.begin(); p!=components.end(); ++p)
         {
             if (p->second.active == true &&
@@ -261,6 +268,7 @@ bool Controller::set_system_mode(string mode)
     // disable all components for mode change
     string root = "components.";
     ThreadLock<ComponentMap> l(components);
+    l.lock();
     for (auto p=components.begin(); p!=components.end(); ++p)
     {
         p->second.active = false;
@@ -407,6 +415,7 @@ void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
     string component_name = yml_path.substr(p1+1,p2-p1-1);
 
     ThreadLock<ComponentMap> l(components);
+    l.lock();
     if (components.find(component_name) == components.end())
     {
         cerr  << __classmethod__ << " unknown component:"
@@ -420,6 +429,7 @@ void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
         cerr << "end of list" << endl;
         return;
     }
+    l.unlock();
     dbprintf("%s component:%s state now %s\n",
              __PRETTY_FUNCTION__, component_name.c_str(),
              new_state.as<string>().c_str());
