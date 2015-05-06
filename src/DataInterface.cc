@@ -33,7 +33,45 @@ using namespace std;
 // shared_ptr. The first map is keyed by component, and the value is
 // another map, keyed by transport name, whose value is a shared_ptr for
 // that transport.
-DataSource::component_map_t DataSource::transports;
+
+namespace matrix
+{
+
+    TransportServer::component_map_t TransportServer::transports;
+    TransportClient::component_map_t TransportClient::transports;
+    Mutex TransportServer::factories_mutex;
+    Mutex TransportClient::factories_mutex;
+
+/**
+ * This static function adds a factory function pointer to the
+ * static 'factories' map of DataSource. This enables
+ * `DataSource::create()` to create the correct DataSource type to
+ * handle the transports. This function should be called by every
+ * derived class implementation.
+ *
+ * @param transports: All the transports handled by the type returned by
+ * 'factory'.
+ *
+ * @param factory: The factory that will return the correct type for the
+ * transport(s). If multiple transports are given the factory function
+ * pointer will be recorded for each of these transports. 'create()' can
+ * then use this information to ensure that all transports given are
+ * compatible.
+ *
+ */
+
+    void TransportServer::add_factory(vector<string> transports, TransportServer::factory_sig factory)
+    {
+        ThreadLock<decltype(factories_mutex)> l(factories_mutex);
+        vector<string>::const_iterator i;
+
+        l.lock();
+
+        for (i = transports.begin(); i != transports.end(); ++i)
+        {
+            factories[*i] = factory;
+        }
+    }
 
 /**
  * Returns a shared_ptr to a TransportServer, creating a TransportServer
@@ -50,128 +88,36 @@ DataSource::component_map_t DataSource::transports;
  *
  */
 
-shared_ptr<TransportServer> DataSource::get_transport(string km_urn, string component_name, string transport_name)
-{
-    ThreadLock<decltype(transports)> l(transports);
-    component_map_t::iterator cmi;
-    transport_map_t::iterator tmi;
-
-    l.lock();
-
-    if ((cmi = transports.find(component_name)) == transports.end())
+    shared_ptr<TransportServer> TransportServer::get_transport(string km_urn,
+                                                               string component_name,
+                                                               string transport_name)
     {
-        transports[component_name] = transport_map_t();
+        ThreadLock<decltype(transports)> l(transports);
+        component_map_t::iterator cmi;
+        transport_map_t::iterator tmi;
+
+        l.lock();
+
+        if ((cmi = transports.find(component_name)) == transports.end())
+        {
+            transports[component_name] = transport_map_t();
+        }
+
+        cmi = transports.find(component_name);
+
+        if ((tmi = cmi->second.find(transport_name)) != cmi->second.end())
+        {
+            // found!
+            return tmi->second;
+        }
+        else
+        {
+            // not found, must build and add, then return.
+            string transport_key = "components." + component_name + ".Transports." + transport_name;
+            cmi->second[transport_name] = TransportServer::create(km_urn, transport_key);
+            return cmi->second[transport_name];
+        }
     }
-
-    cmi = transports.find(component_name);
-
-    if ((tmi = cmi->second.find(transport_name)) != cmi->second.end())
-    {
-        // found!
-        return tmi->second;
-    }
-    else
-    {
-        // not found, must build and add, then return.
-        string transport_key = "components." + component_name + ".Transports." + transport_name;
-        cmi->second[transport_name] = TransportServer::create(km_urn, transport_key);
-        return cmi->second[transport_name];
-    }
-}
-
-/**
- * Creates a DataSource, given a data name, a keymaster urn, and a
- * component name.
- *
- * @param name: The name of the data source.
- *
- * @param km_urn: The keymaster urn
- *
- * @param component_name: The name of the component.
- *
- */
-
-DataSource::DataSource(string name, string km_urn, string component_name)
-    : _name(name),
-      _km_urn(km_urn),
-      _component_name(component_name)
-{
-    Keymaster km(km_urn);
-    // obtain the transport name associated with this data source and
-    // get a pointer to that transport
-    string transport_name = km.get_as<string>("components." + component_name + ".Sources." + name);
-    _ts = DataSource::get_transport(km_urn, component_name, transport_name);
-}
-
-/**
- * Puts a std::string to the data source. The string's data component
- * should contain the data to be sent.
- *
- * @param data: The data to send. In this case it is a std::string,
- * which is acting as a buffer. Depending on the transport this string
- * may be of variable length, or it must be of fixed length. The
- * transport will throw a MatrixException if it is of the wrong length
- * for the selected transport.
- *
- * @return true if the put succeeds, false otherwise.
- *
- */
-
-bool DataSource::publish(string data)
-{
-    return _ts->publish(_name, data);
-}
-
-/**
- * Puts data as a void * accompanied by a buffer size into the data
- * source. The size should match what the transport expects, if the
- * transport handles fixed data sizes. If this is the case, and the size
- * is wrong, the underlying transport will throw a MatrixException.
- *
- * @param buf: the pointer to the data buffer
- *
- * @param buf_len: the length of the buffer in bytes.
- *
- * @return true if the put succeeds, false otherwise.
- *
- */
-
-bool DataSource::publish(const void *buf, size_t buf_len)
-{
-    return _ts->publish(_name, buf, buf_len);
-}
-
-/**
- * This static function adds a factory function pointer to the
- * static 'factories' map of DataSource. This enables
- * `DataSource::create()` to create the correct DataSource type to
- * handle the transports. This function should be called by every
- * derived class implementation.
- *
- * @param transports: All the transports handled by the type returned by
- * 'factory'.
-
- *
- * @param factory: The factory that will return the correct type for the
- * transport(s). If multiple transports are given the factory function
- * pointer will be recorded for each of these transports. 'create()' can
- * then use this information to ensure that all transports given are
- * compatible.
- *
- */
-
-void TransportServer::add_factory(vector<string> transports, TransportServer::factory_sig factory)
-{
-    ThreadLock<decltype(factories_mutex)> l(factories_mutex);
-    vector<string>::const_iterator i;
-
-    l.lock();
-
-    for (i = transports.begin(); i != transports.end(); ++i)
-    {
-        factories[*i] = factory;
-    }
-}
 
 /**
  * Creates the correct type of TransportServer.
@@ -186,135 +132,275 @@ void TransportServer::add_factory(vector<string> transports, TransportServer::fa
  *
  */
 
-template <typename T>
-struct same_as
-{
-    same_as(T v) : _v(v) {}
-
-    bool operator()(T v)
+    template <typename T>
+    struct same_as
     {
-        return v == _v;
-    }
+        same_as(T v) : _v(v) {}
 
-private:
-    T _v;
-};
-
-shared_ptr<TransportServer> TransportServer::create(string km_urn, string transport_key)
-{
-    ThreadLock<decltype(factories_mutex)> l(factories_mutex);
-    Keymaster km(km_urn);
-    vector<TransportServer::factory_sig> facts;
-    vector<string>::const_iterator i;
-    vector<string> transports = km.get_as<vector<string> >(transport_key + ".Specified");
-
-    l.lock();
-
-    for (i = transports.begin(); i != transports.end(); ++i)
-    {
-        if (factories.find(*i) != factories.end())
+        bool operator()(T v)
         {
-            facts.push_back(factories[*i]);
+            return v == _v;
         }
-    }
 
-    if (transports.size() != facts.size())
+    private:
+        T _v;
+    };
+
+    shared_ptr<TransportServer> TransportServer::create(string km_urn, string transport_key)
     {
-        throw(CreationError("Not all transports supported.", transports));
+        ThreadLock<decltype(factories_mutex)> l(factories_mutex);
+        Keymaster km(km_urn);
+        vector<TransportServer::factory_sig> facts;
+        vector<string>::const_iterator i;
+        vector<string> transports = km.get_as<vector<string> >(transport_key + ".Specified");
+
+        l.lock();
+
+        for (i = transports.begin(); i != transports.end(); ++i)
+        {
+            if (factories.find(*i) != factories.end())
+            {
+                facts.push_back(factories[*i]);
+            }
+        }
+
+        if (transports.size() != facts.size())
+        {
+            throw(CreationError("Not all transports supported.", transports));
+        }
+
+        if (!all_of(facts.begin(), facts.end(), same_as<factory_sig>(facts.front())))
+        {
+            throw(CreationError("Some transports have different factories.", transports));
+        }
+
+        // They're all there, they are all the same. Create and return the
+        // correct class object:
+
+        factory_sig fn = facts.front();
+        shared_ptr<TransportServer> ret_val(fn(km_urn, transport_key));
+        return ret_val;
     }
 
-    if (!all_of(facts.begin(), facts.end(), same_as<factory_sig>(facts.front())))
+    TransportServer::TransportServer(string keymaster_url, string key)
+        : _km_url(keymaster_url),
+          _transport_key(key)
     {
-        throw(CreationError("Some transports have different factories.", transports));
     }
 
-    // They're all there, they are all the same. Create and return the
-    // correct class object:
-
-    factory_sig fn = facts.front();
-    shared_ptr<TransportServer> ret_val(fn(km_urn, transport_key));
-    return ret_val;
-}
-
-TransportServer::TransportServer(string keymaster_url, string key)
-    : _km_url(keymaster_url),
-      _transport_key(key)
-{
-}
-
-TransportServer::~TransportServer()
-{
-}
+    TransportServer::~TransportServer()
+    {
+    }
 
 // These methods are meant to be abstract. However, we may
 // find some common functionality. For now we just emit
 // an error message.
-bool TransportServer::_register_urn(vector<string> urns)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+    bool TransportServer::_register_urn(vector<string> urns)
+    {
+        cerr << "abstract method " << __func__ << " called" << endl;
+        return false;
+    }
 
-bool TransportServer::_unregister_urn()
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+    bool TransportServer::_unregister_urn()
+    {
+        cerr << "abstract method " << __func__ << " called" << endl;
+        return false;
+    }
 
 // This will probably replace register_urn above
-bool TransportServer::_bind(vector<string> urns)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+    bool TransportServer::_bind(vector<string> urns)
+    {
+        cerr << "abstract method " << __func__ << " called" << endl;
+        return false;
+    }
 
-bool TransportServer::_publish(string key, const void *data, size_t size_of_data)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+    bool TransportServer::_publish(string key, const void *data, size_t size_of_data)
+    {
+        cerr << "abstract method " << __func__ << " called" << endl;
+        return false;
+    }
 
-bool TransportServer::_publish(string key, string data)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+    bool TransportServer::_publish(string key, string data)
+    {
+        cerr << "abstract method " << __func__ << " called" << endl;
+        return false;
+    }
 
+/**********************************************************************
+ * transport_selection_strategy
+ **********************************************************************/
 
-DataSink::DataSink()
-{
-}
+/**
+ * Returns the only configured transport URL for the named data source
+ * on the named component. If the data source has configured no
+ * transports, or if it has configured more than 1, throws a
+ * TransportClient::Creation Error.
+ *
+ * @param component: the component emitting the data
+ *
+ * @param data_name: the named data source on component `component`
+ *
+ * @return A fully formed URL, the only one provided by that data source.
+ *
+ */
 
-DataSink::~DataSink()
-{
-}
+    std::string select_only::operator() (std::string component, std::string data_name)
+    {
+        Keymaster km(_km_url);
+        YAML::Node n = km.get("components." + component);
+        string transport = n["Sources"][data_name];
+        vector<string> urls = n["Transports"][transport]["AsConfigured"].as<vector<string>();
 
-bool DataSink::_connect(string urn_from_keymaster)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+        if (urls.size() > 1)
+        {
+            throw(TransportClient::CreationError(
+                      "Multiple transports with none specified for" + component + "." + data_name));
+        }
 
-bool DataSink::_subscribe(string urn_from_keymaster)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+        if (urls.empty())
+        {
+            throw(TransportClient::CreationError(
+                      "No configured transports found for " + component + "." + data_name));
+        }
 
-bool DataSink::_unsubscribe(string urn_from_keymaster)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+        return urls[0];
+    }
 
-bool DataSink::_get(void *v, size_t &size_of_data)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
-}
+/**
+ * Returns the URL that coresponds to the requested transport. The
+ * requested transport is provided to the constructor of
+ * `select_specified`. If a URL that uses that transport exists, it
+ * will be returned. Otherwise a TransportClient::CreationError
+ * exception will be thrown.
+ *
+ * example:
+ *
+ *      select_specified ssp("inproc://matrix.keymaster", "inproc");
+ *      string url = ssp("frog", "song");
+ *
+ * The returned string `url` will be the inproc URL for the 'song'
+ * data source on component 'frog'.
+ *
+ * @param component: the component emitting the data
+ *
+ * @param data_name: the named data source on component `component`
+ *
+ * @return A fully formed URL based on the requested transport.
+ *
+ */
 
-bool DataSink::_get(string &data)
-{
-    cerr << "abstract method " << __func__ << " called" << endl;
-    return false;
+    std::string select_specified::operator() (std::string component, std::string data_name)
+    {
+        Keymaster km(_km_url);
+        YAML::Node n = km.get("components." + component);
+        string transport = n["Sources"][data_name];
+        vector<string> urls = n["Transports"][transport]["AsConfigured"].as<vector<string>();
+        vector<string>::iterator it = find_if(urls.begin(), urls.end(), is_substring_in_p(_transport));
+
+        if (it == urls.end()) // not found!
+        {
+            throw(TranportClient::CreationError(
+                      "Transport " + _transport + " not configured by " + component + "." + data_name));
+        }
+
+        return *it;
+    }
+
+/**********************************************************************
+ * Transport Client
+ **********************************************************************/
+
+/**
+ * Returns a shared_ptr to a TransportClient, creating a TransportClient
+ * first if one does not exist for the keys given.
+ *
+ * @param urn: The fully formed URL to the data source, ready to use
+ * to connect to that source.
+ *
+ * @return A shared_ptr to the transport object that was requested.
+ *
+ */
+
+    shared_ptr<TransportClient> TransportClient::get_transport(string urn)
+    {
+        ThreadLock<decltype(transports)> l(transports);
+        client_map_t::iterator cmi;
+
+        l.lock();
+
+        if ((cmi = transports.find(urn)) == transports.end())
+        {
+            transports[urn] = shared_ptr(TansportClient::create(urn));
+        }
+
+        return transports[urn];
+    }
+
+/**
+ * Manages the static transport map. The lifetime of a TransportClient
+ * is determined by how many clients it has. If it has no more
+ * clients, it gets deleted. The transport map uses shared_ptr to make
+ * this determination. Every time a DataSink disconnects from a
+ * TransportClient it resets its shared_ptr, and calls this
+ * function. This function then checks to see if the shared_ptr in the
+ * map is unique, that is, there are no other shared_ptrs sharing this
+ * object. If so, it resets the shared pointer, and removes the entry
+ * in the map.
+ *
+ * @param urn: The fully formed URN that the TransportClient uses to
+ * connect to the TransportServer. Also the key to the transport map.
+ *
+ */
+
+    void DataSink::release_transport(string urn)
+    {
+        ThreadLock<decltype(transports)> l(tranpsorts);
+        client_map_t::iterator cmi;
+
+        l.lock();
+
+        if ((cmi = transports.find(urn)) != transports.end())
+        {
+            if (cmi->second.unique())
+            {
+                cmi->second.reset();
+            }
+
+            transports.erase(cmi);
+        }
+    }
+
+/**
+ * Creates a TransportClient and returns it in a shared pointer.
+ *
+ * @param urn: The fully formed URN to the data sink.
+ *
+ * @return A std::shared_ptr<TransportClient> pointing to the
+ * constructed TransportClient.
+ *
+ */
+
+    shared_ptr<TransportClient> TransportClient::create(std::string urn)
+    {
+        ThreadLock<Mutex> l(factories_mutex);
+        vector<string> parts;
+        boost::split(parts, urn, boost::is_any_of(":"));
+        
+        if (!parts.empty())
+        {
+            factory_map_t::iterator i;
+            
+            l.lock();
+            
+            if ((i = factories.find(parts[0])) != factories.end())
+            {
+                factory_sig ff = i->second();
+                return shared_ptr<TransportClient>(ff(urn));
+            }
+
+            throw TansportClient::CreationError("No known factory for " + parts[0]);
+        }
+
+        throw TransportClient::CreationError("Malformed URN " + urn);
+    }
 }

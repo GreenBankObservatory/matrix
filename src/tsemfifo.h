@@ -33,11 +33,12 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <vector>
 #include "TCondition.h"
 #include "Mutex.h"
 #include "ThreadLock.h"
 
-/****************************************************************//**
+/**
  * \class tsemfifo
  *
  * Template class for a Semaphore FIFO.  This class features both
@@ -73,7 +74,7 @@
  *  For a post that blocks, use `put()` instead of `try_put()`, and for
  *  a get that doesn't block use `try_get()` instead of `get()`.
  *
- *******************************************************************/
+ */
 
 template <typename T> class tsemfifo
 
@@ -104,7 +105,7 @@ template <typename T> class tsemfifo
         FIFO_SIZE = 100,
     };
 
-    tsemfifo(int size = FIFO_SIZE);
+    tsemfifo(size_t size = FIFO_SIZE);
     ~tsemfifo();
 
     void release();
@@ -116,6 +117,7 @@ template <typename T> class tsemfifo
     bool wait_for_empty(int milliseconds = -1);
     unsigned int size();
     unsigned int capacity();
+    void resize(size_t size = FIFO_SIZE);
 
   private:
 
@@ -124,10 +126,11 @@ template <typename T> class tsemfifo
 
     void _create_sem();
     void _close_sem();
+
     void _get(T &obj);
     void _put(T &obj);
 
-    T *_buffer;
+    std::vector<T> _buffer;
     unsigned int _head;
     unsigned int _tail;
     unsigned int _buf_len;
@@ -140,7 +143,7 @@ template <typename T> class tsemfifo
     Mutex _critical_section;
 };
 
-/****************************************************************//**
+/**
  * tsemfifo<T>::Exception::what(int ec, char const *msg)
  *
  ** Sets the error number and error message, with an optional caller
@@ -151,7 +154,7 @@ template <typename T> class tsemfifo
  *        'what' string will be <optional message:> strerror_r().
  *        Otherwise, 'what' will be what is provided by strerror_r().
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::Exception::what(int ec, char const *msg)
 
@@ -172,7 +175,7 @@ template <class T> void tsemfifo<T>::Exception::what(int ec, char const *msg)
     }
 }
 
-/****************************************************************//**
+/**
  * Construct a tsemfifo.  Allows the caller to specify the buffer size,
  * whether the put() operation will block on full buffer, and whether
  * the get() operation will block on empty buffer.
@@ -180,26 +183,26 @@ template <class T> void tsemfifo<T>::Exception::what(int ec, char const *msg)
  * @param size The capacity of the semaphore queue. If this capacity is
  * reached, `put()` will block, or `try_put()` will return an error.
  *
- *******************************************************************/
+ */
 
-template <class T> tsemfifo<T>::tsemfifo(int size)
-    : _buf_len(size)
-    , _release(false),
+template <class T> tsemfifo<T>::tsemfifo(size_t size)
+    : _buffer(size),
+      _buf_len(size),
+      _release(false),
       _empty(true)
 
 {
     ThreadLock<Mutex> l(_critical_section);
 
-    _buffer = new T[size];
     l.lock();
     _create_sem();
     _head = _tail = _objects = 0;
 }
 
-/****************************************************************//**
+/**
  * Destructor for tsemfifo FIFO class.  Releases memory, semaphores etc.
  *
- *******************************************************************/
+ */
 
 template <class T> tsemfifo<T>::~tsemfifo()
 
@@ -208,14 +211,13 @@ template <class T> tsemfifo<T>::~tsemfifo()
 
     l.lock();
     _close_sem();
-    delete [] _buffer;
 }
 
-/****************************************************************//**
+/**
  * This private member function creates the semaphores with the proper
  * counts.
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::_create_sem()
 
@@ -224,10 +226,10 @@ template <class T> void tsemfifo<T>::_create_sem()
     sem_init(&_empty_sem, 0, _buf_len);
 }
 
-/****************************************************************//**
+/**
  * This private member function destroys the semaphore objects.
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::_close_sem()
 
@@ -236,11 +238,11 @@ template <class T> void tsemfifo<T>::_close_sem()
     sem_destroy(&_empty_sem);
 }
 
-/****************************************************************//**
+/**
  * Empties the queue. Throws a tsemfifo<T>::Exception if there is a
    semaphore resource issue.
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::flush()
 
@@ -256,7 +258,7 @@ template <class T> void tsemfifo<T>::flush()
     _head = _tail = _objects = 0;
 }
 
-/****************************************************************//**
+/**
  * Blocks until the FIFO is empty.  This is useful for another task to
  * wait until the FIFO is empty before doing something, like closing a
  * file handle, ending a thread, etc.
@@ -266,7 +268,7 @@ template <class T> void tsemfifo<T>::flush()
  *
  * @return true if wait succeeded, false if wait timed out.
  *
- *******************************************************************/
+ */
 
 template <class T> bool tsemfifo<T>::wait_for_empty(int milliseconds)
 
@@ -280,14 +282,14 @@ template <class T> bool tsemfifo<T>::wait_for_empty(int milliseconds)
     return _empty.wait(true, milliseconds * 1000);
 }
 
-/****************************************************************//**
+/**
  * This private function actually does the work of updating the FIFO
  * with a new value, once the public put() or try_put() functions have
  * determined there is enough room for the value.
  *
  * @param obj: Object to put (copy) into the buffer.
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::_put(T &obj)
 
@@ -323,7 +325,7 @@ template <class T> void tsemfifo<T>::_put(T &obj)
     }
 }
 
-/****************************************************************//**
+/**
  * Puts a new value at the tail of the FIFO.  put() will block if the
  * buffer is full. Throws an exception if there is a sem_wait() problem.
  *
@@ -331,7 +333,7 @@ template <class T> void tsemfifo<T>::_put(T &obj)
  *
  * @return true if the put succeeds, false otherwise.
  *
- *******************************************************************/
+ */
 
 template <class T> bool tsemfifo<T>::put(T &obj)
 
@@ -360,7 +362,7 @@ template <class T> bool tsemfifo<T>::put(T &obj)
     return true;
 }
 
-/****************************************************************//**
+/**
  * Puts a new value at the tail of the FIFO.  try_put() will not block
  * if the buffer is full.  Instead, it immediately returns false without
  * placing anything in the queue.
@@ -373,7 +375,7 @@ template <class T> bool tsemfifo<T>::put(T &obj)
  * indicates that the queue is full, and if `put()` rather than
  * `try_put()` had been used it would have blocked.
  *
- *******************************************************************/
+ */
 
 template <class T> bool tsemfifo<T>::try_put(T &obj)
 
@@ -395,14 +397,14 @@ template <class T> bool tsemfifo<T>::try_put(T &obj)
     return true;
 }
 
-/****************************************************************//**
+/**
  * This private helper function actually does the manipulatio of the
  * FIFO to retrieve an object for get() and try_get() once these have
  * determined that there is an object to get.
  *
  *  @param obj: object to which FIFO object will be copied to.
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::_get(T &obj)
 
@@ -438,7 +440,7 @@ template <class T> void tsemfifo<T>::_get(T &obj)
     }
 }
 
-/****************************************************************//**
+/**
  * Gets a value out of the head of the FIFO.  get() will block,
  * suspending the calling thread, until something gets placed into the
  * FIFO.
@@ -448,7 +450,7 @@ template <class T> void tsemfifo<T>::_get(T &obj)
  * @return true if get() succeeded, false if get() was blocked and
  *         released.
  *
- *******************************************************************/
+ */
 
 template <class T> bool tsemfifo<T>::get(T &obj)
 
@@ -477,7 +479,7 @@ template <class T> bool tsemfifo<T>::get(T &obj)
     return true;
 }
 
-/****************************************************************//**
+/**
  * Gets a value out of the head of the FIFO.  try_get() will not block
  * if there is nothing at the head of the FIFO.  See return value.
  *
@@ -486,7 +488,7 @@ template <class T> bool tsemfifo<T>::get(T &obj)
  * @return try_get() will return true if there was a value at the head
  *         of the FIFO, false if the FIFO was empty.
  *
- *******************************************************************/
+ */
 
 template <class T> bool tsemfifo<T>::try_get(T &obj)
 
@@ -508,12 +510,12 @@ template <class T> bool tsemfifo<T>::try_get(T &obj)
     return true;
 }
 
-/****************************************************************//**
+/**
  * If any thread is waiting on get() or put(), this will release them.
  * The queue should not be used after this call unless the next call is
  * flush().
  *
- *******************************************************************/
+ */
 
 template <class T> void tsemfifo<T>::release()
 
@@ -523,12 +525,12 @@ template <class T> void tsemfifo<T>::release()
     sem_post(&_empty_sem);
 }
 
-/****************************************************************//**
+/**
  * Returns the number of objects in the FIFO.
  *
  * @return The number of objects in the FIFO.
  *
- *******************************************************************/
+ */
 
 template <class T> unsigned int tsemfifo<T>::size()
 
@@ -543,12 +545,12 @@ template <class T> unsigned int tsemfifo<T>::size()
 
 }
 
-/****************************************************************//**
+/**
  * Returns the maximum size of the FIFO, in objects of type T.
  *
    @return The maximum number of objects that the FIFO can hold.
  *
- *******************************************************************/
+ */
 
 template <class T> unsigned int tsemfifo<T>::capacity()
 

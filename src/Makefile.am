@@ -35,7 +35,6 @@ headers_HEADERS = \
     TCondition.h \
     Controller.h \
     Component.h \
-    DataInterface.h \
     FiniteStateMachine.h \
     Keymaster.h \
     matrix_util.h \
@@ -44,7 +43,6 @@ headers_HEADERS = \
     ThreadLock.h \
     Time.h \
     ZMQContext.h \
-    ZMQDataInterface.h \
     netUtils.h \
     tsemfifo.h \
     yaml_util.h \
@@ -54,7 +52,6 @@ libmatrix_la_SOURCES = \
     Mutex.cc  \
     Controller.cc \
     Component.cc \
-    DataInterface.cc \
     FiniteStateMachine.cc \
     Keymaster.cc \
     matrix_util.cc \
@@ -62,7 +59,6 @@ libmatrix_la_SOURCES = \
     Time.cc \
     Thread.cc \
     ZMQContext.cc \
-    ZMQDataInterface.cc \
     netUtils.cc \
     yaml_util.cc \
     zmq_util.cc

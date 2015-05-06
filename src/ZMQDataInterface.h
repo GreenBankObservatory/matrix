@@ -26,42 +26,46 @@
 #include "DataInterface.h"
 #include<string>
 
-
-/// A Zero-MQ based implementation of a TransportServer. Handles
-/// all of the defined ZMQ transport types.
-class ZMQTransportServer : public TransportServer
+namespace matrix
 {
-public:
-    ZMQTransportServer(std::string keymaster_url, std::string key);
-    virtual ~ZMQTransportServer();
 
-private:
-    bool _publish(std::string key, const void *data, size_t size_of_data);
-    bool _publish(std::string key, std::string data);
+    class ZMQTransportServer : public TransportServer
+    {
+    public:
+        ZMQTransportServer(std::string keymaster_url, std::string key);
+        virtual ~ZMQTransportServer();
 
-    struct PubImpl;
-    std::shared_ptr<PubImpl> _impl;
+    private:
+        bool _publish(std::string key, const void *data, size_t size_of_data);
+        bool _publish(std::string key, std::string data);
 
-    friend class TransportServer;
-    static TransportServer *factory(std::string, std::string);
-};
+        struct PubImpl;
+        std::shared_ptr<PubImpl> _impl;
 
-/// A concrete DataSink using the Zero-MQ based tranport.
-/// Handles all of the defined ZMQ transport types.
-class ZMQDataSink : public DataSink
-{
-public:
-    ZMQDataSink();
-    virtual ~ZMQDataSink();
-
-protected:
-    virtual bool _connect(std::string urn_from_keymaster);
-    virtual bool _subscribe(std::string urn_from_keymaster);
-    virtual bool _unsubscribe(std::string urn_from_keymaster);
-    virtual bool _get(void *v, size_t &size_of_data);
-    virtual bool _get(std::string &data);
-};
+        friend class TransportServer;
+        static TransportServer *factory(std::string, std::string);
+    };
 
 
+
+    class ZMQTransportClient : public TransportClient
+    {
+    public:
+        ZMQDataSink();
+        virtual ~ZMQDataSink();
+
+    private:
+        virtual bool _connect(std::string urn);
+        virtual bool _subscribe(std::string key, DataCallbackBase *cb);
+        virtual bool _unsubscribe(std::string key);
+
+        void _sub_task();
+
+        Thread<ZMQTransportClient> _sub_thread;
+        Mutex subscribers_mtx;
+        std::map<std::string, DataCallbackBase *> subscribers;
+    };
+
+}
 
 #endif

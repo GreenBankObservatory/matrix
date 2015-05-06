@@ -93,6 +93,27 @@ namespace mxutils
         std::string _delim;
     };
 
+/**
+ * \class is_substring_in_p
+ *
+ * A predicate functor which checks a given string for a provided
+ * substring and returns true if it exists, false otherwise. The
+ * substring to find is provided in the constructor:
+ *
+ *      is_substring_in_p ssp("fox");
+ *      ssp("the quick brown dog jumped over the lazy fox"); // returns true
+ *
+ */
+
+    struct is_substring_in_p
+    {
+        is_substring_in_p(std::string subs) : _subs(subs) {}
+
+        bool operator ()(std::string s)
+        {
+            return s.find(_subs) != string::npos;
+        }
+    };
 
     bool is_numeric_p(char c);
     std::string strip_non_numeric(const std::string &s);

@@ -28,7 +28,7 @@
 #include <assert.h>
 #include <pthread.h>
 
-/****************************************************************//**
+/**
  * \class Thread
  *
  * A simple wrapper for POSIX threads that allows a non-static class
@@ -58,7 +58,7 @@
  *         _bar_thread.stop_without_cancel();
  *     }
  *
- *******************************************************************/
+ */
 
 /// A base class to hold the thread creation hook.
 /// The default is to do nothing. It is provided for other systems
@@ -119,7 +119,7 @@ private:
 };
 
 
-/****************************************************************//**
+/**
  * Constructor takes T * and T::THREADPROC, ensuring that one object-one
  * thread. Also takes a defaulted stack size for the thread.  If the
  * default (0) is used, thread stack size defaults to that set by the system.
@@ -129,7 +129,7 @@ private:
  * @param proc_: The member function that is the thread entry point.
  * @param stacksize_ (optional) the thread stack size.
  *
- *******************************************************************/
+ */
 
 template<typename T> Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, size_t stacksize_)
     : id(0)
@@ -139,26 +139,26 @@ template<typename T> Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, 
 {
 }
 
-/****************************************************************//**
+/**
  * Destructor. Stops the thread with a cancel. If you wish to stop the
  * thread in a more gentle way, first signal the thread to end, then
  * call `stop_without_cancel()` and wait for it to return. Doing so
  * allows the thread to clean up and terminate gracefully.
  *
- *******************************************************************/
+ */
 
 template<typename T> Thread<T>::~Thread()
 {
     stop();
 }
 
-/****************************************************************//**
+/**
  * Start the thread running.
  *
  * @return 0 on success, an error code on failure. (see man
  * `pthread_create()` for the error codes returned.)
  *
- *******************************************************************/
+ */
 
 template<typename T> int Thread<T>::start()
 {
@@ -196,12 +196,12 @@ template<typename T> int Thread<T>::start()
     return err;
 }
 
-/****************************************************************//**
+/**
  * Checks to see if the thread has been started and is running.
  *
  * @return true if the thread is running, false otherwise.
  *
- *******************************************************************/
+ */
 
 template<typename T> bool Thread<T>::running()
 
@@ -209,12 +209,12 @@ template<typename T> bool Thread<T>::running()
     return (0 != id);
 }
 
-/****************************************************************//**
+/**
  * Stops the thread by cancelling it and joining on it. This is a severe
  * way to stop the thread as a cancel ends the thread immediately and
  * thus does not allow it to clean up. Use with caution.
  *
- *******************************************************************/
+ */
 
 template<typename T> void Thread<T>::stop()
 {
@@ -226,13 +226,13 @@ template<typename T> void Thread<T>::stop()
     }
 }
 
-/****************************************************************//**
+/**
  * Does not issue a cancel to the thread, waits for the thread to end on
  * its own. This is a cleaner way to end the thread. For this to work
  * the parent thread must have some mechanism to signal this thread to
  * end, such as a TCondition, or a 0MQ pipe, etc.
  *
- *******************************************************************/
+ */
 
 template<typename T> void Thread<T>::stop_without_cancel()
 {
