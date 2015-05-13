@@ -29,6 +29,8 @@
 #if !defined(_DATA_SOURCE_H_)
 #define _DATA_SOURCE_H_
 
+#include "Keymaster.h"
+
 namespace matrix
 {
 
@@ -113,8 +115,11 @@ namespace matrix
         Keymaster km(km_urn);
         // obtain the transport name associated with this data source and
         // get a pointer to that transport
-        string transport_name = km.get_as<string>("components." + component_name + ".Sources." + name);
-        _ts = DataSource::get_transport(km_urn, component_name, transport_name);
+        std::string transport_name = km.get_as<std::string>("components."
+                                                            + component_name
+                                                            + ".Sources."
+                                                            + data_name);
+        _ts = TransportServer::get_transport(km_urn, component_name, transport_name);
     }
 
 /**

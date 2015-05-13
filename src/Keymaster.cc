@@ -933,6 +933,18 @@ shared_ptr<zmq::socket_t> Keymaster::_keymaster_socket()
 
 YAML::Node Keymaster::get(std::string key)
 {
+    yaml_result yr;
+
+    if (!get(key, yr))
+    {
+        throw KeymasterException(yr.err);
+    }
+    
+    return yr.node;
+}
+
+bool Keymaster::get(std::string key, yaml_result &yr)
+{
     string cmd("GET"), response;
     ThreadLock<Mutex> lck(*_shared_lock);
     ostringstream msg;
@@ -946,27 +958,35 @@ YAML::Node Keymaster::get(std::string key)
         z_send(*km, key, 0, KM_TIMEOUT);
         // use a reasonable time-out, in case Keymaster is gone.
         z_recv(*km, response, KM_TIMEOUT);
-        _r.from_yaml_node(YAML::Load(response));
-
-        if (_r.result == false)
-        {
-            msg << "Keymaster says: " << _r.err;
-            throw KeymasterException(msg.str());
-        }
+        yr.from_yaml_node(YAML::Load(response));
+        _r = yr;
+        return yr.result;
     }
     catch (MatrixException e)
     {
         _handle_keymaster_server_exception();
         msg << e.what();
-        throw KeymasterException(msg.str());
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr.result;
     }
     catch (zmq::error_t e)
     {
         msg << e.what();
-        throw KeymasterException(msg.str());
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr.result;
     }
-
-    return YAML::Clone(_r.node);
+    catch (std::exception e)
+    {
+        msg << e.what();
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr.result;
+    }
 }
 
 /**
@@ -1137,6 +1157,8 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
     // subscriber thread.
     ThreadLock<Mutex> lck(*_shared_lock);
 
+    lck.lock();
+
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
@@ -1159,6 +1181,8 @@ void Keymaster::unsubscribe(string key)
 {
     // request that the subscriber thread unsubscribe from 'key'
     ThreadLock<Mutex> lck(*_shared_lock);
+    lck.lock();
+
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, UNSUBSCRIBE, ZMQ_SNDMORE);
@@ -1178,6 +1202,8 @@ void Keymaster::_run()
     if (!_subscriber_thread.running())
     {
         ThreadLock<Mutex> lck(*_shared_lock);
+        lck.lock();
+
         if ((_subscriber_thread.start() != 0) || (!_subscriber_thread_ready.wait(true, 1000000)))
         {
             throw(runtime_error("Keymaster: unable to start subscriber thread"));

@@ -111,8 +111,11 @@ namespace mxutils
 
         bool operator ()(std::string s)
         {
-            return s.find(_subs) != string::npos;
+            return s.find(_subs) != std::string::npos;
         }
+
+    private:
+        std::string _subs;
     };
 
     bool is_numeric_p(char c);

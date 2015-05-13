@@ -38,7 +38,7 @@ namespace mxutils
 
     // Send and receive for std::strings.
 
-    void z_send(zmq::socket_t &sock, std::string data, int flags, int to = 0);
+    void z_send(zmq::socket_t &sock, std::string const data, int flags, int to = 0);
     void z_recv(zmq::socket_t &sock, std::string &data, int to = 0);
 
     // and for traditional strings/buffers.  (Set 'sze' to 0 if 'buf' is ASCII)

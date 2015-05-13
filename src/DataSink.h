@@ -28,6 +28,8 @@
 #if !defined (_DATA_SINK_H_)
 #define _DATA_SINK_H_
 
+#include "tsemfifo.h"
+
 /**
  * \class DataSink is the client data interface, and abstracts the
  * data from the transport mechanism.
@@ -92,31 +94,233 @@
  */
 
 #include "DataInterface.h"
+#include "matrix_util.h"
 #include <string>
+#include <iostream>
 
 namespace matrix
 {
-    template <typename T>
+/**********************************************************************
+ * transport_selection_strategy
+ **********************************************************************/
+
+/**
+ * \class select_specified
+ *
+ * Returns the URL that coresponds to the requested transport. The
+ * requested transport is provided as a template parameter for
+ * `select_specified`. If a URL that uses that transport exists, it
+ * will be returned. Otherwise a TransportClient::CreationError
+ * exception will be thrown.
+ *
+ * example:
+ *
+ *      select_specified<"inproc"> ssp("inproc://matrix.keymaster");
+ *      string url = ssp("frog", "song");
+ *
+ * Though as in the example this class may be used alone, it is
+ * intended as a policy class for the DataSink template class:
+ *
+ *      DataSink<double, select_specified<"inproc"> > ds(km_urn);
+ *      ds.connect("frog", "song"); // transport stuff hidden.
+ *
+ * The returned string `url` will be the inproc URL for the 'song'
+ * data source on component 'frog'.
+ *
+ */
+
+    class select_specified
+    {
+    public:
+        select_specified(std::string km_urn, std::string transport)
+            : _km_urn(km_urn),
+              _transport(transport)
+        {
+        }
+
+        std::string operator() (std::string component, std::string data_name)
+        {
+            Keymaster km(_km_urn);
+            YAML::Node n = km.get("components." + component);
+            std::string transport = n["Sources"][data_name].as<std::string>();
+            std::vector<std::string> urls =
+                n["Transports"][transport]["AsConfigured"].as<std::vector<std::string> >();
+            std::vector<std::string>::iterator it = 
+                find_if(urls.begin(), urls.end(), mxutils::is_substring_in_p(_transport));
+
+            if (it == urls.end()) // not found!
+            {
+                throw(TransportClient::CreationError(
+                          "Transport " + _transport + " not configured by " + component + "." + data_name));
+            }
+
+            return *it;
+        }
+
+    private:
+        std::string _km_urn;
+        std::string _transport;
+    };
+
+/**
+ * \class select_only
+ *
+ * This functor returns the only configured transport URL for the
+ * named data source on the named component. If the data source has
+ * configured no transports, or if it has configured more than 1,
+ * throws a TransportClient::Creation Error. It is the defalut
+ * selector for class DataSink:
+ *
+ *      DataSink<double> ds(km_urn); // will use 'select_only'
+ *      ds.connect("frog", "song");  // transport stuff hidden.
+ *
+ */
+
+    class select_only
+    {
+    public:
+        select_only(std::string km_urn, std::string = "")
+            : _km_urn(km_urn)
+        {
+        }
+        
+        std::string operator() (std::string component, std::string data_name)
+        {
+            Keymaster km(_km_urn);
+            YAML::Node n = km.get("components." + component);
+            std::string transport = n["Sources"][data_name].as<std::string>();
+            std::vector<std::string> urls =
+                n["Transports"][transport]["AsConfigured"].as<std::vector<std::string> >();
+
+            if (urls.size() > 1)
+            {
+                throw(TransportClient::CreationError(
+                          "Multiple transports with none specified for" + component + "." + data_name));
+            }
+
+            if (urls.empty())
+            {
+                throw(TransportClient::CreationError(
+                          "No configured transports found for " + component + "." + data_name));
+            }
+
+            return urls[0];
+        }
+
+    private:
+        std::string _km_urn;
+    };
+
+/**
+ * \class DataSink
+ *
+ * DataSink is a template class that allows a client to connect to a
+ * source, without having to set up the transport. This is done behind
+ * the scenes, in accordance with data found in the Keymaster. The
+ * only transport-related information that must be provided by the
+ * caller is an election between potential transports, if the source
+ * supports more than one.
+ *
+ * It is a template class that takes two parameters: typename 'T', the
+ * type of data being received, and typename `urn_selector`, a policy
+ * class that fetches one of possibly many URNs for the source. The
+ * inclusion of this policy allows the caller to customize how the URN
+ * is selected. Two basic policies are provided:
+ *
+ *   - select_only: Selects the URN if it is the only one available,
+ *     otherwise throws. If this is used then no transport needs to be
+ *     given to `connect()`
+ *      
+ *   - select_specified: The default. Allows the transport to be
+ *     explicitly named in the 'connect()' member function. If that
+ *     transport does not exist, it throws.
+ *
+ * Other policies may be used.
+ *
+ * On connection the DataSink picks a transport client (which will be
+ * created automatically if it doesn't already exist) by using the URN
+ * obtained from the keymaster for the component, data, and transport
+ * desired; and subscribes to it using a key which is in the format
+ * "component_name.data_name". During the subscription process it also
+ * provides the TransportServer with a callback functor that allows
+ * the TransportServer to pass on data received with the subsription
+ * key to a semaphore queue in the DataSink, from which it may be read
+ * out by the DataSink caller.
+ *
+ * Example:
+ *
+ *     string km_urn("inproc://matrix.keymaster");
+ *     KeymasterServer kms("test.yaml");
+ *     kms.run();
+ *
+ *     DataSource<string> mbsource(km_urn, "moby_dick", "lines");
+ *     DataSink<string, select_specified> mbsink(km_urn);
+ *     mbsink.connect("moby_dick", "lines", "tcp");
+ *     // avoid race between 'mbsink' thread being ready and publish below
+ *     sleep(1);
+ *     string msg = "Call me Ishmael.";
+ *     mbsource.publish(msg);
+ *     string rcv_msg;
+ *     mbsink.get(rcv_msg);
+ *     cout << "Received: " << rcv_msg << endl;
+ *
+ */
+
+    template <typename T, typename urn_selector = select_specified>
     class DataSink
     {
     public:
         DataSink(std::string km_urn, size_t ringbuf_size = 10);
-        ~DataSink() throw() {};
+        ~DataSink() throw();
 
         void get(T &);
         bool try_get(T &);
 
-        bool connect(std::string component_name, std::string data_name,
-                     std::shared_ptr<transport_selection_strategy> tss = {});
-        bool disconnect();
+        void connect(std::string component_name, std::string data_name, std::string transport = "");
+        void disconnect();
 
     private:
+
+        template <typename, typename> class params {};
         void _check_connected();
-        void _data_handler(std::string, void *, size_t);
+
+        void _data_handler(std::string key, void *data, size_t sze)
+        {
+            if (key != _key)
+            {
+                // this is not ours!
+                return;
+            }
+            
+            _data_handler(data, sze, params<T, urn_selector>());
+        }
+
+        // default data handler
+        template<typename T1, typename X1>
+        void _data_handler(T1 *data, size_t sze, params<T1, X1>)
+        {
+            if (sizeof(T1) != sze)
+            {
+                throw MatrixException("DataSink::_data_handler()", "size mismatch error.");
+            }
+
+            _ringbuf.try_put(*((T1 *)data));
+        }
+
+        // specialized data handler for DataSink<std::string>
+        template<typename X1>
+        void _data_handler(void *data, size_t sze, params<std::string, X1>)
+        {
+            std::string val(sze, 0);
+            std::memmove((char *)val.data(), data, sze);
+            _ringbuf.try_put(val);
+        }
+        
 
         bool _connected;
         std::string _key;
         std::string _km_urn;
+        std::string _urn;
 
         std::shared_ptr<TransportClient> _tc;
         tsemfifo<T> _ringbuf;
@@ -130,8 +334,8 @@ namespace matrix
  *
  */
 
-    template <typename T>
-    DataSink<T>::DataSink(std::string km_urn, size_t ringbuf_size)
+    template <typename T, typename urn_selector>
+    DataSink<T, urn_selector>::DataSink(std::string km_urn, size_t ringbuf_size)
         : _connected(false),
           _km_urn(km_urn),
           _ringbuf(ringbuf_size),
@@ -141,13 +345,12 @@ namespace matrix
     }
 
 /**
- * Destructor for DataSink. Disconnects from the data source, and
- * cleans up its Keymaster client.
+ * Destructor for DataSink. Disconnects from the data source
  *
  */
 
-    template <typename T>
-    DataSink<T>::~DataSink()
+    template <typename T, typename urn_selector>
+    DataSink<T, urn_selector>::~DataSink() throw()
     {
         try
         {
@@ -155,15 +358,15 @@ namespace matrix
         }
         catch (KeymasterException e)
         {
-            cerr << e.what() << endl;
+            std::cerr << e.what() << std::endl;
         }
         catch (zmq::error_t e)
         {
-            cerr << e.what() << endl;
+            std::cerr << e.what() << std::endl;
         }
-        catch(exception e)
+        catch (std::exception e)
         {
-            cerr << e.what() << endl;
+            std::cerr << e.what() << std::endl;
         }
     }
 
@@ -173,82 +376,13 @@ namespace matrix
  *
  */
 
-    template <typename T>
-    void DataSink<T>::_check_connected()
+    template <typename T, typename urn_selector>
+    void DataSink<T, urn_selector>::_check_connected()
     {
         if (!_connected)
         {
-            throw MatrixException("DataSink is not connected.");
+            throw MatrixException("DataSink", "DataSink is not connected.");
         }
-    }
-
-/**
- * This provides a means for the TransportClient to pass off data to
- * the DataSink, in a form the DataSink understands. In this version,
- * the type of the data being given is known, and though it is handed off
- * as a void * by the TransportClient the DataSink assumes it is of
- * typename T and does the appropriate cast as it posts it into the ringbuffer.
- *
- * @param key: The data key. This should match the key used to
- * subscribe. If it doesnt the function returns (TBF?)
- *
- * @param buf: The actual data, assumed to be a chunk of memory
- * occupied by a type T.
- *
- * @param sze: The size of 'buf', it had better match the sizeof(T).
- *
- */
-
-    template <typename T>
-    void DataSink<T>::_data_handler(std::string key, void *buf, size_t sze)
-    {
-        if (key != _key)
-        {
-            // this is not ours!
-            return;
-        }
-
-        if (sizeof(T) != sze)
-        {
-            // this would be a pretty bad error. It is ours, but the
-            // sizes are wrong!
-            throw MatrixException("DataSink::_data_handler(): size mismatch error.");
-        }
-
-        // TBF: What to do if ringbuf is full? Throw? Ignore?
-        _ringbuf.try_put((T)(*buf));
-    }
-
-/**
- * This is a specialization of _data_handler() for std::string. A
- * DataSink<std::string> doesn't expect the data to be of a single
- * size. In this case the data can be an ASCII string, a variable
- * length binary buffer, etc. (Note that a T can be used to achieve
- * this effect as well: imagine a T that is a protobuf, or a
- * MessagePack, etc.)
- *
- * @param key: The data key. This should match the key used to
- * subscribe. If it doesnt the function returns (TBF?)
- *
- * @param buf: The actual data, assumed to be a chunk of memory
- * occupied by a type T.
- *
- * @param sze: The size of 'buf', it had better match the sizeof(T).
- *
- */
-
-    template <>
-    void DataSink<std::string>::_data_handler(std::string key, void *buf, size_t sze)
-    {
-        if (key != _key)
-        {
-            // this is not ours!
-            return;
-        }
-
-        std::string val(sze, 0);
-        std::memmove((char *)val.data(), buf, sze);
-        _ringbuf.try_put(val);
     }
 
 /**
@@ -259,8 +393,8 @@ namespace matrix
  *
  */
 
-    template <typename T>
-    void DataSink<T>::get(T &val)
+    template <typename T, typename urn_selector>
+    void DataSink<T, urn_selector>::get(T &val)
     {
         _check_connected();
         _ringbuf.get(val);
@@ -279,8 +413,8 @@ namespace matrix
  *
  */
 
-    template <typename T>
-    bool DataSink<T>::try_get(T &val)
+    template <typename T, typename urn_selector>
+    bool DataSink<T, urn_selector>::try_get(T &val)
     {
         _check_connected();
         return _ringbuf.try_get(val);
@@ -312,23 +446,21 @@ namespace matrix
  *
  */
 
-    template <typename T>
-    void DataSink<T>::connect(string component_name, string data_name,
-                              shared_ptr<transport_selection_strategy> tss)
+    template <typename T, typename urn_selector>
+    void DataSink<T, urn_selector>::connect(std::string component_name,
+                                            std::string data_name, std::string transport)
     {
+        urn_selector tss(_km_urn, transport);
+
         if (_connected)
         {
             disconnect();
         }
 
-        if (!tss)
-        {
-            tss.reset(new select_only(_km_urn));
-        }
-
+        _urn = tss(component_name, data_name);;
         _key = component_name + "." + data_name;
-        _urn = tss(component_name, data_name);
         _tc = TransportClient::get_transport(_urn);
+        _tc->connect(_urn);
         _tc->subscribe(_key, &_cb);
         _connected = true;
     }
@@ -345,8 +477,8 @@ namespace matrix
  *
  */
 
-    template <typename T>
-    void DataSink<T>::disconnect()
+    template <typename T, typename urn_selector>
+    void DataSink<T, urn_selector>::disconnect()
     {
         if (_connected)
         {

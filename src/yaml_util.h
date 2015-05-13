@@ -66,6 +66,15 @@ namespace mxutils
             from_yaml_node(yr);
         }
 
+        yaml_result & operator=(yaml_result const &rhs)
+        {
+            result = rhs.result;
+            node = YAML::Clone(rhs.node);
+            key = rhs.key;
+            err = rhs.err;
+            return *this;
+        };
+
         YAML::Node to_yaml_node() const;
         void from_yaml_node(YAML::Node yr);
 

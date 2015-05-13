@@ -51,19 +51,20 @@ namespace matrix
     class ZMQTransportClient : public TransportClient
     {
     public:
-        ZMQDataSink();
-        virtual ~ZMQDataSink();
+        ZMQTransportClient(std::string urn);
+        virtual ~ZMQTransportClient();
 
     private:
-        virtual bool _connect(std::string urn);
-        virtual bool _subscribe(std::string key, DataCallbackBase *cb);
-        virtual bool _unsubscribe(std::string key);
+        bool _connect();
+        bool _disconnect();
+        bool _subscribe(std::string key, DataCallbackBase *cb);
+        bool _unsubscribe(std::string key);
 
-        void _sub_task();
+        struct Impl;
+        std::shared_ptr<Impl> _impl;
 
-        Thread<ZMQTransportClient> _sub_thread;
-        Mutex subscribers_mtx;
-        std::map<std::string, DataCallbackBase *> subscribers;
+        friend class TransportClient;
+        static TransportClient *factory(std::string);
     };
 
 }

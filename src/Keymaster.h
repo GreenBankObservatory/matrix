@@ -163,6 +163,7 @@ public:
     ~Keymaster();
 
     YAML::Node get(std::string key);
+    bool get(std::string key, mxutils::yaml_result &yr);
     template <typename T>
     T get_as(std::string key);
 

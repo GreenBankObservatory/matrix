@@ -45,6 +45,7 @@
 #define DataInterface_h
 
 #include "Mutex.h"
+#include "ThreadLock.h"
 
 #include <string>
 #include <memory>
@@ -162,16 +163,16 @@ namespace matrix
  *
  */
 
-    class transport_selection_strategy
-    {
-    public:
-        transport_selection_strategy(std::string km_url) : _km_url(km_url) {}
+    // class transport_selection_strategy
+    // {
+    // public:
+    //     transport_selection_strategy(std::string km_url) : _km_url(km_url) {}
 
-        virtual std::string operator() (std::string component,
-                                        std::string data_name) = 0;
-    protected:
-        std::string _km_url;
-    };
+    //     virtual std::string operator() (std::string component,
+    //                                     std::string data_name) = 0;
+    // protected:
+    //     std::string _km_url;
+    // };
 
 /**
  * \class select_only
@@ -185,13 +186,13 @@ namespace matrix
  *
  */
 
-    class select_only : public transport_selection_strategy
-    {
-    public:
-        default_only(std::string km_url): transport_selection_strategy(km_url) {}
+    // class select_only : public transport_selection_strategy
+    // {
+    // public:
+    //     select_only(std::string km_url): transport_selection_strategy(km_url) {}
 
-        virtual std::string operator() (std::string component, std::string data_name);
-    };
+    //     virtual std::string operator() (std::string component, std::string data_name);
+    // };
 
 /**
  * \class select_specified
@@ -201,19 +202,19 @@ namespace matrix
  *
  */
 
-    class select_specified : public transport_selection_strategy
-    {
-    public:
-        select_specified(std::string km_url, std::string transport)
-            : transport_selection_strategy(km_url), _transport(transport)
-        {
-        }
+    // class select_specified : public transport_selection_strategy
+    // {
+    // public:
+    //     select_specified(std::string km_url, std::string transport)
+    //         : transport_selection_strategy(km_url), _transport(transport)
+    //     {
+    //     }
 
-        virtual std::string operator() (std::string component, std::string data_name);
+    //     virtual std::string operator() (std::string component, std::string data_name);
 
-    private:
-        std::string _transport;
-    };
+    // private:
+    //     std::string _transport;
+    // };
 
 /**********************************************************************
  * Transport Server
@@ -423,10 +424,11 @@ namespace matrix
     class TransportClient
     {
     public:
-        TransportClient(std::string keymaster_url, std::string component, std::string transport);
+        TransportClient(std::string urn);
         virtual ~TransportClient();
 
-        bool connect(std::string urn);
+        bool connect(std::string urn = "");
+        bool disconnect();
         bool subscribe(std::string key, DataCallbackBase *cb);
         bool unsubscribe(std::string key);
 
@@ -461,13 +463,17 @@ namespace matrix
 
     protected:
 
-        virtual bool _connect(std::string urn);
+        virtual bool _connect();
+        virtual bool _disconnect();
         virtual bool _subscribe(std::string key, DataCallbackBase *cb);
+        virtual bool _unsubscribe(std::string key);
 
-        std::string _km_url;
-        std::string _transport_key;
+        std::string _urn;
 
     private:
+
+        Mutex _shared_lock;
+
         static std::shared_ptr<TransportClient> create(std::string urn);
 
         typedef std::map<std::string, factory_sig> factory_map_t;
@@ -480,13 +486,39 @@ namespace matrix
 
     inline bool TransportClient::connect(std::string urn)
     {
-        return _connect(urn);
+        ThreadLock<Mutex> l(_shared_lock);
+        l.lock();
+
+        // connect to new urn?
+        if (!urn.empty())
+        {
+            _urn = urn;
+        }
+
+        return _connect();
+    }
+
+    inline bool TransportClient::disconnect()
+    {
+        ThreadLock<Mutex> l(_shared_lock);
+        l.lock();
+        return _disconnect();
     }
 
     inline bool TransportClient::subscribe(std::string key, DataCallbackBase *cb)
     {
+        ThreadLock<Mutex> l(_shared_lock);
+        l.lock();
         return _subscribe(key, cb);
     }
+
+    inline bool TransportClient::unsubscribe(std::string key)
+    {
+        ThreadLock<Mutex> l(_shared_lock);
+        l.lock();
+        return _unsubscribe(key);
+    }
+
 
 } // namespace matrix
 #endif

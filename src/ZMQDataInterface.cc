@@ -45,6 +45,13 @@ using namespace std;
 using namespace std::placeholders;
 using namespace mxutils;
 
+#define SUBSCRIBE   1
+#define UNSUBSCRIBE 2
+#define QUIT        3
+
+namespace matrix
+{
+
 /**
  * Creates a ZMQTransportServer, returning a TransportServer pointer to it. This
  * is a static function that can be used by TransportServer::create() to
@@ -63,11 +70,11 @@ using namespace mxutils;
  *
  */
 
-TransportServer *ZMQTransportServer::factory(string km_url, string key)
-{
-    TransportServer *ds = new ZMQTransportServer(km_url, key);
-    return ds;
-}
+    TransportServer *ZMQTransportServer::factory(string km_url, string key)
+    {
+        TransportServer *ds = new ZMQTransportServer(km_url, key);
+        return ds;
+    }
 
 // Matrix will support ZMQTransportServer out of the box, so we can go ahead
 // and initialize the static TransportServer::factories here, pre-loading it
@@ -76,47 +83,73 @@ TransportServer *ZMQTransportServer::factory(string km_url, string key)
 // TransportServer::add_factory() somewhere in their code, prior to creating
 // their custom TransportServer objects, to add support for custom
 // transports.
-map<string, TransportServer::factory_sig> TransportServer::factories =
+    map<string, TransportServer::factory_sig> TransportServer::factories =
 
-{
-    {"tcp",    &ZMQTransportServer::factory},
-    {"ipc",    &ZMQTransportServer::factory},
-    {"inproc", &ZMQTransportServer::factory}
-};
+    {
+        {"tcp",    &ZMQTransportServer::factory},
+        {"ipc",    &ZMQTransportServer::factory},
+        {"inproc", &ZMQTransportServer::factory}
+    };
+
+/**
+ * Creates a ZMQTransportClient, returning a TransportClient pointer to it. This
+ * is a static function that can be used by TransportClient::create() to
+ * create this type of object based solely on the transports provided to
+ * create(). The caller of TransportClient::create() thus needs no specific
+ * knowledge of ZMQTransportClient.
+ *
+ * @param km_urn: the URN to the keymaster.
+ *
+ * @param key: The key to query the keymaster. This key should point to
+ * a YAML node that contains information about the data source. One of
+ * the sub-keys of this node must be a key 'Specified', which returns a
+ * vector of transports required for this data source.
+ *
+ * @return A TransportClient * pointing to the created ZMQTransportClient.
+ *
+ */
+
+    TransportClient *ZMQTransportClient::factory(string urn)
+    {
+        TransportClient *ds = new ZMQTransportClient(urn);
+        return ds;
+    }
+
+// Matrix will support ZMQTransportClient out of the box, so we can go ahead
+// and initialize the static TransportClient::factories here, pre-loading it
+// with the ZMQTransportClient supported transports. Library users who
+// subclass their own TransportClient will need to call
+// TransportClient::add_factory() somewhere in their code, prior to creating
+// their custom TransportClient objects, to add support for custom
+// transports.
+    map<string, TransportClient::factory_sig> TransportClient::factories =
+
+    {
+        {"tcp",    &ZMQTransportClient::factory},
+        {"ipc",    &ZMQTransportClient::factory},
+        {"inproc", &ZMQTransportClient::factory}
+    };
 
 /**
  * \class PubImpl is the private implementation of the ZMQTransportServer class.
  *
  */
 
-struct ZMQTransportServer::PubImpl
-{
-    PubImpl(vector<string> urls);
-    ~PubImpl();
-
-    struct data_package
+    struct ZMQTransportServer::PubImpl
     {
-        string key;
-        string data;
+        PubImpl(vector<string> urls);
+        ~PubImpl();
+
+        bool publish(string key, string data);
+        bool publish(string key, void const *data, size_t sze);
+        vector<string> get_urls();
+
+        string _hostname;
+        vector<string> _publish_service_urls;
+
+        zmq::context_t &_ctx;
+        zmq::socket_t _pub_skt;
     };
-
-    enum
-    {
-        PUBLISH = 0,
-        STATE,
-        NUM_INTERFACES
-    };
-
-    void server_task();
-    bool publish(string key, string data);
-    bool publish(string key, void *data, size_t sze);
-    vector<string> get_urls();
-
-    string _hostname;
-    vector<string> _publish_service_urls;
-
-    zmq::context_t &_ctx;
-};
 
 /**
  * Constructor of the implementation class of ZMQTransportServer.  The
@@ -128,86 +161,86 @@ struct ZMQTransportServer::PubImpl
  *
  */
 
-ZMQTransportServer::PubImpl::PubImpl(vector<string> urns)
-:
-    _ctx(ZMQContext::Instance()->get_context())
+    ZMQTransportServer::PubImpl::PubImpl(vector<string> urns)
+        :
+        _ctx(ZMQContext::Instance()->get_context()),
+        _pub_skt(_ctx, ZMQ_PUB)
 
-{
-    int i = 0;
-
-    // process the urns.
-    _publish_service_urls.clear();
-    _publish_service_urls.resize(urns.size());
-    transform(urns.begin(), urns.end(), _publish_service_urls.begin(), &process_zmq_urn);
-    auto str_not_empty = std::bind(not_equal_to<string>(), _1, string());
-
-    if (!all_of(_publish_service_urls.begin(), _publish_service_urls.end(), str_not_empty))
     {
-        throw CreationError("Cannot use one or more of the following transports", urns);
-    }
+        int i = 0;
 
-    zmq::socket_t data_publisher(_ctx, ZMQ_PUB);
-    string tcp_url;
+        // process the urns.
+        _publish_service_urls.clear();
+        _publish_service_urls.resize(urns.size());
+        transform(urns.begin(), urns.end(), _publish_service_urls.begin(), &process_zmq_urn);
+        auto str_not_empty = std::bind(not_equal_to<string>(), _1, string());
 
-    try
-    {
-        vector<string>::iterator urn;
-
-        for (urn = _publish_service_urls.begin(); urn != _publish_service_urls.end(); ++urn)
+        if (!all_of(_publish_service_urls.begin(), _publish_service_urls.end(), str_not_empty))
         {
-            boost::regex p_tcp("^tcp"), p_inproc("^inproc"), p_ipc("^ipc"), p_xs("X+$");
-            boost::smatch result;
+            throw CreationError("Cannot use one or more of the following transports", urns);
+        }
 
-            // bind using tcp. If port is not given (port == 0), then use ephemeral port.
-            if (boost::regex_search(*urn, result, p_tcp))
+        string tcp_url;
+
+        try
+        {
+            vector<string>::iterator urn;
+
+            for (urn = _publish_service_urls.begin(); urn != _publish_service_urls.end(); ++urn)
             {
-                int port_used;
+                boost::regex p_tcp("^tcp"), p_inproc("^inproc"), p_ipc("^ipc"), p_xs("X+$");
+                boost::smatch result;
 
-                if (!getCanonicalHostname(_hostname))
+                // bind using tcp. If port is not given (port == 0), then use ephemeral port.
+                if (boost::regex_search(*urn, result, p_tcp))
                 {
-                    cerr << "ZMQTransportServer: Unable to obtain canonical hostname: "
-                         << strerror(errno) << endl;
-                    return;
+                    int port_used;
+
+                    if (!getCanonicalHostname(_hostname))
+                    {
+                        cerr << "ZMQTransportServer: Unable to obtain canonical hostname: "
+                             << strerror(errno) << endl;
+                        return;
+                    }
+
+                    // ephem port requested? ("tcp://*:XXXXX")
+                    if (boost::regex_search(*urn, result, p_xs))
+                    {
+                        port_used = zmq_ephemeral_bind(_pub_skt, "tcp://*:*", 1000);
+                    }
+                    else
+                    {
+                        _pub_skt.bind(urn->c_str());
+                        vector<string> parts;
+                        boost::split(parts, *urn, boost::is_any_of(":"));
+                        port_used = convert<int>(parts[2]);
+                    }
+
+                    // transmogrify the tcp urn to the actual urn needed for
+                    // a client to access the service:
+                    // 'tcp://<canonical_hostname>:<port>
+                    ostringstream tcp_url;
+                    tcp_url << "tcp://" << _hostname << ":" << port_used;
+                    *urn = tcp_url.str();
                 }
 
-                // ephem port requested? ("tcp://*:XXXXX")
-                if (boost::regex_search(*urn, result, p_xs))
+                // bind using IPC or INPROC:
+                if (boost::regex_search(*urn, result, p_ipc)
+                    || boost::regex_search(*urn, result, p_inproc))
                 {
-                    port_used = zmq_ephemeral_bind(data_publisher, "tcp://*:*", 1000);
+                    // these are already in a form the client can use.
+                    _pub_skt.bind(urn->c_str());
                 }
-                else
-                {
-                    data_publisher.bind(urn->c_str());
-                    vector<string> parts;
-                    boost::split(parts, *urn, boost::is_any_of(":"));
-                    port_used = convert<int>(parts[2]);
-                }
-
-                // transmogrify the tcp urn to the actual urn needed for
-                // a client to access the service:
-                // 'tcp://<canonical_hostname>:<port>
-                ostringstream tcp_url;
-                tcp_url << "tcp://" << _hostname << ":" << port_used;
-                *urn = tcp_url.str();
-            }
-
-            // bind using IPC or INPROC:
-            if (boost::regex_search(*urn, result, p_ipc)
-                || boost::regex_search(*urn, result, p_inproc))
-            {
-                // these are already in a form the client can use.
-                data_publisher.bind(urn->c_str());
             }
         }
-    }
-    catch (zmq::error_t e)
-    {
-        cerr << "Error in publisher thread: " << e.what() << endl
-             << "Exiting publishing thread." << endl;
-        return;
-    }
+        catch (zmq::error_t e)
+        {
+            cerr << "Error in publisher thread: " << e.what() << endl
+                 << "Exiting publishing thread." << endl;
+            return;
+        }
 
-}
+    }
 
 /**
  * Signals the server thread that we're done, waiting for it to exit
@@ -215,12 +248,13 @@ ZMQTransportServer::PubImpl::PubImpl(vector<string> urns)
  *
  */
 
-ZMQTransportServer::PubImpl::~PubImpl()
+    ZMQTransportServer::PubImpl::~PubImpl()
 
-{
-    _data_queue.release();
-    _server_thread.stop_without_cancel();
-}
+    {
+        int zero = 0;
+        _pub_skt.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+        _pub_skt.close();
+    }
 
 /**
  * Returns the URLs bound to the services.
@@ -230,231 +264,382 @@ ZMQTransportServer::PubImpl::~PubImpl()
  *
  */
 
-vector<string> ZMQTransportServer::PubImpl::get_urls()
-{
-    return _publish_service_urls;
-}
-
+    vector<string> ZMQTransportServer::PubImpl::get_urls()
+    {
+        return _publish_service_urls;
+    }
 
 /**
- * This is the publisher server task.  It sits on the queue waiting
- * for something to be published until it is told to stop.
+ * Publishes the data, as represented by a string.
+ *
+ * @param key: The published key to the data.
+ *
+ * @param data: The data, contained in a std::string buffer
  *
  */
 
-void ZMQTransportServer::PubImpl::server_task()
-
-{
-    data_package dp;
-    zmq::socket_t data_publisher(_ctx, ZMQ_PUB);
-    string tcp_url;
-
-    try
+    bool ZMQTransportServer::PubImpl::publish(string key, string data)
     {
-        vector<string>::iterator urn;
-
-        for (urn = _publish_service_urls.begin(); urn != _publish_service_urls.end(); ++urn)
-        {
-            boost::regex p_tcp("^tcp"), p_inproc("^inproc"), p_ipc("^ipc"), p_xs("X+$");
-            boost::smatch result;
-
-            // bind using tcp. If port is not given (port == 0), then use ephemeral port.
-            if (boost::regex_search(*urn, result, p_tcp))
-            {
-                int port_used;
-
-                if (!getCanonicalHostname(_hostname))
-                {
-                    cerr << "ZMQTransportServer: Unable to obtain canonical hostname: "
-                         << strerror(errno) << endl;
-                    return;
-                }
-
-                // ephem port requested? ("tcp://*:XXXXX")
-                if (boost::regex_search(*urn, result, p_xs))
-                {
-                    port_used = zmq_ephemeral_bind(data_publisher, "tcp://*:*", 1000);
-                }
-                else
-                {
-                    data_publisher.bind(urn->c_str());
-                    vector<string> parts;
-                    boost::split(parts, *urn, boost::is_any_of(":"));
-                    port_used = convert<int>(parts[2]);
-                }
-
-                // transmogrify the tcp urn to the actual urn needed for
-                // a client to access the service:
-                // 'tcp://<canonical_hostname>:<port>
-                ostringstream tcp_url;
-                tcp_url << "tcp://" << _hostname << ":" << port_used;
-                *urn = tcp_url.str();
-            }
-
-            // bind using IPC or INPROC:
-            if (boost::regex_search(*urn, result, p_ipc)
-                || boost::regex_search(*urn, result, p_inproc))
-            {
-                // these are already in a form the client can use.
-                data_publisher.bind(urn->c_str());
-            }
-        }
-    }
-    catch (zmq::error_t e)
-    {
-        cerr << "Error in publisher thread: " << e.what() << endl
-             << "Exiting publishing thread." << endl;
-        return;
+        return publish(key, data.data(), data.size());
     }
 
-    _server_thread_ready.signal(true); // Allow constructor to move on
+/**
+ * Publishes the data, provided as a void * with a size parameter.
+ *
+ * @param key: The published key to the data.
+ *
+ * @param data: A void pointer to the buffer containing the data
+ *
+ * @param sze: The size of the data buffer
+ *
+ */
 
-    while (_data_queue.get(dp))
+    bool ZMQTransportServer::PubImpl::publish(string key, void const *data, size_t sze)
     {
-        /* Publish data. Use zero-copy:
-           // string buf holds the data. A zmq_message_t is created that
-           // merely points to the data buffer, and is given a size to
-           // the buffer.
-           zmq::message_t payload(buf.data(), buf.size(), NULL);
-           data_publisher.send(payload) */
+        bool rval = true;
 
         try
         {
-            z_send(data_publisher, dp.key, ZMQ_SNDMORE);
-            zmq::message_t payload((void *)dp.data.data(), dp.data.size(), NULL);
-            data_publisher.send(payload);
+            z_send(_pub_skt, key, ZMQ_SNDMORE, 0);
+            z_send(_pub_skt, (const char *)data, sze, 0, 0);
         }
         catch (zmq::error_t e)
         {
-            cerr << "ZMQ exception in publisher thread: "
+            cerr << "ZMQ exception in publisher: "
                  << e.what() << endl;
+            rval = false;
+        }
+
+        return rval;
+    }
+
+
+    ZMQTransportServer::ZMQTransportServer(string keymaster_url, string key)
+        : TransportServer(keymaster_url, key)
+    {
+        try
+        {
+            Keymaster km(_km_url);
+            vector<string> urns;
+            urns = km.get_as<vector<string> >(_transport_key + ".Specified");
+
+            // will throw CreationError if it fails.
+            _impl.reset(new PubImpl(urns));
+
+            // register the AsConfigured urns:
+            urns = _impl->get_urls();
+            km.put(_transport_key + ".AsConfigured", urns, true);
+        }
+        catch (KeymasterException e)
+        {
+            throw CreationError(e.what());
         }
     }
 
-    // Done. Clean up.
-    int zero = 0;
-    data_publisher.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
-    data_publisher.close();
-}
-
-/**
- * This is the ZMQTransportServer's Data publishing facility.  It is a private
- * function that does all the work preparing data for publication.
- * The data and metadata are copied into a 'data_package' object and
- * posted on the publication semaphore queue. std::strings are used for
- * the data buffer, passed by value. Because std::strings use
- * copy-on-write (COW) this is not an expensive operation.
- *
- * NOTICE: If inproc, the client shouldn't count on the indefinite
- * existence of this buffer.
- *
- * @param key: the data key
- * @param data: the data buffer
- *
- * @return true if the data was succesfuly placed in the publication
- * queue, false otherwise. 'false' indicates that the semaphore queue is
- * full.
- *
- */
-
-bool ZMQTransportServer::PubImpl::publish(string key, string data)
-{
-    data_package dp;
-
-    dp.key = key;
-    dp.data = data;
-    return _data_queue.try_put(dp);
-}
-
-ZMQTransportServer::ZMQTransportServer(string keymaster_url, string key)
-    : TransportServer(keymaster_url, key)
-{
-    try
+    ZMQTransportServer::~ZMQTransportServer()
     {
-        Keymaster km(_km_url);
-        vector<string> urns;
-        urns = km.get_as<vector<string> >(_transport_key + ".Specified");
+        // close pub socket.
+        _impl.reset();
 
-        // will throw CreationError if it fails.
-        _impl.reset(new PubImpl(urns));
+        try
+        {
+            Keymaster km(_km_url);
+            cout << km.get("root") << endl;
 
-        // register the AsConfigured urns:
-        urns = _impl->get_urls();
-        km.put(_transport_key + ".AsConfigured", urns, true);
+            km.del(_transport_key + ".AsConfigured");
+        }
+        catch (KeymasterException e)
+        {
+            // Just making sure no exception is thrown from destructor. The
+            // Keymaster client could throw if the KeymasterServer goes away
+            // prior to this call.
+        }
     }
-    catch (KeymasterException e)
+
+    bool ZMQTransportServer::_publish(string key, const void *data, size_t size_of_data)
     {
-        throw CreationError(e.what());
+        return _impl->publish(key, data, size_of_data);
     }
-}
 
-ZMQTransportServer::~ZMQTransportServer()
-{
-    // releases queue, stops thread.
-    _impl.reset();
-
-    try
+    bool ZMQTransportServer::_publish(string key, string data)
     {
-        Keymaster km(_km_url);
-        cout << km.get("root") << endl;
-
-        km.del(_transport_key + ".AsConfigured");
+        return _impl->publish(key, data);
     }
-    catch (KeymasterException e)
+
+/**********************************************************************
+ * Transport Client
+ **********************************************************************/
+
+    struct ZMQTransportClient::Impl
     {
-        // Just making sure no exception is thrown from destructor. The
-        // Keymaster client could throw if the KeymasterServer goes away
-        // prior to this call.
+        Impl() :
+            _pipe_urn("inproc://" + gen_random_string(20)),
+            _ctx(ZMQContext::Instance()->get_context()),
+            _connected(false),
+            _sub_thread(this, &ZMQTransportClient::Impl::sub_task),
+            _task_ready(false)
+        {}
+
+        ~Impl() {disconnect();}
+
+        bool connect(std::string url);
+        bool disconnect();
+        bool subscribe(std::string key, DataCallbackBase *cb);
+        bool unsubscribe(std::string key);
+
+        void sub_task();
+
+        std::string _pipe_urn;
+        std::string _data_urn;
+        zmq::context_t &_ctx;
+        bool _connected;
+        Thread<ZMQTransportClient::Impl> _sub_thread;
+        TCondition<bool> _task_ready;
+        std::map<std::string, DataCallbackBase *> _subscribers;
+    };
+
+    bool ZMQTransportClient::Impl::connect(string urn)
+    {
+        _data_urn = urn;
+        
+        if (!_connected)
+        {
+            if (_sub_thread.start() == 0)
+            {
+                if (_task_ready.wait(true, 1000000) == false)
+                {
+                    cerr << "ZMQTransportClient for URN " << urn << ": subscriber thread aborted." << endl;
+                    return false;
+                }
+
+                _connected = true;
+                return true;
+            }
+            else
+            {
+                cerr << "ZMQTransportClient for URN " << urn << ": failure to start susbcriber thread."
+                     << endl;
+                return false;
+            }
+        }
+
+        return false;
     }
-}
 
-bool ZMQTransportServer::_publish(string key, const void *data, size_t size_of_data)
-{
-    string data_buf(size_of_data, 0);
-    memcpy((char *)data_buf.data(), data, size_of_data);
-    return _impl->publish(key, data_buf);
-}
+    bool ZMQTransportClient::Impl::disconnect()
+    {
+        if (_connected)
+        {
+            zmq::socket_t pipe(_ctx, ZMQ_REQ);
+            pipe.connect(_pipe_urn.c_str());
+            z_send(pipe, QUIT, 0);
+            int rval;
+            z_recv(pipe, rval);
+            _sub_thread.stop_without_cancel();
+            _connected = false;
+            return rval ? true : false;
+        }
 
-bool ZMQTransportServer::_publish(string key, string data)
-{
-    return _impl->publish(key, data);
-}
+        return false;
+    }
+
+    bool ZMQTransportClient::Impl::subscribe(string key, DataCallbackBase *cb)
+    {
+        if (_connected)
+        {
+            zmq::socket_t pipe(_ctx, ZMQ_REQ);
+            pipe.connect(_pipe_urn.c_str());
+            z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
+            z_send(pipe, key, ZMQ_SNDMORE);
+            z_send(pipe, cb, 0);
+            int rval;
+            z_recv(pipe, rval);
+            return rval ? true : false;
+        }
+
+        return false;
+    }
+
+    bool ZMQTransportClient::Impl::unsubscribe(string key)
+    {
+        if (_connected)
+        {
+            zmq::socket_t pipe(_ctx, ZMQ_REQ);
+            pipe.connect(_pipe_urn.c_str());
+            z_send(pipe, UNSUBSCRIBE, ZMQ_SNDMORE);
+            z_send(pipe, key, 0);
+            int rval;
+            z_recv(pipe, rval);
+            return rval ? true : false;
+        }
+
+        return false;
+    }
+
+    void ZMQTransportClient::Impl::sub_task()
+    {
+        zmq::socket_t sub_sock(_ctx, ZMQ_SUB);
+        zmq::socket_t pipe(_ctx, ZMQ_REP);
+        vector<string>::const_iterator cvi;
+
+        sub_sock.connect(_data_urn.c_str());
+        pipe.bind(_pipe_urn.c_str());
+
+        // we're going to poll. We will be waiting for subscription requests
+        // (via 'pipe'), and for subscription data (via 'sub_sock').
+        zmq::pollitem_t items [] =
+            {
+                { pipe, 0, ZMQ_POLLIN, 0 },
+                { sub_sock, 0, ZMQ_POLLIN, 0 }
+            };
+
+        _task_ready.signal(true);
+
+        while (1)
+        {
+            try
+            {
+                zmq::poll(&items[0], 2, -1);
+
+                if (items[0].revents & ZMQ_POLLIN) // the control pipe
+                {
+                    int msg;
+                    z_recv(pipe, msg);
+
+                    if (msg == SUBSCRIBE)
+                    {
+                        string key;
+                        DataCallbackBase *f_ptr;
+                        z_recv(pipe, key);
+                        z_recv(pipe, f_ptr);
+
+                        if (key.empty())
+                        {
+                            z_send(pipe, 0, 0);
+                        }
+                        else
+                        {
+                            _subscribers[key] = f_ptr;
+                            sub_sock.setsockopt(ZMQ_SUBSCRIBE, key.c_str(), key.length());
+                            z_send(pipe, 1, 0);
+                        }
+                    }
+                    else if (msg == UNSUBSCRIBE)
+                    {
+                        string key;
+                        z_recv(pipe, key);
+
+                        if (key.empty())
+                        {
+                            z_send(pipe, 0, 0);
+                        }
+                        else
+                        {
+                            sub_sock.setsockopt(ZMQ_UNSUBSCRIBE, key.c_str(), key.length());
+
+                            if (_subscribers.find(key) != _subscribers.end())
+                            {
+                                _subscribers.erase(key);
+                            }
+
+                            z_send(pipe, 1, 0);
+                        }
+                    }
+                    else if (msg == QUIT)
+                    {
+                        z_send(pipe, 0, 0);
+                        break;
+                    }
+                }
+
+                // The subscribed data is handled here
+                if (items[1].revents & ZMQ_POLLIN)
+                {
+                    string key;
+                    zmq::message_t msg; // the data
+                    int more;
+                    size_t more_size = sizeof(more);
+                    map<string, DataCallbackBase *>::const_iterator mci;
+                    DataCallbackBase *f = NULL;
+
+                    // get the key
+                    z_recv(sub_sock, key);
+                    mci = _subscribers.find(key);
+
+                    // get callback registered to this key
+                    if (mci != _subscribers.end())
+                    {
+                        f = mci->second;
+                    }
+
+                    // repeat for every possible frame containing
+                    // data. The use case is for just one data frame;
+                    // this will work for this, but if there are more
+                    // than one data frames it will also work. Every
+                    // subsequent data frame will call the same
+                    // callback however.
+                    sub_sock.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+
+                    while (more)
+                    {
+                        sub_sock.recv(&msg);
+
+                        // execute only if we found a callback.
+                        if (f)
+                        {
+                            f->exec(key, msg.data(), msg.size());
+                        }
+
+                        sub_sock.getsockopt(ZMQ_RCVMORE, &more, &more_size);
+                    }
+                }
+            }
+            catch (zmq::error_t e)
+            {
+                cout << "ZMQDataInterface subscriber task: " << e.what() << endl;
+            }
+        }
+
+        int zero = 0;
+        pipe.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+        pipe.close();
+        zero = 0;
+        sub_sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+        sub_sock.close();
+    }
 
 
-ZMQTransportClient::ZMQTransportClient() : TransportClient()
-{
-}
+    ZMQTransportClient::ZMQTransportClient(string urn)
+        : TransportClient(urn),
+          _impl(new Impl())
 
-ZMQTransportClient::~ZMQTransportClient()
-{
-}
+    {
+    }
 
-bool ZMQTransportClient::_connect(std::string urn_from_keymaster)
-{
-    cerr << "unimplemented method " << __func__ << " called" << endl;
-    return false;
-}
+    ZMQTransportClient::~ZMQTransportClient()
+    {
+        _impl.reset();
+    } 
 
-bool ZMQTransportClient::_subscribe(std::string urn_from_keymaster)
-{
-    cerr << "unimplemented method " << __func__ << " called" << endl;
-    return false;
-}
+    bool ZMQTransportClient::_connect()
+    {
+        return _impl->connect(_urn);
+    }
 
-bool ZMQTransportClient::_unsubscribe(std::string urn_from_keymaster)
-{
-    cerr << "unimplemented method " << __func__ << " called" << endl;
-    return false;
-}
 
-bool ZMQTransportClient::_get(void *v, size_t &size_of_data)
-{
-    cerr << "unimplemented method " << __func__ << " called" << endl;
-    return false;
-}
+    bool ZMQTransportClient::_disconnect()
+    {
+        return _impl->disconnect();
+    }
 
-bool ZMQTransportClient::_get(std::string &data)
-{
-    cerr << "unimplemented method " << __func__ << " called" << endl;
-    return false;
+    bool ZMQTransportClient::_subscribe(string key, DataCallbackBase *cb)
+    {
+        return _impl->subscribe(key, cb);
+    }
+
+    bool ZMQTransportClient::_unsubscribe(std::string key)
+    {
+        return _impl->unsubscribe(key);
+    }
+
 }

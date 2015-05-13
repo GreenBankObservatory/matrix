@@ -24,10 +24,12 @@
 #include "DataInterface.h"
 #include "Keymaster.h"
 #include "ThreadLock.h"
+#include "matrix_util.h"
 
 #include <iostream>
 
 using namespace std;
+using namespace mxutils;
 
 // This is the transport repository. A map of map of transport
 // shared_ptr. The first map is keyed by component, and the value is
@@ -38,7 +40,7 @@ namespace matrix
 {
 
     TransportServer::component_map_t TransportServer::transports;
-    TransportClient::component_map_t TransportClient::transports;
+    TransportClient::client_map_t TransportClient::transports;
     Mutex TransportServer::factories_mutex;
     Mutex TransportClient::factories_mutex;
 
@@ -227,86 +229,6 @@ namespace matrix
     }
 
 /**********************************************************************
- * transport_selection_strategy
- **********************************************************************/
-
-/**
- * Returns the only configured transport URL for the named data source
- * on the named component. If the data source has configured no
- * transports, or if it has configured more than 1, throws a
- * TransportClient::Creation Error.
- *
- * @param component: the component emitting the data
- *
- * @param data_name: the named data source on component `component`
- *
- * @return A fully formed URL, the only one provided by that data source.
- *
- */
-
-    std::string select_only::operator() (std::string component, std::string data_name)
-    {
-        Keymaster km(_km_url);
-        YAML::Node n = km.get("components." + component);
-        string transport = n["Sources"][data_name];
-        vector<string> urls = n["Transports"][transport]["AsConfigured"].as<vector<string>();
-
-        if (urls.size() > 1)
-        {
-            throw(TransportClient::CreationError(
-                      "Multiple transports with none specified for" + component + "." + data_name));
-        }
-
-        if (urls.empty())
-        {
-            throw(TransportClient::CreationError(
-                      "No configured transports found for " + component + "." + data_name));
-        }
-
-        return urls[0];
-    }
-
-/**
- * Returns the URL that coresponds to the requested transport. The
- * requested transport is provided to the constructor of
- * `select_specified`. If a URL that uses that transport exists, it
- * will be returned. Otherwise a TransportClient::CreationError
- * exception will be thrown.
- *
- * example:
- *
- *      select_specified ssp("inproc://matrix.keymaster", "inproc");
- *      string url = ssp("frog", "song");
- *
- * The returned string `url` will be the inproc URL for the 'song'
- * data source on component 'frog'.
- *
- * @param component: the component emitting the data
- *
- * @param data_name: the named data source on component `component`
- *
- * @return A fully formed URL based on the requested transport.
- *
- */
-
-    std::string select_specified::operator() (std::string component, std::string data_name)
-    {
-        Keymaster km(_km_url);
-        YAML::Node n = km.get("components." + component);
-        string transport = n["Sources"][data_name];
-        vector<string> urls = n["Transports"][transport]["AsConfigured"].as<vector<string>();
-        vector<string>::iterator it = find_if(urls.begin(), urls.end(), is_substring_in_p(_transport));
-
-        if (it == urls.end()) // not found!
-        {
-            throw(TranportClient::CreationError(
-                      "Transport " + _transport + " not configured by " + component + "." + data_name));
-        }
-
-        return *it;
-    }
-
-/**********************************************************************
  * Transport Client
  **********************************************************************/
 
@@ -330,7 +252,7 @@ namespace matrix
 
         if ((cmi = transports.find(urn)) == transports.end())
         {
-            transports[urn] = shared_ptr(TansportClient::create(urn));
+            transports[urn] = shared_ptr<TransportClient>(TransportClient::create(urn));
         }
 
         return transports[urn];
@@ -352,9 +274,9 @@ namespace matrix
  *
  */
 
-    void DataSink::release_transport(string urn)
+    void TransportClient::release_transport(string urn)
     {
-        ThreadLock<decltype(transports)> l(tranpsorts);
+        ThreadLock<decltype(transports)> l(transports);
         client_map_t::iterator cmi;
 
         l.lock();
@@ -394,13 +316,47 @@ namespace matrix
             
             if ((i = factories.find(parts[0])) != factories.end())
             {
-                factory_sig ff = i->second();
+                factory_sig ff = i->second;
                 return shared_ptr<TransportClient>(ff(urn));
             }
 
-            throw TansportClient::CreationError("No known factory for " + parts[0]);
+            throw TransportClient::CreationError("No known factory for " + parts[0]);
         }
 
         throw TransportClient::CreationError("Malformed URN " + urn);
     }
+
+
+    TransportClient::TransportClient(string urn)
+        : _urn(urn)
+    {
+    }
+    
+    TransportClient::~TransportClient()
+    {
+        disconnect();
+    }
+    
+    bool TransportClient::_connect()
+    {
+        return false;
+    }
+    
+    bool TransportClient::_disconnect()
+    {
+        return false;
+    }
+    
+    bool TransportClient::_subscribe(string key, DataCallbackBase *cb)
+    {
+        return false;
+    }
+    
+    bool TransportClient::_unsubscribe(string key)
+    {
+        return false;
+    }
+
+
 }
+
