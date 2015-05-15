@@ -103,6 +103,7 @@ public:
     bool running();
     void stop();
     void stop_without_cancel();
+    pthread_t get_id() { return id; }
 
 private:
     /// Redirect to the actual thread procedure.
