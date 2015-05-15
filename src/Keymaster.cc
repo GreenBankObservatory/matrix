@@ -834,10 +834,6 @@ Keymaster::Keymaster(string keymaster_url, bool shared)
     _subscriber_thread(this, &Keymaster::_subscriber_task),
     _subscriber_thread_ready(false)
 {
-    if (shared)
-        _shared_lock.reset(new Mutex);
-    else
-        _shared_lock.reset(new NoLock);
 }
 
 /**
@@ -861,9 +857,92 @@ Keymaster::~Keymaster()
 
     if (_km_.get())
     {
+        ThreadLock<Mutex> lck(_shared_lock);
         _km_->setsockopt(ZMQ_LINGER, &zero, sizeof zero);
         _km_->close();
     }
+}
+
+/**
+ * RPC call to the Keymaster. Makes this call atomic, so that multiple
+ * threads may use one Keymaster client without interrupting the
+ * REQ/REPL pairs.
+ *
+ * @param cmd: One of the commands recognized by the Keymaster Server:
+ * GET, PUT, DEL.
+ *
+ * @param key: A key to a YAML node. In form "key1.key2.key3" which
+ * represents a hierarchy of YAML nodes on the Keymaster.
+ *
+ * @param val: A new value for the node pointet to by 'key'.
+ *
+ * @param flag: A flag regulating the operation of PUT: if 'create'
+ * PUT will create a new node at the specified key if one doesn't
+ * already exist. If "", it will return an error if the key does not exist.
+ *
+ */
+
+yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, string flag)
+{
+    string response;
+    yaml_result yr;
+    ThreadLock<Mutex> lck(_shared_lock);
+    ostringstream msg;
+    
+    try
+    {
+        msg << "Keymaster: Failed to " << cmd << " key '" << key;
+
+        lck.lock();
+        shared_ptr<zmq::socket_t> km = _keymaster_socket();
+        // always send a command
+        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
+        // always send a key
+        z_send(*km, key, val.empty() ? 0: ZMQ_SNDMORE, KM_TIMEOUT);
+
+        if (!val.empty())
+        {
+            z_send(*km, val, flag.empty() ? 0 : ZMQ_SNDMORE, KM_TIMEOUT);
+        }
+
+        if (!flag.empty())
+        {
+            z_send(*km, flag, 0, KM_TIMEOUT);
+        }
+        
+        // use a reasonable time-out, in case Keymaster is gone.
+        z_recv(*km, response, KM_TIMEOUT);
+
+        yr.from_yaml_node(YAML::Load(response));
+        _r = yr;
+        return yr;
+    }
+    catch (MatrixException e)
+    {
+        _handle_keymaster_server_exception();
+        msg << e.what();
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr;
+    }
+    catch (zmq::error_t e)
+    {
+        msg << e.what();
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr;
+    }
+    catch (std::exception e)
+    {
+        msg << e.what();
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr;
+    }
+
 }
 
 /**
@@ -939,54 +1018,16 @@ YAML::Node Keymaster::get(std::string key)
     {
         throw KeymasterException(yr.err);
     }
-    
+
     return yr.node;
 }
 
 bool Keymaster::get(std::string key, yaml_result &yr)
 {
-    string cmd("GET"), response;
-    ThreadLock<Mutex> lck(*_shared_lock);
-    ostringstream msg;
+    string cmd("GET");
 
-    try
-    {
-        lck.lock();
-        msg << "Failed to GET key '" << key << "' from keymaster. ";
-        shared_ptr<zmq::socket_t> km = _keymaster_socket();
-        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
-        z_send(*km, key, 0, KM_TIMEOUT);
-        // use a reasonable time-out, in case Keymaster is gone.
-        z_recv(*km, response, KM_TIMEOUT);
-        yr.from_yaml_node(YAML::Load(response));
-        _r = yr;
-        return yr.result;
-    }
-    catch (MatrixException e)
-    {
-        _handle_keymaster_server_exception();
-        msg << e.what();
-        yr.err = msg.str();
-        yr.result = false;
-        _r = yr;
-        return yr.result;
-    }
-    catch (zmq::error_t e)
-    {
-        msg << e.what();
-        yr.err = msg.str();
-        yr.result = false;
-        _r = yr;
-        return yr.result;
-    }
-    catch (std::exception e)
-    {
-        msg << e.what();
-        yr.err = msg.str();
-        yr.result = false;
-        _r = yr;
-        return yr.result;
-    }
+    yr = _call_keymaster(cmd, key);
+    return yr.result;
 }
 
 /**
@@ -1015,54 +1056,15 @@ bool Keymaster::get(std::string key, yaml_result &yr)
  *
  */
 
-void Keymaster::put(std::string key, YAML::Node n, bool create)
+bool Keymaster::put(std::string key, YAML::Node n, bool create)
 {
-    string cmd("PUT"), create_flag("create"), response;
-    ostringstream msg;
-    ThreadLock<Mutex> lck(*_shared_lock);
+    string cmd("PUT"), create_flag("create");
+    yaml_result yr;
+    ostringstream val;
 
-    // Prepare error message.
-    msg << "Failed to PUT key '" << key << "' to keymaster. ";
-
-    try
-    {
-        lck.lock();
-        ostringstream val;
-        val << n;
-        shared_ptr<zmq::socket_t> km = _keymaster_socket();
-        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
-        z_send(*km, key, ZMQ_SNDMORE, KM_TIMEOUT);
-
-        if (create)
-        {
-            z_send(*km, val.str(), ZMQ_SNDMORE, KM_TIMEOUT);
-            z_send(*km, create_flag, 0, KM_TIMEOUT);
-        }
-        else
-        {
-            z_send(*km, val.str(), 0, KM_TIMEOUT);
-        }
-
-        z_recv(*km, response, KM_TIMEOUT);
-        _r.from_yaml_node(YAML::Load(response));
-    }
-    catch (MatrixException e)
-    {
-        _handle_keymaster_server_exception();
-        msg << e.what();
-        throw KeymasterException(msg.str());
-    }
-    catch (zmq::error_t e)
-    {
-        msg << e.what();
-        throw KeymasterException(msg.str());
-    }
-
-    if (_r.result == false)
-    {
-        msg << "Keymaster says: " << _r.err;
-        throw(KeymasterException(msg.str()));
-    }
+    val << n;
+    yr = _call_keymaster(cmd, key, val.str(), create ? create_flag : "");
+    return yr.result;
 }
 
 /**
@@ -1079,39 +1081,13 @@ void Keymaster::put(std::string key, YAML::Node n, bool create)
  *
  */
 
-void Keymaster::del(std::string key)
+bool Keymaster::del(std::string key)
 {
-    string cmd("DEL"), response;
-    ThreadLock<Mutex> lck(*_shared_lock);
-    ostringstream msg;
-
-    try
-    {
-        lck.lock();
-        msg << "Failed to delete key '" << key << "' from keymaster. ";
-        shared_ptr<zmq::socket_t> km = _keymaster_socket();
-        z_send(*km, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
-        z_send(*km, key, 0, KM_TIMEOUT);
-        z_recv(*km, response, KM_TIMEOUT);
-        _r.from_yaml_node(YAML::Load(response));
-    }
-    catch (MatrixException e)
-    {
-        _handle_keymaster_server_exception();
-        msg << e.what();
-        throw KeymasterException(msg.str());
-    }
-    catch (zmq::error_t e)
-    {
-        msg << e.what();
-        throw KeymasterException(msg.str());
-    }
-
-    if (_r.result == false)
-    {
-        msg << "Keymaster says: " << _r.err;
-        throw(KeymasterException(msg.str()));
-    }
+    string cmd("DEL");
+    yaml_result yr;
+    
+    yr = _call_keymaster(cmd, key);
+    return yr.result;
 }
 
 /**
@@ -1147,7 +1123,7 @@ void Keymaster::del(std::string key)
  *
  */
 
-void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
+bool Keymaster::subscribe(string key, KeymasterCallbackBase *f)
 {
     // first start the subscriber thread. If it's already running this
     // won't do anything.
@@ -1155,10 +1131,6 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
 
     // Next, request the subscription by posting a request to the
     // subscriber thread.
-    ThreadLock<Mutex> lck(*_shared_lock);
-
-    lck.lock();
-
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, SUBSCRIBE, ZMQ_SNDMORE);
@@ -1166,7 +1138,7 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
     z_send(pipe, f, 0);
     int rval;
     z_recv(pipe, rval);
-    lck.unlock();
+    return rval ? true : false;
 }
 
 /**
@@ -1177,19 +1149,32 @@ void Keymaster::subscribe(string key, KeymasterCallbackBase *f)
  *
  */
 
-void Keymaster::unsubscribe(string key)
+bool Keymaster::unsubscribe(string key)
 {
     // request that the subscriber thread unsubscribe from 'key'
-    ThreadLock<Mutex> lck(*_shared_lock);
-    lck.lock();
-
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REQ);
     pipe.connect(_pipe_url.c_str());
     z_send(pipe, UNSUBSCRIBE, ZMQ_SNDMORE);
     z_send(pipe, key, 0);
     int rval;
     z_recv(pipe, rval);
-    lck.unlock();
+    return rval ? true : false;
+}
+
+/**
+ * Returns a copy of the latest yaml_result.
+ *
+ * @param 
+ *
+ * @return A yaml_result which is a copy of the latest result.
+ *
+ */
+
+yaml_result Keymaster::get_last_result()
+{
+    ThreadLock<Mutex> lck(_shared_lock);
+    lck.lock();
+    return _r;
 }
 
 /**
@@ -1199,16 +1184,42 @@ void Keymaster::unsubscribe(string key)
 
 void Keymaster::_run()
 {
+    ThreadLock<Mutex> lck(_shared_lock);
+
+    // If the subscriber thread is not running we will need to get the
+    // keymaster publishing urls for it before we start it. We obtain
+    // the publishing urls here in _run() because doing so in the
+    // constructor would cause an exception to be generated if the
+    // KeymasterServer is not running.
     if (!_subscriber_thread.running())
     {
-        ThreadLock<Mutex> lck(*_shared_lock);
-        lck.lock();
+        // get the keymaster publishing URLs:
+        try
+        {
+            _km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
+        }
+        catch (KeymasterException e)
+        {
+            cerr << e.what() << endl
+                 << "Unable to obtain the Keymaster publishing URLs. Ensure a Keymaster is running and try again."
+                 << endl;
+        }
+    }
+    
+    lck.lock();
 
+    // Check again, but this time after locking. Locking before
+    // getting the subscriber urls leads to a deadlock; but if we
+    // check to see if it is running, then get the URLs, then lock,
+    // another thread could have already started doing this. This is
+    // why we check twice. The worst that can happen is that the
+    // pulbishing urls are needlesly retrieved.
+    if (!_subscriber_thread.running())
+    {
         if ((_subscriber_thread.start() != 0) || (!_subscriber_thread_ready.wait(true, 1000000)))
         {
             throw(runtime_error("Keymaster: unable to start subscriber thread"));
         }
-        lck.unlock();
     }
 }
 
@@ -1227,25 +1238,12 @@ void Keymaster::_subscriber_task()
     zmq::socket_t sub_sock(ZMQContext::Instance()->get_context(), ZMQ_SUB);
     zmq::socket_t pipe(ZMQContext::Instance()->get_context(), ZMQ_REP);
     vector<string>::const_iterator cvi;
-    vector<string> km_pub_urls;
-
-    // get the keymaster publishing URLs:
-    try
-    {
-        km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
-    }
-    catch (KeymasterException e)
-    {
-        cerr << "Unable to obtain the Keymaster publishing URLs. Ensure a Keymaster is running and try again."
-             << endl;
-        return;
-    }
 
     // use the URL that has the same transport as the keymaster URL
-    cvi = find_if(km_pub_urls.begin(), km_pub_urls.end(), same_transport_p(_km_url));
+    cvi = find_if(_km_pub_urls.begin(), _km_pub_urls.end(), same_transport_p(_km_url));
 
     // TBF: What to do if they don't match? currently just quit.
-    if (cvi == km_pub_urls.end())
+    if (cvi == _km_pub_urls.end())
     {
         cerr << "Publisher URL transport mismatch with the keymaster" << endl;
         return;

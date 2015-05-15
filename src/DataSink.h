@@ -249,6 +249,16 @@ namespace matrix
  *
  * Example:
  *
+ *   Assuming a `test.yaml` which includes the following:
+ *
+ *     components:
+ *       moby_dick:
+ *         Tranports:
+ *           A:
+ *             Specified: [inproc, ipc, tcp]
+ *         Sources:
+ *           lines: A
+ *
  *     string km_urn("inproc://matrix.keymaster");
  *     KeymasterServer kms("test.yaml");
  *     kms.run();

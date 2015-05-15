@@ -76,24 +76,22 @@ void KeymasterTest::test_keymaster()
 
     // Put a new value into the keymaster. But 'ID' does not exist and
     // we didn't ask that it be created.
-    CPPUNIT_ASSERT_THROW(
-        km.put("components.nettask.source.ID", 1234),
-        KeymasterException);
-
+    CPPUNIT_ASSERT(!km.put("components.nettask.source.ID", 1234));
+    
     // Put a new value into the keymaster. Specify the create flag; this
     // should now work
-    CPPUNIT_ASSERT_NO_THROW(
+    CPPUNIT_ASSERT(
         km.put("components.nettask.source.ID", 1234, true)
         );
 
     // Replace an existing value in the keymaster. Now that 'ID' exists,
-    // thish should not throw.
-    CPPUNIT_ASSERT_NO_THROW(
+    // thish should return true.
+    CPPUNIT_ASSERT(
         km.put("components.nettask.source.ID", 9999)
         );
 
     // delete a YAML::Node from the keymaster at key 'ID':
-    CPPUNIT_ASSERT_NO_THROW(
+    CPPUNIT_ASSERT(
         km.del("components.nettask.source.ID")
         );
 
@@ -162,8 +160,6 @@ void KeymasterTest::test_keymaster_publisher()
         );
 
     Keymaster km(keymaster_url);
-
-    cout << "keymaster urls: " << km.get("Keymaster.URLS.AsConfigured") << endl;
 
     // first kind of callback: a custom callback based on
     // KeymasterCallbackBase.

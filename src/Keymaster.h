@@ -149,12 +149,6 @@ private:
 };
 
 
-class NoLock : public Mutex
-{
-    void lock() {};
-    void unlock() {};
-};
-
 class Keymaster
 {
 public:
@@ -164,36 +158,37 @@ public:
 
     YAML::Node get(std::string key);
     bool get(std::string key, mxutils::yaml_result &yr);
+    bool put(std::string key, YAML::Node n, bool create = false);
+    bool del(std::string key);
+    bool subscribe(std::string key, KeymasterCallbackBase *f);
+    bool unsubscribe(std::string key);
+
     template <typename T>
     T get_as(std::string key);
-
-    void put(std::string key, YAML::Node n, bool create = false);
     template <typename T>
-    void put(std::string key, T v, bool create = false);
+    bool put(std::string key, T v, bool create = false);
 
-    void del(std::string key);
-
-    void subscribe(std::string key, KeymasterCallbackBase *f);
-    void unsubscribe(std::string key);
-
-    mxutils::yaml_result get_last_result() {return _r;}
+    mxutils::yaml_result get_last_result();
 
 private:
 
     void _subscriber_task();
     void _run();
     void _handle_keymaster_server_exception();
+    mxutils::yaml_result _call_keymaster(std::string cmd, std::string key,
+                                         std::string val = "", std::string flag = "");
     std::shared_ptr<zmq::socket_t> _keymaster_socket();
 
     std::shared_ptr<zmq::socket_t> _km_;
     mxutils::yaml_result _r;
     std::string _km_url;
     std::string _pipe_url;
+    std::vector<std::string> _km_pub_urls;
 
     std::map<std::string, KeymasterCallbackBase *> _callbacks;
     Thread<Keymaster> _subscriber_thread;
     TCondition<bool> _subscriber_thread_ready;
-    std::shared_ptr<Mutex> _shared_lock;
+    Mutex _shared_lock;
 };
 
 template <typename T>
@@ -203,11 +198,10 @@ T Keymaster::get_as(std::string key)
 }
 
 template <typename T>
-void Keymaster::put(std::string key, T v, bool create)
+bool Keymaster::put(std::string key, T v, bool create)
 {
     YAML::Node n(v);
-    put(key, n, create);
+    return put(key, n, create);
 }
-
 
 #endif
