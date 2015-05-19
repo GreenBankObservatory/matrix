@@ -148,7 +148,7 @@ namespace matrix
  */
 
     template <>
-    bool DataSource<std::string>::publish(std::string &val)
+    inline bool DataSource<std::string>::publish(std::string &val)
     {
         return _ts->publish(_key, val);
     }

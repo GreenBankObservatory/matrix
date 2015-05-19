@@ -145,7 +145,7 @@ namespace matrix
             std::string transport = n["Sources"][data_name].as<std::string>();
             std::vector<std::string> urls =
                 n["Transports"][transport]["AsConfigured"].as<std::vector<std::string> >();
-            std::vector<std::string>::iterator it = 
+            std::vector<std::string>::iterator it =
                 find_if(urls.begin(), urls.end(), mxutils::is_substring_in_p(_transport));
 
             if (it == urls.end()) // not found!
@@ -183,7 +183,7 @@ namespace matrix
             : _km_urn(km_urn)
         {
         }
-        
+
         std::string operator() (std::string component, std::string data_name)
         {
             Keymaster km(_km_urn);
@@ -230,7 +230,7 @@ namespace matrix
  *   - select_only: Selects the URN if it is the only one available,
  *     otherwise throws. If this is used then no transport needs to be
  *     given to `connect()`
- *      
+ *
  *   - select_specified: The default. Allows the transport to be
  *     explicitly named in the 'connect()' member function. If that
  *     transport does not exist, it throws.
@@ -276,7 +276,26 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector = select_specified>
+    template <typename T>
+    void _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf)
+    {
+        if (sizeof(T) != sze)
+        {
+            throw MatrixException("DataSink::_data_handler()", "size mismatch error.");
+        }
+
+        ringbuf.try_put(*(T *)data);
+    }
+
+    template <>
+    inline void _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf)
+    {
+        std::string val(sze, 0);
+        std::memmove((char *)val.data(), data, sze);
+        ringbuf.try_put(val);
+    }
+
+    template <typename T, typename U = select_specified>
     class DataSink
     {
     public:
@@ -291,7 +310,7 @@ namespace matrix
 
     private:
 
-        template <typename, typename> class params {};
+        // template <typename, typename> class params {};
         void _check_connected();
 
         void _data_handler(std::string key, void *data, size_t sze)
@@ -301,31 +320,9 @@ namespace matrix
                 // this is not ours!
                 return;
             }
-            
-            _data_handler(data, sze, params<T, urn_selector>());
-        }
 
-        // default data handler
-        template<typename T1, typename X1>
-        void _data_handler(T1 *data, size_t sze, params<T1, X1>)
-        {
-            if (sizeof(T1) != sze)
-            {
-                throw MatrixException("DataSink::_data_handler()", "size mismatch error.");
-            }
-
-            _ringbuf.try_put(*((T1 *)data));
+            matrix::_data_handler<T>(data, sze, _ringbuf);
         }
-
-        // specialized data handler for DataSink<std::string>
-        template<typename X1>
-        void _data_handler(void *data, size_t sze, params<std::string, X1>)
-        {
-            std::string val(sze, 0);
-            std::memmove((char *)val.data(), data, sze);
-            _ringbuf.try_put(val);
-        }
-        
 
         bool _connected;
         std::string _key;
@@ -344,8 +341,8 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    DataSink<T, urn_selector>::DataSink(std::string km_urn, size_t ringbuf_size)
+    template <typename T, typename U>
+    DataSink<T, U>::DataSink(std::string km_urn, size_t ringbuf_size)
         : _connected(false),
           _km_urn(km_urn),
           _ringbuf(ringbuf_size),
@@ -359,8 +356,8 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    DataSink<T, urn_selector>::~DataSink() throw()
+    template <typename T, typename U>
+    DataSink<T, U>::~DataSink() throw()
     {
         try
         {
@@ -386,8 +383,8 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    void DataSink<T, urn_selector>::_check_connected()
+    template <typename T, typename U>
+    void DataSink<T, U>::_check_connected()
     {
         if (!_connected)
         {
@@ -403,8 +400,8 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    void DataSink<T, urn_selector>::get(T &val)
+    template <typename T, typename U>
+    void DataSink<T, U>::get(T &val)
     {
         _check_connected();
         _ringbuf.get(val);
@@ -423,8 +420,8 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    bool DataSink<T, urn_selector>::try_get(T &val)
+    template <typename T, typename U>
+    bool DataSink<T, U>::try_get(T &val)
     {
         _check_connected();
         return _ringbuf.try_get(val);
@@ -456,11 +453,11 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    void DataSink<T, urn_selector>::connect(std::string component_name,
+    template <typename T, typename U>
+    void DataSink<T, U>::connect(std::string component_name,
                                             std::string data_name, std::string transport)
     {
-        urn_selector tss(_km_urn, transport);
+        U tss(_km_urn, transport);
 
         if (_connected)
         {
@@ -487,8 +484,8 @@ namespace matrix
  *
  */
 
-    template <typename T, typename urn_selector>
-    void DataSink<T, urn_selector>::disconnect()
+    template <typename T, typename U>
+    void DataSink<T, U>::disconnect()
     {
         if (_connected)
         {
