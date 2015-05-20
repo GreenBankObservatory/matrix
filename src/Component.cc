@@ -367,7 +367,7 @@ void Component::_initialize_fsm()
     fsm.run_consistency_check();
 }
 
-/// A new Controller command has arrived. Process it.
+/// A new Architect command has arrived. Process it.
 bool Component::_process_command(std::string cmd)
 {
     dbprintf("Component::process_command: %s command now %s\n" ,

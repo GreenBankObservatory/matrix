@@ -32,7 +32,7 @@ lib_LTLIBRARIES = libmatrix.la
 headersdir = $(includedir)
 headers_HEADERS = \
     Component.h \
-    Controller.h \
+    Architect.h \
     DataInterface.h \
     DataSink.h \
     DataSource.h \
@@ -54,7 +54,7 @@ headers_HEADERS = \
 
 libmatrix_la_SOURCES = \
     Mutex.cc  \
-    Controller.cc \
+    Architect.cc \
     Component.cc \
     DataInterface.cc \
     FiniteStateMachine.cc \

@@ -28,7 +28,7 @@
 noinst_PROGRAMS = matrix_unittest
 
 matrix_unittest_SOURCES = \
-	ControllerTest.cc \
+	ArchitectTest.cc \
 	StateTransitionTest.cc \
 	TimeTest.cc \
 	keymaster_test.cc \

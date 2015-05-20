@@ -21,14 +21,14 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#ifndef ControllerTest_h
-#define ControllerTest_h
+#ifndef ArchitectTest_h
+#define ArchitectTest_h
 
 #include <cppunit/extensions/HelperMacros.h>
 
-class ControllerTest : public CppUnit::TestCase
+class ArchitectTest : public CppUnit::TestCase
 {
-    CPPUNIT_TEST_SUITE(ControllerTest);
+    CPPUNIT_TEST_SUITE(ArchitectTest);
     CPPUNIT_TEST(test_init);
     // CPPUNIT_TEST(test_component_init);
     CPPUNIT_TEST_SUITE_END();

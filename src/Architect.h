@@ -21,8 +21,8 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#ifndef Controller_h
-#define Controller_h
+#ifndef Architect_h
+#define Architect_h
 
 #include <string>
 #include <memory>
@@ -41,12 +41,12 @@
 class Keymaster;
 class KeymasterServer;
 
-/// Exception type for Controller errors.
-class ControllerException : public MatrixException
+/// Exception type for Architect errors.
+class ArchitectException : public MatrixException
 {
 public:
-    ControllerException(std::string msg) :
-        MatrixException(msg, "Controller exception") {}
+    ArchitectException(std::string msg) :
+        MatrixException(msg, "Architect exception") {}
 };
 
 
@@ -59,21 +59,18 @@ public:
 ///
 /// So an application might follow the following sequence:
 /// - The application is executed, main() is entered.
-/// - main() creates an instance of a Controller, passing
-/// information such as a configuration filename, and a dictionary
-/// of Component type names to factory methods.
-/// - The Controller creates a Keymaster, and passes on the configuration
+/// - main() creates an instance of a Architect, passing
+/// information such as a configuration filename, and a map of
+/// Component type names to factory methods.
+/// - The Architect creates a Keymaster, and passes on the configuration
 /// filename.
 /// - The Keymaster reads the configuration file and stores it into a
 /// tree-like structure, which reflects the configuration file contents.
-/// - The Controller interacts (reads) the data, and creates instances
-/// of Components specified by the config file.
-/// - As Components are created, each of them retrieves the list of
-///  inter-component connections along with any special Component configuration
-///  information.
-/// - Each Component registers itself with the Keymaster and adds
-/// entries for its state/status.
-/// - As the Components registered themselves, the Controller subscribes
+/// - The Architect interacts queries the Keymaster for information about
+/// the components, and then creates instances of the Components as specified.
+/// - As Components are created, they contact the Keymaster and registers themselves 
+/// and add entries for its state.
+/// - As the Components registered themselves, the Architect subscribes
 /// to the state/status entries in the Keymaster.
 /// .
 ///
@@ -82,18 +79,45 @@ public:
 /// Once all Components are in the Standby state, the set_system_mode() should
 /// be called to specify which mode in the configuration file is to be used.
 ///
-/// It should be noted that the Controller, as its name implies, acts
+/// It should be noted that the Architect, as its name implies, acts
 /// as the bridge between application control code, and the system
-/// state. Applications would typically derive from the Controller to
+/// state. Applications would typically derive from the Architect to
 /// implement additional application-specific control logic.
-/// Some methods in the Controller class provide default implementations
+/// Some methods in the Architect class provide default implementations
 /// of commonly used code.
 ///
-class Controller : public Component
+/// An example application might look like the following:
+/// 
+///     Architect::create_keymaster_server(config_file);
+///     Architect simple;
+///
+///     Time::thread_delay(1000000000LL);
+///
+///     cout << "waiting for all components in standby\n";
+///     // Wait 1 sec for initialization
+///     bool result = simple.wait_all_in_state("Standby", 1000000);
+///     if (!result)
+///     {
+///         cerr << "initial standby state error\n";
+///     }
+///     // Now that Components are all in the Standby state, set the system-wide mode.
+///     simple.set_system_mode("default");
+///
+///     // Issue the get_ready event to cause active Components to connect their
+///     // DataSink's to DataSource's.
+///     simple.ready();
+///     result = simple.wait_all_in_state("Ready", 1000000);
+///     cout << "all in ready\n";
+///
+///     simple.start();
+///     simple.wait_all_in_state("Running", 1000000);
+
+///
+class Architect : public Component
 {
 public:
-    Controller(std::string name, std::string km_url);
-    virtual ~Controller();
+    Architect(std::string name, std::string km_url);
+    virtual ~Architect();
 
     /// Add a component factory constructor for later use in creating
     /// the component instance. The factory signature should be
@@ -108,7 +132,7 @@ public:
     /// Go through configuration, and create instances of the components
     /// This should also cause component threads to be created.
     /// As components are created, they should register themselves
-    /// with the keymaster. Note: throws ControllerException if there
+    /// with the keymaster. Note: throws ArchitectException if there
     /// is no factory registered for the requested Component type.
     bool create_component_instances();
 
@@ -139,7 +163,7 @@ public:
         std::string status;
         bool active;
     };
-    
+
     static void create_keymaster_server(std::string config_file);
     static void destroy_keymaster_server();
 
@@ -161,7 +185,7 @@ protected:
     void system_mode_changed(std::string ymppath, YAML::Node newmode);
 
     /// This should only be called once. The result will be an initialized
-    /// Controller, with all Components created.
+    /// Architect, with all Components created.
     virtual bool _basic_init();
 
     /// Overridden callback to handle 'child' component state changes.
@@ -205,12 +229,12 @@ protected:
     TCondition<bool> state_condition;
     tsemfifo<std::pair<std::string, std::string> > state_fifo;
     TCondition<bool> state_thread_started;
-    Thread<Controller> state_thread;
-    
+    Thread<Architect> state_thread;
+
     /// A place to store Component factory methods
     /// indexed by Component type, not name.
-    static ComponentFactoryMap factory_methods;    
-    static std::shared_ptr<KeymasterServer> the_keymaster_server;    
+    static ComponentFactoryMap factory_methods;
+    static std::shared_ptr<KeymasterServer> the_keymaster_server;
 };
 
 

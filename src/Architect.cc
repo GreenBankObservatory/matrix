@@ -25,7 +25,7 @@
 #include <map>
 #include <iostream>
 #include <algorithm>
-#include "Controller.h"
+#include "Architect.h"
 #include <yaml-cpp/yaml.h>
 #include "ThreadLock.h"
 #include "Keymaster.h"
@@ -42,7 +42,7 @@ struct NotInState
 {
     NotInState(std::string s) : compare_state(s) {}
     // return true if states are not equal
-    bool operator()(std::pair<const std::string, Controller::ComponentInfo> &p)
+    bool operator()(std::pair<const std::string, Architect::ComponentInfo> &p)
     {
         if (p.second.active)
         {
@@ -74,8 +74,8 @@ static int state_2_enum(std::string s)
     return 0;
 }
 
-static bool state_compare(std::pair<const std::string, Controller::ComponentInfo> &a,
-                          std::pair<const std::string, Controller::ComponentInfo> &b)
+static bool state_compare(std::pair<const std::string, Architect::ComponentInfo> &a,
+                          std::pair<const std::string, Architect::ComponentInfo> &b)
 {
     return (state_2_enum(a.second.state) < state_2_enum(b.second.state));
 }
@@ -91,43 +91,43 @@ static string lstrip(const string s)
     return s.substr(d+1, string::npos);
 }
 
-shared_ptr<KeymasterServer>     Controller::the_keymaster_server;
-Controller::ComponentFactoryMap Controller::factory_methods;
+shared_ptr<KeymasterServer>     Architect::the_keymaster_server;
+Architect::ComponentFactoryMap Architect::factory_methods;
 
 //Static method
-void Controller::create_keymaster_server(std::string config_file)
+void Architect::create_keymaster_server(std::string config_file)
 {
     the_keymaster_server.reset(new KeymasterServer(config_file));
     the_keymaster_server->run();
 }
 
-void Controller::destroy_keymaster_server()
+void Architect::destroy_keymaster_server()
 {
     the_keymaster_server.reset();
 }
 
-Controller::Controller(string name, string km_url) :
+Architect::Architect(string name, string km_url) :
     Component(name, km_url),
     state_condition(false),
     state_fifo(),
     state_thread_started(false),
-    state_thread(this, &Controller::component_state_reporting_loop)
+    state_thread(this, &Architect::component_state_reporting_loop)
 {
     // re-write the base part of the full instance name to
     // be outside of the component directory
     my_full_instance_name = "controller." + my_instance_name;
 }
 
-Controller::~Controller()
+Architect::~Architect()
 {
 }
 
-void Controller::add_component_factory(std::string name, Component::ComponentFactory func)
+void Architect::add_component_factory(std::string name, Component::ComponentFactory func)
 {
-    Controller::factory_methods[name] = func;
+    Architect::factory_methods[name] = func;
 }
 
-bool Controller::configure_component_modes()
+bool Architect::configure_component_modes()
 {
     // Now search connection info for modes where this component is active
     YAML::Node km_mode = keymaster->get("connections");
@@ -162,11 +162,11 @@ bool Controller::configure_component_modes()
     return true;
 }
 
-bool Controller::create_component_instances()
+bool Architect::create_component_instances()
 {
     YAML::Node km_components = keymaster->get("components");
 
-    dbprintf("Controller::_create_component_instances\n");
+    dbprintf("Architect::_create_component_instances\n");
     bool result;
 
     for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
@@ -176,29 +176,30 @@ bool Controller::create_component_instances()
 
         if (!type)
         {
-            throw ControllerException("No type field for component " + type.as<string>());
+            throw ArchitectException("No type field for component " + type.as<string>());
         }
         else if (factory_methods.find(type.as<string>()) == factory_methods.end())
         {
-            throw ControllerException("No factory for component of type " + type.as<string>());
+            throw ArchitectException("No factory for component of type " + type.as<string>());
         }
         else
         {
             ThreadLock<ComponentMap> l(components);
-       
+
             auto fmethod = factory_methods.find(type.as<string>());
             string root = "components.";
             // subscribe to the components .state key before creating it
             string key = root + comp_instance_name + ".state";
 
             keymaster->subscribe(key,
-                                 new KeymasterMemberCB<Controller>(this,
-                                         &Controller::component_state_changed));
+                                 new KeymasterMemberCB<Architect>(this,
+                                         &Architect::component_state_changed));
             // create a .command key for the component to listen to
             keymaster->put(root + comp_instance_name + ".command", "do_init", true);
             keymaster->put(root + comp_instance_name + ".active", false,   true);
+            keymaster->put(root + comp_instance_name + ".mode", "default",   true);
             // Now do the actual creation
-            l.lock(); 
+            l.lock();
             components[comp_instance_name].instance = shared_ptr<Component>(
                         (*fmethod->second)(comp_instance_name, keymaster_url) );
             // temporarily mark the component as active. It will be reset
@@ -212,7 +213,7 @@ bool Controller::create_component_instances()
 }
 
 // Verify all components are in the desired state
-bool Controller::check_all_in_state(string statename)
+bool Architect::check_all_in_state(string statename)
 {
     NotInState not_in_state(statename);
     ThreadLock<decltype(components)> l(components);
@@ -223,7 +224,7 @@ bool Controller::check_all_in_state(string statename)
 }
 
 // Wait for components to reach a desired state with a timeout.
-bool Controller::wait_all_in_state(string statename, int usecs)
+bool Architect::wait_all_in_state(string statename, int usecs)
 {
     ThreadLock<decltype(state_condition)> l(state_condition);
     timespec curtime, to;
@@ -243,7 +244,7 @@ bool Controller::wait_all_in_state(string statename, int usecs)
 
 /// Change/set the system mode. This updates the active
 /// fields of components which are included in the
-bool Controller::set_system_mode(string mode)
+bool Architect::set_system_mode(string mode)
 {
     bool result = false;
     // modes can only be changed when components are in Standby
@@ -292,6 +293,7 @@ bool Controller::set_system_mode(string mode)
         bool active = active_components.find(p->first) != active_components.end();
         p->second.active = active;
         keymaster->put(root + p->first + ".active", active);
+        keymaster->put(root + p->first + ".mode", mode);
         result = true;
     }
 
@@ -299,13 +301,13 @@ bool Controller::set_system_mode(string mode)
 }
 
 
-void Controller::terminate()
+void Architect::terminate()
 {
     _terminate();
 }
 
-// Controller final methods
-void Controller::system_mode_changed(string yml_path, YAML::Node updated_mode)
+// Architect final methods
+void Architect::system_mode_changed(string yml_path, YAML::Node updated_mode)
 {
     if (!set_system_mode(updated_mode.as<string>()))
     {
@@ -316,7 +318,7 @@ void Controller::system_mode_changed(string yml_path, YAML::Node updated_mode)
                    current_mode, true);
 }
 
-void Controller::component_state_changed(string yml_path, YAML::Node new_status)
+void Architect::component_state_changed(string yml_path, YAML::Node new_status)
 {
     _component_state_changed(yml_path, new_status);
 }
@@ -324,7 +326,7 @@ void Controller::component_state_changed(string yml_path, YAML::Node new_status)
 
 
 // Send an event filtered by the components active status.
-bool Controller::send_event(std::string event)
+bool Architect::send_event(std::string event)
 {
     YAML::Node myevent(event);
     // for each component, if its active in the current mode, then
@@ -339,7 +341,7 @@ bool Controller::send_event(std::string event)
     return true;
 }
 
-void Controller::component_state_reporting_loop()
+void Architect::component_state_reporting_loop()
 {
     StateReport report;
     Keymaster km(keymaster_url);
@@ -366,7 +368,7 @@ void Controller::component_state_reporting_loop()
 }
 
 // virtual methods
-bool Controller::_basic_init()
+bool Architect::_basic_init()
 {
     bool result;
 
@@ -380,8 +382,8 @@ bool Controller::_basic_init()
                              new KeymasterMemberCB<Component>(this,
                                      &Component::command_changed) );
         keymaster->subscribe(my_full_instance_name + ".configuration",
-                             new KeymasterMemberCB<Controller>(this,
-                                     &Controller::system_mode_changed) );
+                             new KeymasterMemberCB<Architect>(this,
+                                     &Architect::system_mode_changed) );
 
     }
     catch (KeymasterException e)
@@ -401,7 +403,7 @@ bool Controller::_basic_init()
 // A callback called when the keymaster publish's a components state change.
 // Not sure about the type of the component arg.
 // I am assuming there will be a last path component of either .state or .status
-void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
+void Architect::_component_state_changed(string yml_path, YAML::Node new_state)
 {
     size_t p1, p2;
 
@@ -442,15 +444,15 @@ void Controller::_component_state_changed(string yml_path, YAML::Node new_state)
 }
 
 
-string Controller::_get_state()
+string Architect::_get_state()
 {
     return Component::_get_state();
 }
 
-// These are programmitic hooks into the Controller.
+// These are programmitic hooks into the Architect.
 // They are equivalent to setting the .command field of the controller
 // via a keymaster.
-bool Controller::_initialize()
+bool Architect::_initialize()
 {
     try
     {
@@ -464,7 +466,7 @@ bool Controller::_initialize()
     return true;
 }
 
-bool Controller::_ready()
+bool Architect::_ready()
 {
     try
     {
@@ -478,7 +480,7 @@ bool Controller::_ready()
     return true;
 }
 
-bool Controller::_standby()
+bool Architect::_standby()
 {
     try
     {
@@ -492,7 +494,7 @@ bool Controller::_standby()
     return true;
 }
 
-bool Controller::_start()
+bool Architect::_start()
 {
     try
     {
@@ -506,7 +508,7 @@ bool Controller::_start()
     return true;
 }
 
-bool Controller::_stop()
+bool Architect::_stop()
 {
     try
     {
@@ -520,14 +522,14 @@ bool Controller::_stop()
     return true;
 }
 
-bool Controller::_process_command(std::string cmd)
+bool Architect::_process_command(std::string cmd)
 {
     dbprintf("%s cmd=%s\n", __PRETTY_FUNCTION__, cmd.c_str());
     send_event(cmd);
     return Component::_process_command(cmd);
 }
 
-void Controller::_terminate()
+void Architect::_terminate()
 {
     keymaster.reset();
     for (auto i = components.begin(); i!= components.end(); ++i)

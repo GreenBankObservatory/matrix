@@ -24,8 +24,8 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
-#include "ControllerTest.h"
-#include "Controller.h"
+#include "ArchitectTest.h"
+#include "Architect.h"
 #include "Component.h"
 
 using namespace std;
@@ -46,11 +46,11 @@ public:
 
 
 // test for approximate equivalent time
-void ControllerTest::test_init()
+void ArchitectTest::test_init()
 {
-    Controller::add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
-    Controller::create_keymaster_server("hello_world.yaml");
-    Controller simple("control", "inproc://matrix.keymaster");
+    Architect::add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
+    Architect::create_keymaster_server("hello_world.yaml");
+    Architect simple("the", "inproc://matrix.keymaster");
     
     CPPUNIT_ASSERT( simple.basic_init());
 
@@ -70,10 +70,10 @@ void ControllerTest::test_init()
 
     for (int j=0; j<20; ++j) 
     {    
-        km->put("controller.control.command", "start", true);
+        km->put("architect.the.command", "start", true);
         CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
 
-        km->put("controller.control.command", "stop", true);
+        km->put("architect.the.command", "stop", true);
         CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
     }    
     
@@ -101,7 +101,7 @@ void ControllerTest::test_init()
     // Time::thread_delay(200000000000);
     
     // simple.terminate();
-    Controller::destroy_keymaster_server();
+    Architect::destroy_keymaster_server();
 }
 
 

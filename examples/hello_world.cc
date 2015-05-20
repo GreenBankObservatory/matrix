@@ -25,7 +25,7 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
-#include "Controller.h"
+#include "Architect.h"
 #include "Component.h"
 #include "Keymaster.h"
 
@@ -81,20 +81,20 @@ public:
     { cout << "IndicatorComponent ctor" << endl; return new IndicatorComponent(myname, k); }
 };
 
-class TestController : public Controller
+class TestArchitect : public Architect
 {
 public:
-    TestController();
+    TestArchitect();
     
 };
 
-TestController::TestController() : 
-    Controller("control", "inproc://matrix.keymaster")
+TestArchitect::TestArchitect() : 
+    Architect("control", "inproc://matrix.keymaster")
 {
     add_component_factory("ClockComponent",     &ClockComponent::factory);
     add_component_factory("IndicatorComponent", &IndicatorComponent::factory);
 
-    try { basic_init(); } catch(ControllerException e)
+    try { basic_init(); } catch(ArchitectException e)
     {
         cout << e.what() << endl;
         throw e;
@@ -109,8 +109,8 @@ int main(int argc, char **argv)
 
     ThreadBase::set_thread_create_hook(hook);
 
-    Controller::create_keymaster_server("hello_world.yaml");
-    TestController simple;
+    Architect::create_keymaster_server("hello_world.yaml");
+    TestArchitect simple;
     
 
     // wait for the keymaster events which report components in the Standby state.

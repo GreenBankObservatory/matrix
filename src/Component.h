@@ -39,7 +39,7 @@ public:
 };
 
 
-/// This class defines the basic interface between the Controller, Keymaster,
+/// This class defines the basic interface between the Architect, Keymaster,
 /// and inter-component dataflow setup.
 ///
 /// A derived Component should have a static factory method
@@ -50,14 +50,14 @@ public:
 ///       `static Component * MyComponent::factory(string name, string km_url);`
 ///
 /// Somewhere in the code, prior to creating components, the factory method
-/// should be registered with the Controller, using
-/// Controller::add_component_factory().
+/// should be registered with the Architect, using
+/// Architect::add_component_factory().
 ///
 /// In the constructor, the Component should contact the Keymaster and
 /// register the required keys 'my_instance_name.state', and report a
 /// value of 'Created'. Likewise the Component should register and subscribe to
-/// the key 'my_instance_name.command', to listen for commands from the Controller.
-/// These keys form the basis of coordination with the Controller
+/// the key 'my_instance_name.command', to listen for commands from the Architect.
+/// These keys form the basis of coordination with the Architect
 /// and Components.
 ///
 ///
@@ -123,7 +123,7 @@ public:
     /// Derived Components may add additional states, events, actions and predicates.
     void initialize_fsm();
 
-    /// A new Controller command has arrived. Process it.
+    /// A new Architect command has arrived. Process it.
     bool process_command(std::string);
 
     /// Send a state change to the keymaster.
@@ -207,7 +207,7 @@ protected:
     /// Derived Components may add additional states, events, actions and predicates.
     virtual void _initialize_fsm();
 
-    /// A new Controller command has arrived. Process it.
+    /// A new Architect command has arrived. Process it.
     virtual bool _process_command(std::string);
 
     /// Create DataSink connections and enter the Ready state
