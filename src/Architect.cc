@@ -115,7 +115,7 @@ Architect::Architect(string name, string km_url) :
 {
     // re-write the base part of the full instance name to
     // be outside of the component directory
-    my_full_instance_name = "controller." + my_instance_name;
+    my_full_instance_name = "architect." + my_instance_name;
 }
 
 Architect::~Architect()

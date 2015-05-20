@@ -50,7 +50,7 @@ void ArchitectTest::test_init()
 {
     Architect::add_component_factory("HelloWorldComponent", &HelloWorldComponent::factory);
     Architect::create_keymaster_server("hello_world.yaml");
-    Architect simple("the", "inproc://matrix.keymaster");
+    Architect simple("control", "inproc://matrix.keymaster");
     
     CPPUNIT_ASSERT( simple.basic_init());
 
@@ -70,10 +70,10 @@ void ArchitectTest::test_init()
 
     for (int j=0; j<20; ++j) 
     {    
-        km->put("architect.the.command", "start", true);
+        km->put("architect.control.command", "start", true);
         CPPUNIT_ASSERT( simple.wait_all_in_state("Running", 1000000) );
 
-        km->put("architect.the.command", "stop", true);
+        km->put("architect.control.command", "stop", true);
         CPPUNIT_ASSERT( simple.wait_all_in_state("Ready", 1000000) );
     }    
     
