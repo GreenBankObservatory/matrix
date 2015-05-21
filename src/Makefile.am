@@ -39,6 +39,7 @@ headers_HEADERS = \
     FiniteStateMachine.h \
     Keymaster.h \
     Mutex.h \
+    RTDataInterface.h \
     Semaphore.h \
     TCondition.h \
     Thread.h \
@@ -53,18 +54,19 @@ headers_HEADERS = \
     zmq_util.h
 
 libmatrix_la_SOURCES = \
-    Mutex.cc  \
     Architect.cc \
     Component.cc \
     DataInterface.cc \
     FiniteStateMachine.cc \
     Keymaster.cc \
-    matrix_util.cc \
+    Mutex.cc  \
+    RTDataInterface.cc \
     Semaphore.cc \
-    Time.cc \
     Thread.cc \
+    Time.cc \
     ZMQContext.cc \
     ZMQDataInterface.cc \
+    matrix_util.cc \
     netUtils.cc \
     yaml_util.cc \
     zmq_util.cc

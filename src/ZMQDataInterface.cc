@@ -22,6 +22,7 @@
 
 
 #include "ZMQDataInterface.h"
+#include "RTDataInterface.h"
 #include "tsemfifo.h"
 #include "Thread.h"
 #include "ZMQContext.h"
@@ -86,9 +87,10 @@ namespace matrix
     map<string, TransportServer::factory_sig> TransportServer::factories =
 
     {
-        {"tcp",    &ZMQTransportServer::factory},
-        {"ipc",    &ZMQTransportServer::factory},
-        {"inproc", &ZMQTransportServer::factory}
+        {"tcp",      &ZMQTransportServer::factory},
+        {"ipc",      &ZMQTransportServer::factory},
+        {"inproc",   &ZMQTransportServer::factory},
+        {"rtinproc", &RTTransportServer::factory}
     };
 
 /**
@@ -125,9 +127,10 @@ namespace matrix
     map<string, TransportClient::factory_sig> TransportClient::factories =
 
     {
-        {"tcp",    &ZMQTransportClient::factory},
-        {"ipc",    &ZMQTransportClient::factory},
-        {"inproc", &ZMQTransportClient::factory}
+        {"tcp",      &ZMQTransportClient::factory},
+        {"ipc",      &ZMQTransportClient::factory},
+        {"inproc",   &ZMQTransportClient::factory},
+        {"rtinproc", &RTTransportClient::factory}
     };
 
 /**

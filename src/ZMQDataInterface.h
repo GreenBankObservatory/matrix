@@ -24,7 +24,7 @@
 #define ZMQDataInterface_h
 
 #include "DataInterface.h"
-#include<string>
+#include <string>
 
 namespace matrix
 {
