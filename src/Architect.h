@@ -32,6 +32,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <tuple>
 #include <yaml-cpp/yaml.h>
 #include "TCondition.h"
 #include "Mutex.h"

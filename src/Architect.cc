@@ -127,6 +127,8 @@ void Architect::add_component_factory(std::string name, Component::ComponentFact
     Architect::factory_methods[name] = func;
 }
 
+typedef tuple<string,string,string> ConnectionsKey;
+
 bool Architect::configure_component_modes()
 {
     // Now search connection info for modes where this component is active
@@ -136,8 +138,10 @@ bool Architect::configure_component_modes()
     l.lock();
     try
     {
+        // for each modeset
         for (YAML::const_iterator md = km_mode.begin(); md != km_mode.end(); ++md)
         {
+            // for each connection listed in that mode ...
             for (YAML::const_iterator conn = md->second.begin(); conn != md->second.end(); ++conn)
             {
                 YAML::Node n = *conn;

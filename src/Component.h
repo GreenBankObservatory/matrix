@@ -24,6 +24,7 @@
 #ifndef Component_h
 #define Component_h
 #include <string>
+#include <tuple>
 #include <yaml-cpp/yaml.h>
 #include "FiniteStateMachine.h"
 #include <tsemfifo.h>
@@ -153,6 +154,15 @@ public:
 
 protected:
 
+    typedef std::map<std::tuple<std::string,std::string,std::string>, 
+                     std::tuple<std::string,std::string,std::string> >  ConnectionMap;
+    typedef std::tuple<std::string,std::string,std::string> ConnectionKey;
+    
+    /// Query for a connection
+    bool find_data_connection(ConnectionKey &);
+    bool parse_data_connections();
+    void mode_changed(std::string path, YAML::Node n);
+
     /// The protected constructor, only available from the factory or derived classes
     Component(std::string myname, std::string keymaster_url);
 
@@ -235,6 +245,10 @@ protected:
     std::string my_full_instance_name; /// <== The full YAML path for the component
     Protected<FSM::FiniteStateMachine> fsm;
     std::shared_ptr<Keymaster> keymaster;
+    /// A thingy which has all the connection info for the current mode.
+    /// Maps a key of <mode,component,sink> to the corresponding <component,source,transport>
+    ConnectionMap connections;
+    std::string current_mode; 
     bool done;
     Thread<Component> cmd_thread;
     tsemfifo<std::string> command_fifo;

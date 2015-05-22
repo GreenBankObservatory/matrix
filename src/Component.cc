@@ -44,10 +44,12 @@ Component::Component(string myname, string km_url) :
     command_fifo(),
     cmd_thread_started(false),
     cmd_thread(this, &Component::command_loop),
+    current_mode("none"),
     verbose(false)
 {
     initialize_fsm();
     _contact_keymaster(keymaster_url);
+    parse_data_connections();
 }
 
 Component::~Component()
@@ -74,6 +76,64 @@ void Component::command_changed(string key, YAML::Node n)
 void Component::command_loop()
 {
     _command_loop();
+}
+
+bool Component::parse_data_connections()
+{
+    // Now search connection info for modes where this component is active
+    YAML::Node km_mode = keymaster->get("connections");
+
+    try
+    {
+        // for each modeset
+        for (YAML::const_iterator md = km_mode.begin(); md != km_mode.end(); ++md)
+        {
+            // for each connection listed in that mode ...
+            for (YAML::const_iterator conn = md->second.begin(); conn != md->second.end(); ++conn)
+            {
+                YAML::Node n = *conn;
+                if (n.size() > 2)
+                {
+                    // for some clarity...
+                    const string & mode = md->first.as<string>();
+                    const string & src_comp = n[0].as<string>();
+                    const string & src_name = n[1].as<string>();
+                    const string & dst_comp = n[2].as<string>();
+                    const string & sink_name = n[3].as<string>();
+                    
+                    if (dst_comp == my_instance_name)
+                    {
+                        const string protocol = n.size() == 5 ? n[3].as<string>() : "";
+                    
+                        ConnectionKey ck(mode, 
+                                          dst_comp, 
+                                          sink_name);
+                        connections[ck] = ConnectionKey(src_comp, src_name, protocol);
+                    }
+                }
+            }
+        }
+    }
+    catch (YAML::Exception e)
+    {
+        cerr << __PRETTY_FUNCTION__ << " " << e.what() << endl;
+        return false;
+    }
+    return true;  
+}
+
+bool Component::find_data_connection(ConnectionKey &c)
+{
+    auto conn = connections.find(c);
+    if (conn == connections.end())
+    {
+        return false;
+    }
+    else
+    {
+        c = conn->second;
+        return true;
+    }
 }
 
 bool Component::create_data_connections()
@@ -216,6 +276,9 @@ bool Component::_basic_init()
         keymaster->subscribe(my_full_instance_name + ".command",
                              new KeymasterMemberCB<Component>(this,
                                      &Component::command_changed) );
+        keymaster->subscribe(my_full_instance_name + ".mode",
+                             new KeymasterMemberCB<Component>(this,
+                                     &Component::mode_changed) );                                     
     }
     catch (KeymasterException e)
     {
@@ -240,6 +303,11 @@ void Component::_command_changed(string path, YAML::Node n)
              path.c_str(), n.as<string>().c_str());
     string cmd = n.as<string>();
     command_fifo.put(cmd);
+}
+
+void Component::mode_changed(string path, YAML::Node n)
+{
+    current_mode = n.as<string>();
 }
 
 // A dedicated thread which executes commands as they come in via the
