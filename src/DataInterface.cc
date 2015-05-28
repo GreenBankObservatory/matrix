@@ -122,6 +122,47 @@ namespace matrix
     }
 
 /**
+ * Manages the static transport map. The lifetime of a TransportServer
+ * is determined by how many clients it has. If it has no more
+ * clients, it gets deleted. The transport map uses shared_ptr to make
+ * this determination. Every time a DataSink disconnects from a
+ * TransportServer it resets its shared_ptr, and calls this
+ * function. This function then checks to see if the shared_ptr in the
+ * map is unique, that is, there are no other shared_ptrs sharing this
+ * object. If so, it resets the shared pointer, and removes the entry
+ * in the map.
+ *
+ * @param urn: The fully formed URN that the TransportServer uses to
+ * connect to the TransportServer. Also the key to the transport map.
+ *
+ */
+
+    void TransportServer::release_transport(string component_name,
+                                            string transport_name)
+    {
+        ThreadLock<decltype(transports)> l(transports);
+        component_map_t::iterator cmi;
+        transport_map_t::iterator tmi;
+
+        l.lock();
+
+        if ((cmi = transports.find(component_name)) != transports.end())
+        {
+            if ((tmi = cmi->second.find(transport_name)) != cmi->second.end())
+            {
+                // found! If no one is holding a pointer to this,
+                // delete it and remove the entry.
+                if (tmi->second.unique())
+                {
+                    tmi->second.reset();
+                }
+
+                cmi->second.erase(tmi);
+            }
+        }
+    }
+
+/**
  * Creates the correct type of TransportServer.
  *
  * This function is given the urn for the keymaster, and a transport

@@ -34,6 +34,16 @@
 
 namespace matrix
 {
+/**
+ * \class RTTransportServer
+ *
+ * Provides a publishing service for any type T over a tsemfifo<T>. It
+ * keeps a list of subscribers, and publishes the data to their
+ * tsemfifo<T>s. This class is generally not called or used directly,
+ * instead being set up behind the scenes by a DataSource<T>.
+ *
+ */
+
     class RTTransportServer : public TransportServer
     {
     public:
@@ -58,6 +68,16 @@ namespace matrix
         static TransportServer *factory(std::string, std::string);
         static std::map<std::string, RTTransportServer *> _rttransports;
     };
+
+/**
+ * \class RTTransportClient
+ *
+ * Subscriber for a tsemfifo<T> based transport. Provides a means for
+ * a DataSink<T> to interface with a publisher over the rtinproc
+ * transport. Its main function is to take the client's tsemfifo<T>
+ * and register it with the appropriate `RTTransportServer`.
+ *
+ */
 
     class RTTransportClient : public TransportClient
     {

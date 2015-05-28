@@ -80,13 +80,14 @@ namespace matrix
     {
     public:
         DataSource(std::string km_urn, std::string component_name, std::string data_name);
-        ~DataSource() throw() {};
+        ~DataSource() throw();
 
         bool publish(T &);
 
     private:
         std::string _km_urn;
         std::string _component_name;
+        std::string _transport_name;
         std::string _data_name;
         std::string _key;
         std::shared_ptr<TransportServer> _ts;
@@ -115,13 +116,20 @@ namespace matrix
         Keymaster km(km_urn);
         // obtain the transport name associated with this data source and
         // get a pointer to that transport
-        std::string transport_name = km.get_as<std::string>("components."
-                                                            + component_name
-                                                            + ".Sources."
-                                                            + data_name);
-        _ts = TransportServer::get_transport(km_urn, component_name, transport_name);
+        _transport_name = km.get_as<std::string>("components."
+                                                 + component_name
+                                                 + ".Sources."
+                                                 + data_name);
+        _ts = TransportServer::get_transport(km_urn, _component_name, _transport_name);
     }
 
+    template <typename T>
+    DataSource<T>::~DataSource() throw()
+    {
+        _ts.reset();
+        TransportServer::release_transport(_component_name, _transport_name);
+    }
+    
 /**
  * Puts a value of type 'T' to the data source. 'T' must be a
  * contiguous type: a POD, or struct of PODS, or an array of such.

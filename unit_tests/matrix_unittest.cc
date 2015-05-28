@@ -22,7 +22,7 @@
 //  Green Bank, WV 24944-0002 USA
 
 
-#include<iostream>
+#include <iostream>
 #include <cppunit/TextTestRunner.h>
 #include "StateTransitionTest.h"
 #include "TimeTest.h"
@@ -30,6 +30,7 @@
 #include "publisher_test.h"
 #include "utility_test.h"
 #include "keymaster_test.h"
+#include "TransportTest.h"
 #include "Thread.h"
 
 using namespace std;
@@ -42,6 +43,7 @@ int main(int argc, char **argv)
     runner.addTest(ArchitectTest::suite());
     runner.addTest(UtilityTest::suite());
     runner.addTest(KeymasterTest::suite());
+    runner.addTest(TransportTest::suite());
     runner.run();
     return 0;
 }

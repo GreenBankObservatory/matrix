@@ -31,6 +31,7 @@ matrix_unittest_SOURCES = \
 	ArchitectTest.cc \
 	StateTransitionTest.cc \
 	TimeTest.cc \
+	TransportTest.cc \
 	keymaster_test.cc \
 	matrix_unittest.cc \
 	utility_test.cc

@@ -348,7 +348,7 @@ namespace matrix
         static std::shared_ptr<TransportServer> get_transport(std::string km_urn,
                                                               std::string component_name,
                                                               std::string transport_name);
-
+        static void release_transport(std::string component_name, std::string transport_name);
 
     protected:
 
@@ -521,4 +521,8 @@ namespace matrix
 
 
 } // namespace matrix
+
+#include "DataSource.h"
+#include "DataSink.h"
+
 #endif

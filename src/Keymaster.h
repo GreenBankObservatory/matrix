@@ -54,6 +54,7 @@ class KeymasterServer
 public:
 
     KeymasterServer(std::string configfile);
+    KeymasterServer(YAML::Node n);
     ~KeymasterServer();
 
     void run();

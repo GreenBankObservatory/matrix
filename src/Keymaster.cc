@@ -502,6 +502,17 @@ void KeymasterServer::KmImpl::state_manager_task()
     {
         // control pipe
         pipe.bind(_state_task_url.c_str());
+    }
+    catch (zmq::error_t e)
+    {
+        cerr << "Error in state manager thread: " << e.what() << endl
+             << "Exiting state thread." << endl
+             << "_state_task_url = " << _state_task_url << endl;
+        return;
+    }
+
+    try
+    {
         // bind to all state server URLs
         bind_server(state_sock, _state_service_urls, false);
         put_yaml_val(_root_node, "KeymasterServer.URLS", _state_service_urls, true);
@@ -509,9 +520,14 @@ void KeymasterServer::KmImpl::state_manager_task()
     catch (zmq::error_t e)
     {
         cerr << "Error in state manager thread: " << e.what() << endl
-             << "Exiting state thread." << endl;
+             << "Exiting state thread." << endl
+             << "_state_service_urls = " << endl;
+        output_vector(_state_service_urls, cerr);
+        cerr << endl;
+        
         return;
     }
+
 
     yaml_result rs = put_yaml_val(_root_node, "Keymaster.URLS.AsConfigured.State", _state_service_urls, true);
     yaml_result rp = put_yaml_val(_root_node, "Keymaster.URLS.AsConfigured.Pub", _publish_service_urls, true);
@@ -743,8 +759,8 @@ bool KeymasterServer::KmImpl::publish(std::string key)
  */
 
 /**
- * KeymasterServer constructor.  Saves the URL, and starts a server
- * thread.
+ * KeymasterServer constructor.  Constructs a KeymasterServer from a
+ * valid YAML encoded configuration file.
  *
  * @param configfile: A YAML configuration file which sets the
  * Keymaster's data store to an initial state.
@@ -768,6 +784,20 @@ KeymasterServer::KeymasterServer(std::string configfile)
     }
 
     _impl.reset(new KeymasterServer::KmImpl(config));
+}
+
+/**
+ * KeymasterServer constructor.  Constructs a KeymasterServer from a
+ * valid YAML::Node.
+ *
+ * @param n: A YAML::Node containing the initial configuration for the
+ * Keymaster server.
+ *
+ */
+
+KeymasterServer::KeymasterServer(YAML::Node n)
+{
+    _impl.reset(new KeymasterServer::KmImpl(n));
 }
 
 /**
