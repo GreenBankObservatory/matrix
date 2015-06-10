@@ -71,7 +71,7 @@ libmatrix_la_SOURCES = \
     yaml_util.cc \
     zmq_util.cc
 
-libmatrix_la_CXXFLAGS = -pthread -std=c++0x -g 
+libmatrix_la_CXXFLAGS = -pthread -g 
 libmatrix_la_CFLAGS =  -pthread -g
 libmatrix_la_LDFLAGS = -lpthread
 

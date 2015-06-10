@@ -37,7 +37,7 @@ AC_INIT([Matrix], [0.1], [jbrandt AT nrao.edu, rcreager AT nrao.edu])
 AC_CONFIG_MACRO_DIR([m4])
 
 # unique source file --- primitive safety check
-AC_CONFIG_SRCDIR([src/Controller.cc])
+AC_CONFIG_SRCDIR([src/Architect.cc])
 
 # place to put some extra build scripts installed
 #AC_CONFIG_AUX_DIR([build-aux])
@@ -62,6 +62,11 @@ AC_PROG_LIBTOOL
 #  AM_PATH_CHECK([MINIMUM-VERSION,
 #                [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
 AM_PATH_CHECK()
+
+# C++ 11 support?
+AX_CXX_COMPILE_STDCXX_11(noext,optional)
+#AX_CXX_COMPILE_STDCXX_0X
+AC_CHECK_DEFINE(-std=c++11, ,CXXFLAGS="$CXXFLAGS -std=c++0x")
 
 ############################## ZEROMQ ###################################
 # Check for zeromq library

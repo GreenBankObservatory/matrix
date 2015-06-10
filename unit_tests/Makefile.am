@@ -36,7 +36,7 @@ matrix_unittest_SOURCES = \
 	matrix_unittest.cc \
 	utility_test.cc
 
-matrix_unittest_CXXFLAGS = -std=c++0x -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src -O0 -g
+matrix_unittest_CXXFLAGS = -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src -O0 -g
 #matrix_unittest_LDADD = -L../src/.libs -lmatrix /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt
 matrix_unittest_LDADD = ../src/.libs/libmatrix.a /home/gbt1/RH564/cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt -lboost_regex
 
