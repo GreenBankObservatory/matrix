@@ -53,7 +53,7 @@ void StateTransitionTest::test_cbs()
 // a long press and hold to turn off.
 void StateTransitionTest::test_simple_fsm()
 {
-    FiniteStateMachine fsm;
+    FiniteStateMachine<std::string> fsm;
     fsm.addTransition("Off", "mpress", "On");
     fsm.addTransition("On", "hold", "Off"); 
     fsm.addTransition("On", "mpress", "On");   
@@ -69,6 +69,25 @@ void StateTransitionTest::test_simple_fsm()
     CPPUNIT_ASSERT(fsm.getState() == "Off");
     CPPUNIT_ASSERT(fsm.handle_event("boom") == false);
     CPPUNIT_ASSERT(fsm.getState() == "Off");    
+
+    // Now try a int-implemented FSM:
+    enum { Off, On, mpress, hold,boom };
+    FiniteStateMachine<int> ifsm;
+    ifsm.addTransition(Off, mpress, On);
+    ifsm.addTransition(On, hold, Off); 
+    ifsm.addTransition(On, mpress, On);   
+    ifsm.setInitialState(Off);
+    CPPUNIT_ASSERT(ifsm.run_consistency_check());
+    
+    CPPUNIT_ASSERT(ifsm.getState() == Off);
+    ifsm.handle_event(mpress);
+    CPPUNIT_ASSERT(ifsm.getState() == On);
+    CPPUNIT_ASSERT(ifsm.handle_event(mpress) == true);
+    CPPUNIT_ASSERT(ifsm.getState() == On);
+    CPPUNIT_ASSERT(ifsm.handle_event(hold) == true);
+    CPPUNIT_ASSERT(ifsm.getState() == Off);
+    CPPUNIT_ASSERT(ifsm.handle_event(boom) == false);
+    CPPUNIT_ASSERT(ifsm.getState() == Off);    
 }
 /*********************************************/
 // Test an FSM with enter/leave actions for changing state
@@ -106,7 +125,7 @@ public:
 
 void StateTransitionTest::test_medium_fsm()
 {
-    FiniteStateMachine fsm;
+    FiniteStateMachine<std::string> fsm;
     MyEasyCheck my;
     fsm.addTransition("Off", "mpress", "On");
     fsm.addTransition("On", "hold", "Off"); 
@@ -160,7 +179,7 @@ public:
 
 void StateTransitionTest::test_fancy_fsm()
 {
-    FiniteStateMachine fsm;
+    FiniteStateMachine<std::string> fsm;
     MyPredicate mychk;
     // example use of heap allocated predicate/action
     shared_ptr<MyEasyCheck> my;    
@@ -197,7 +216,7 @@ void StateTransitionTest::test_fancy_fsm()
 
 void StateTransitionTest::test_consistency_check()
 {
-    FiniteStateMachine fsm;
+    FiniteStateMachine<std::string> fsm;
     fsm.addState("S1");
     fsm.addState("S0");
     fsm.setInitialState("S0");
@@ -215,8 +234,24 @@ void StateTransitionTest::test_consistency_check()
     fsm.addTransition("S1", "E3", "S1");
     CPPUNIT_ASSERT(fsm.run_consistency_check() == true);
     
+    enum Test { S0, S1, E1, E2, E3 };
+    FiniteStateMachine<uint32_t> ifsm;
+    ifsm.addState(S1);
+    ifsm.addState(S0);
+    ifsm.setInitialState(S0);
+    // should fail with 3 notices:
+    // * No exit transitions for both states
+    // * S1 is unreachable
+    CPPUNIT_ASSERT(ifsm.run_consistency_check() == false);
+    // Add a transition into S1
+    ifsm.addTransition(S0, E1, S1);
+    // should still fail since we cant leave S1
+    CPPUNIT_ASSERT(ifsm.run_consistency_check() == false);
+    ifsm.addTransition(S1, E2, S0);
+    // now it should be ok
+    CPPUNIT_ASSERT(ifsm.run_consistency_check() == true);
+    ifsm.addTransition(S1, E3, S1);
+    CPPUNIT_ASSERT(ifsm.run_consistency_check() == true);
+    
 }
-
-
-
 

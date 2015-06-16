@@ -243,7 +243,7 @@ protected:
     std::string keymaster_url;
     std::string my_instance_name;   /// <== The component's short name
     std::string my_full_instance_name; /// <== The full YAML path for the component
-    Protected<FSM::FiniteStateMachine> fsm;
+    Protected<FSM::FiniteStateMachine<std::string>> fsm;
     std::shared_ptr<Keymaster> keymaster;
     /// A thingy which has all the connection info for the current mode.
     /// Maps a key of <mode,component,sink> to the corresponding <component,source,transport>

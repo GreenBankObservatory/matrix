@@ -25,16 +25,18 @@
 #define FiniteStateMachine_h
 
 #include<cstdio>
+#include<iostream>
 #include<vector>
 #include<map>
 #include<memory>
 #include<string>
+#include<algorithm>
 
 ///
 /// Documentation for the FiniteStateMachine. This provides a simple yet extensible
 /// way to express a State machine. Code examples are given in the unit tests.
 ///
-namespace FSM 
+namespace FSM
 {
 
 class ActionBase
@@ -47,7 +49,10 @@ class ActionBase
 /// For user-defined Actions, the return value is ignored.
 ///
 public:
-    virtual bool do_action() { return false; }
+    virtual bool do_action()
+    {
+        return false;
+    }
 };
 
 
@@ -73,8 +78,8 @@ public:
     ActionMethod _faction;
 
     Action(T *obj, ActionMethod cb) :
-      _object(obj),
-      _faction(cb)
+        _object(obj),
+        _faction(cb)
     {
     }
     ///
@@ -93,72 +98,168 @@ public:
     }
 };
 
+template<typename T = std::string>
 class StateTransition
 {
 public:
 
-    StateTransition(std::string event,
-                    std::string nextstate) :
+    StateTransition(T event,
+                    T nextstate) :
         event_name(event),
-        next_state(nextstate), 
+        next_state(nextstate),
         predicates()
     {
-    
+
     }
-    std::string getNextState() { return next_state; }
-    std::string getEvent()     { return event_name; }
-    bool check_predicates();
-    void addPredicate(ActionBase *);
-    
+    T getNextState()
+    {
+        return next_state;
+    }
+    T getEvent()
+    {
+        return event_name;
+    }
+    bool check_predicates()
+    {
+        bool result = true;
+ int cnt = 0;
+        std::cout << predicates.size() << " predicates in list" << std::endl;
+        for (auto p = predicates.begin(); result && p!=predicates.end(); ++p)
+        {
+            std::cout << "checking predicate " << ++cnt << std::endl;
+            result = (*p)->do_action() && result;
+        }
+        return result;
+    }
+
+    void addPredicate(ActionBase *p)
+    {
+        if (p)
+        {
+            predicates.push_back(std::shared_ptr<ActionBase>(p));
+        }
+    }
+
 protected:
-    std::string event_name;
-    std::string next_state;
+    T event_name;
+    T next_state;
     std::vector<std::shared_ptr<ActionBase> > predicates;
 };
-                     
-                    
 
-/// 
+
+
+///
 /// State Objects hold a list of possible events and transitions,
 /// and Actions to take upon entering or leaving the State.
+template<typename T = std::string>
 class State
 {
 public:
     /// Creates an empty State
-    State(std::string statename);
-    State();
+    State(T statename) : transitionmap(), enterAction(), leaveAction(),
+        state_name(statename) { }
+    State() : transitionmap(), enterAction(), leaveAction(),
+        state_name() { }
+
     /// Causes an event to be processed by the State. If the event
     /// is handled, the return value will be true and nxt_state will
     /// contain the name of the next state. If the return value is false,
     /// the contents of nxt_state is undefined.
-    bool handle_event(std::string event, std::string &nxt_state);
+    bool handle_event(T event, T &nxt_state)
+    {
+        auto tr = transitionmap.find(event);
+        if (tr == transitionmap.end())
+        {
+            // dont have any legal transitions for this event
+            std::cerr << "FSM: Event:" << event << " unrecognized -- no actions taken"
+                      << std::endl;
+            return false;
+        }
+        if (tr->second.check_predicates())
+        {
+            nxt_state = tr->second.getNextState();
+            return true;
+        }
+        return false; // TBF
+
+    }
+
     /// Query the state to check if an event is recognized.
-    bool is_event_known(std::string);
+    bool is_event_known(T s)
+    {
+        return (transitionmap.find(s) != transitionmap.end());
+    }
+
     /// Add a state to state transition, optionally attaching an Action to be
     /// called if the event causes a state change.
-    void addTransition(std::string event, std::string next_state, ActionBase *pred=0);
+    void addTransition(T event, T next_state, ActionBase *pred=0)
+    {
+        auto st = transitionmap.find(event);
+        if (st == transitionmap.end())
+        {
+            auto nt = std::pair<T, StateTransition<T>>(event, StateTransition<T>(event, next_state));
+            nt.second.addPredicate(pred);
+            transitionmap.insert(nt);
+        }
+    }
     /// Add a predicate callback which will be called whenever the named event is
     /// received. The result of the predicate call must be true for the transition to proceed.
     /// Otherwise the event is ignored, and no state change will take place.
-    void addEventPredicate(std::string eventname, ActionBase *);
+    void addEventPredicate(T eventname, ActionBase *action)
+    {
+        // find the transition for this event
+        auto t = transitionmap.find(eventname);
+        if (t != transitionmap.end())
+        {
+            t->second.addPredicate(action);
+        }
+    }
+
     /// Add a callback when the State is entered.
-    void addEnterAction(ActionBase *);
+    void addEnterAction(ActionBase *p)
+    {
+        enterAction.reset(p);
+    }
     /// Add a callback when the State is exited
-    void addLeaveAction(ActionBase *);
-    
-    std::string getName() { return state_name; }
-    void call_enter_action();
-    void call_exit_action();
-    const std::map<std::string, StateTransition> & getTransitions() 
-    { return transitionmap; }
+    void addLeaveAction(ActionBase *p)
+    {
+        leaveAction.reset(p);
+    }
+
+    T getName()
+    {
+        return state_name;
+    }
+
+    void call_enter_action()
+    {
+        if (enterAction)
+        {
+            enterAction->do_action();
+        }
+    }
+
+    void call_exit_action()
+    {
+        if (leaveAction)
+        {
+            leaveAction->do_action();
+        }
+    }
+
+    const std::map<T, StateTransition<T> > & getTransitions()
+    {
+        return transitionmap;
+    }
 protected:
-    std::map<std::string, StateTransition> transitionmap;
-    std::shared_ptr<ActionBase> enterAction, leaveAction; 
-    std::string state_name;
+    std::map<T, StateTransition<T> > transitionmap;
+    std::shared_ptr<ActionBase> enterAction, leaveAction;
+    T state_name;
 };
 
 ///
-/// 
+///
+template<typename T = std::string>
 class FiniteStateMachine
 {
 ///
@@ -172,15 +273,15 @@ class FiniteStateMachine
 /// within the Action template.
 /// * When a StateTransition causes a change of State, the user-defined enter/exit
 /// actions are called to process the State change.
-/// 
+///
 /// States and Events are denoted as strings.
 ///
 /// Concrete Example:
 /// -----------------
-/// 
-/// Consider a FSM model of a PC power supply controlled by a simple pushbutton. 
+///
+/// Consider a FSM model of a PC power supply controlled by a simple pushbutton.
 /// It has three States:
-/// * Off 
+/// * Off
 /// * On
 /// * Standby
 ///
@@ -201,41 +302,170 @@ class FiniteStateMachine
 /// See unit tests for the implementation of the example above.
 
 public:
-    FiniteStateMachine() : current_state("unknown"),
-    prior_state("unknown"),
-    initial_state("unknown")
+    FiniteStateMachine() : current_state(),
+        prior_state(),
+        initial_state()
     {}
     /// Cause a new empty state to be created
-    void addState(std::string statename);
+    void addState(T statename)
+    {
+        states[statename] = State<T>(statename);
+    }
+
     /// Define a transition between states. If the States do not exist, they are created
-    void addTransition(std::string from_state,
-                       std::string event_name,
-                       std::string to_state,
-                       ActionBase *p = 0);
+    void addTransition(T from_state,
+                       T event_name,
+                       T to_state,
+                       ActionBase *p = 0)
+    {
+        auto s1 = states.find(from_state);
+        if (s1 == states.end())
+        {
+            // state doesn't exist, create one.
+            states[from_state] = State<T>(from_state);
+            s1 = states.find(from_state);
+        }
+        s1->second.addTransition(event_name, to_state, p);
+    }
     /// Register a callback for when the named state is exited
-    void addLeaveAction(std::string leaving_state, ActionBase *p);
+    void addLeaveAction(T state_name, ActionBase *p)
+    {
+        auto st = states.find(state_name);
+        if (st != states.end())
+        {
+            st->second.addLeaveAction(p);
+        }
+        else
+        {
+            std::cerr << "No such state:";
+            std::cerr << state_name << std::endl;
+        }
+    }
+
+
+
+
     /// Register a callback for when the named state is entered
-    void addEnterAction(std::string entering_state, ActionBase *p);
+    void addEnterAction(T state_name, ActionBase *p)
+    {
+        auto st = states.find(state_name);
+        if (st != states.end())
+        {
+            st->second.addEnterAction(p);
+        }
+        else
+        {
+            std::cerr << "No such state:";
+            std::cerr << state_name << std::endl;
+        }
+
+    }
     /// Specify the initial state
-    void setInitialState(std::string init);    
-    
+    void setInitialState(T init)
+    {
+        // TBF should do a fsck check on the fsm, states, transitions etc.
+        initial_state = init;
+        current_state = init;
+    }
+
     // These methods are commonly used at runtime to process events:
     /// send an event into the state machine. The return value indicates
     /// whether or not the event caused a state change.
-    bool handle_event(std::string event);
-        
-    /// Returns the name of the current state    
-    std::string getState() { return current_state; }
-    
+    bool handle_event(T event)
+    {
+        if (!states[current_state].is_event_known(event))
+        {
+            return false;
+        }
+        T nxtstate;
+        bool result = states[current_state].handle_event(event,nxtstate);
+        if (!result)
+        {
+            // event unrecognized, or predicate failed
+            return false;
+        }
+        // make sure the nxtstate is invalid -- this shouldn't be possible
+        if (states.find(nxtstate) == states.end())
+        {
+            std::cerr << "Error event " << event <<
+                      " while in state " << current_state
+                      << "places fsm in unknown state -- event ignored"
+                      << std::endl;
+            return false;
+        }
+        if (result)
+        {
+            // Ok transistion looks ok, call the enter/exit actions if they exist
+            if (current_state == nxtstate)
+            {
+                // no state change, nothing to do
+                return result;
+            }
+            states[current_state].call_exit_action();
+            prior_state = current_state;
+            current_state = nxtstate;
+            states[current_state].call_enter_action();
+        }
+        return result;
+    }
+
+    /// Returns the name of the current state
+    T getState()
+    {
+        return current_state;
+    }
+
     /// Run checks on a fully built state machine to verify there
     /// are no "dead ends" (states with an entry but no exit)
     /// or unreachable states (states which can never be entered).
     /// Sort of like an filesystem check, but for the state machine.
-    bool run_consistency_check();
-  
+    bool run_consistency_check()
+    {
+        bool check_passed = true;
+        std::vector<T> targetlist;
+        // Check for eventless states.
+        for (auto s = states.begin(); s != states.end(); ++s)
+        {
+            auto transitionmap = s->second.getTransitions();
+            if (transitionmap.size() == 0)
+            {
+                std::cerr << "Note: State " << s->second.getName() << " has no events"
+                          << " and therefore cannot be exited" << std::endl;
+                check_passed = false;
+            }
+            // In each state, check the transitionmap for valid target states
+            for (auto tm = transitionmap.begin(); tm != transitionmap.end(); ++tm)
+            {
+                T target_state = tm->second.getNextState();
+                if (states.find(target_state) == states.end())
+                {
+                    std::cerr << "Note: State " << s->second.getName() << " event "
+                              << tm->first << " has target state "
+                              << target_state << " which does not exist" << std::endl;
+                    check_passed = false;
+                }
+                targetlist.push_back(target_state);
+            }
+        }
+        for (auto s = states.begin(); s != states.end(); ++s)
+        {
+            // verify every state is in the targetlist
+            if (find(targetlist.begin(), targetlist.end(), s->second.getName()) == targetlist.end() &&
+                    s->second.getName() != initial_state)
+            {
+                std::cerr << "Note: State " << s->second.getName() << " is unreachable by any event"
+                          << std::endl;
+                check_passed = false;
+            }
+        }
+
+        return check_passed;
+
+    }
+
 protected:
-    typedef std::map<std::string, State> Statemap;
-    std::string current_state, prior_state, initial_state;
+    typedef std::map<T, State<T> > Statemap;
+    T current_state, prior_state, initial_state;
     Statemap states;
 };
 

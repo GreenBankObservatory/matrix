@@ -57,7 +57,6 @@ libmatrix_la_SOURCES = \
     Architect.cc \
     Component.cc \
     DataInterface.cc \
-    FiniteStateMachine.cc \
     Keymaster.cc \
     Mutex.cc  \
     RTDataInterface.cc \
