@@ -98,7 +98,12 @@ public:
     }
 };
 
-template<typename T = std::string>
+/// This class encapsulates a state machine 'arc' between two states.
+/// A StateTransition may optionally have a set of predicate methods
+/// to call, which must all return true in order for the transition
+/// to succeed. An optional set of user-defined actions are called
+/// when a transition is taken.
+template<typename T>
 class StateTransition
 {
 public:
@@ -122,28 +127,39 @@ public:
     bool check_predicates()
     {
         bool result = true;
- int cnt = 0;
-        std::cout << predicates.size() << " predicates in list" << std::endl;
         for (auto p = predicates.begin(); result && p!=predicates.end(); ++p)
         {
-            std::cout << "checking predicate " << ++cnt << std::endl;
             result = (*p)->do_action() && result;
         }
         return result;
     }
 
-    void addPredicate(ActionBase *p)
+    void addPredicate(ActionBase *predicate, ActionBase *arc_action)
     {
-        if (p)
+        if (predicate)
         {
-            predicates.push_back(std::shared_ptr<ActionBase>(p));
+            predicates.push_back(std::shared_ptr<ActionBase>(predicate));
         }
+        if (arc_action)
+        {
+            arc_actions.push_back(std::shared_ptr<ActionBase>(arc_action));
+        }
+    }
+    
+    bool call_arc_actions()
+    {
+        for (auto action=arc_actions.begin(); action != arc_actions.end(); ++action)
+        {
+            (*action)->do_action(); // return value ignored
+        }
+        return true;
     }
 
 protected:
     T event_name;
     T next_state;
     std::vector<std::shared_ptr<ActionBase> > predicates;
+    std::vector<std::shared_ptr<ActionBase> > arc_actions;
 };
 
 
@@ -151,7 +167,7 @@ protected:
 ///
 /// State Objects hold a list of possible events and transitions,
 /// and Actions to take upon entering or leaving the State.
-template<typename T = std::string>
+template<typename T>
 class State
 {
 public:
@@ -177,10 +193,13 @@ public:
         }
         if (tr->second.check_predicates())
         {
+            // predicates check, we are going to follow the transition.
+            // call the transition arc action method if it exists
+            tr->second.call_arc_actions();
             nxt_state = tr->second.getNextState();
             return true;
         }
-        return false; // TBF
+        return false; // no state change occurred
 
     }
 
@@ -192,15 +211,17 @@ public:
 
     /// Add a state to state transition, optionally attaching an Action to be
     /// called if the event causes a state change.
-    void addTransition(T event, T next_state, ActionBase *pred=0)
+    void addTransition(T event, T next_state, ActionBase *predicate=0, ActionBase *arc_action=0)
     {
         auto st = transitionmap.find(event);
         if (st == transitionmap.end())
         {
             auto nt = std::pair<T, StateTransition<T>>(event, StateTransition<T>(event, next_state));
-            nt.second.addPredicate(pred);
+            nt.second.addPredicate(predicate, arc_action);
             transitionmap.insert(nt);
+            return;
         }
+        st->second.addPredicate(predicate, arc_action);
     }
     /// Add a predicate callback which will be called whenever the named event is
     /// received. The result of the predicate call must be true for the transition to proceed.
@@ -215,12 +236,19 @@ public:
         }
     }
 
-    /// Add a callback when the State is entered.
+    /// Add a callback when the State is entered. Note that this is substantially
+    /// different than using an arc-transition action. Here *any* event which causes
+    /// the *state* to be entered triggers this call. Arc-transitions are called
+    /// only when a specific previous state,event and predicate set are satisfied.
     void addEnterAction(ActionBase *p)
     {
         enterAction.reset(p);
     }
-    /// Add a callback when the State is exited
+    
+    /// Add a callback when the State is exited. Note that this is substantially
+    /// different than using an arc-transition action. Here *any* event which causes
+    /// the *state* to be exited triggers this call. Arc-transitions are called
+    /// only when a specific current state,event and predicate set are satisfied.
     void addLeaveAction(ActionBase *p)
     {
         leaveAction.reset(p);
@@ -231,6 +259,7 @@ public:
         return state_name;
     }
 
+    /// Call the exit action for the new state.
     void call_enter_action()
     {
         if (enterAction)
@@ -239,6 +268,7 @@ public:
         }
     }
 
+    /// Call the exit action for the previous state.
     void call_exit_action()
     {
         if (leaveAction)
@@ -259,7 +289,7 @@ protected:
 
 ///
 ///
-template<typename T = std::string>
+template<typename T>
 class FiniteStateMachine
 {
 ///
@@ -316,7 +346,8 @@ public:
     void addTransition(T from_state,
                        T event_name,
                        T to_state,
-                       ActionBase *p = 0)
+                       ActionBase *predicate = 0,
+                       ActionBase *arc_action = 0)
     {
         auto s1 = states.find(from_state);
         if (s1 == states.end())
@@ -325,7 +356,7 @@ public:
             states[from_state] = State<T>(from_state);
             s1 = states.find(from_state);
         }
-        s1->second.addTransition(event_name, to_state, p);
+        s1->second.addTransition(event_name, to_state, predicate, arc_action);
     }
     /// Register a callback for when the named state is exited
     void addLeaveAction(T state_name, ActionBase *p)
@@ -384,7 +415,7 @@ public:
             // event unrecognized, or predicate failed
             return false;
         }
-        // make sure the nxtstate is invalid -- this shouldn't be possible
+        // make sure the nxtstate is not invalid -- this shouldn't be possible
         if (states.find(nxtstate) == states.end())
         {
             std::cerr << "Error event " << event <<

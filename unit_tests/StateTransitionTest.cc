@@ -121,13 +121,23 @@ public:
         printf("EasyChk\n");
         return true; 
     }
+    bool off_to_on_arc()
+    {
+        printf("transitioning from off to on\n");
+    }
 };
 
 void StateTransitionTest::test_medium_fsm()
 {
+    // make a simple FSM for a PC power supply.
+    // No predicates are used, but transition callbacks
+    // and state entry/exit are demonstrated.
+    
     FiniteStateMachine<std::string> fsm;
     MyEasyCheck my;
-    fsm.addTransition("Off", "mpress", "On");
+    fsm.addTransition("Off", "mpress", "On", 0,
+                      new Action<MyEasyCheck>(&my, &MyEasyCheck::off_to_on_arc) );
+
     fsm.addTransition("On", "hold", "Off"); 
     fsm.addTransition("On", "mpress", "On");   
     fsm.addTransition("On", "short", "Off");
@@ -135,23 +145,33 @@ void StateTransitionTest::test_medium_fsm()
     // Now add some things to do when the state changes
     fsm.addLeaveAction("Off", new Action<MyEasyCheck>(&my, &MyEasyCheck::exitOff) );
     fsm.addEnterAction("Off", new Action<MyEasyCheck>(&my, &MyEasyCheck::enterOff) );
-    fsm.addLeaveAction("On", new Action<MyEasyCheck>(&my, &MyEasyCheck::exitOn) );
-    fsm.addEnterAction("On", new Action<MyEasyCheck>(&my, &MyEasyCheck::enterOn) );
+    fsm.addLeaveAction("On",  new Action<MyEasyCheck>(&my, &MyEasyCheck::exitOn) );
+    fsm.addEnterAction("On",  new Action<MyEasyCheck>(&my, &MyEasyCheck::enterOn) );
     CPPUNIT_ASSERT(fsm.run_consistency_check());
     
     CPPUNIT_ASSERT(fsm.getState() == "Off");
-    fsm.handle_event("mpress");
-    CPPUNIT_ASSERT(fsm.getState() == "On");
+    
+    // turn the power supply on by momentarily pressing the button
     CPPUNIT_ASSERT(fsm.handle_event("mpress") == true);
     CPPUNIT_ASSERT(fsm.getState() == "On");
+    
+    // once its on another momentary press keeps it on
+    CPPUNIT_ASSERT(fsm.handle_event("mpress") == true);
+    CPPUNIT_ASSERT(fsm.getState() == "On");
+    
+    // Now holding the button down for a longer time turns it off
     CPPUNIT_ASSERT(fsm.handle_event("hold") == true);
     CPPUNIT_ASSERT(fsm.getState() == "Off");
+    
     // toss an unknown event at it
     CPPUNIT_ASSERT(fsm.handle_event("boom") == false);
     CPPUNIT_ASSERT(fsm.getState() == "Off");   
     fsm.handle_event("mpress");
+    
     // verify alternate path from state On
     CPPUNIT_ASSERT(fsm.getState() == "On");
+    
+    // now overload the power supply, it turns off to protect itself
     CPPUNIT_ASSERT(fsm.handle_event("short") == true);
     CPPUNIT_ASSERT(fsm.getState() == "Off");
 }
