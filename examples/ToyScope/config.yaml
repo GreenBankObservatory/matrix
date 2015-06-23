@@ -1,0 +1,50 @@
+# YAML configuration
+Keymaster:
+    URLS:
+        Initial:
+          - inproc://matrix.keymaster
+          - tcp://*:42000
+
+# Components in the system
+# Each component has a name by which it is known. Some components have 0
+# or more data sources, and 0 or more data sinks. The sources are known
+# by their URLs. The sinks are just listed by name (for now).
+
+components:
+    signal_generator:
+        type: SignalGenerator
+        rate: 10 # Hz
+        waveform: tone
+        amplitude: 1.0
+        Sources:
+            wavedata: A
+        Transports:
+            A:
+                Specified: [inproc]
+
+    processor:
+        type: Processor
+        Sources:
+            processed_data: B
+        Transports:
+            B:
+                Specified: [inproc]
+        operation: none
+
+    accumulator:
+        type: Accumulator
+        decimate: 10
+       
+
+# Connection mapping for the various configurations. The mapping is a
+# list of lists, which each element of the outer list being a 4-element
+# inner list: [source_component, source_name, sink_component, sink_name]
+
+connections:
+    default:
+        - [signal_generator, wavedata,       accumulator, input_data]
+    pmode:
+        - [signal_generator, wavedata,       processor,   input_data]
+        - [processor,        processed_data, accumulator, input_data]
+    test:
+        - [signal_generator]
