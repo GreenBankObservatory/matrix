@@ -27,7 +27,10 @@
 
 noinst_PROGRAMS = toy_scope
 
-toy_scope_SOURCES = toy_scope.cc
+toy_scope_SOURCES = toy_scope.cc \
+                    ExAccumulator.cc \
+                    ExSignalGenerator.cc \
+                    ExProcessor.cc
 toy_scope_CXXFLAGS = -I../../src
 toy_scope_LDADD = -L../../src/.libs -lmatrix -lrt -lboost_regex
 

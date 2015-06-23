@@ -28,53 +28,12 @@
 #include "Architect.h"
 #include "Component.h"
 #include "Keymaster.h"
+#include "ExSignalGenerator.h"
+#include "ExAccumulator.h"
+#include "ExProcessor.h"
 
 using namespace std;
 using namespace YAML;
-
-// Example trival component
-class ClockComponent : public Component
-{
-public:
-    ClockComponent(string name, string urn) : 
-        Component(name, urn),
-        run_thread(this, &ClockComponent::run_loop), ticks(0)
-    {
-        run_thread.start();
-    }
-    void run_loop()
-    {
-        while(1)
-        {
-            sleep(1);
-            YAML::Node tm = keymaster->get("components." + my_instance_name + ".time");
-            cout << "Clock says " << tm.as<string>() << endl;
-            keymaster->put("components." + my_instance_name + ".time", ++ticks, true);
-        }
-    }
-    static Component *factory(string myname,string k)
-    { cout << "ClockComponent ctor" << endl; return new ClockComponent(myname, k); }
-    
-protected:
-    Thread<ClockComponent> run_thread;
-    int ticks;
-};
-
-class IndicatorComponent : public Component
-{
-public:
-    IndicatorComponent(string name, string urn) : Component(name, urn) 
-    {
-        keymaster->subscribe("components.clock.time", 
-                            new KeymasterMemberCB<IndicatorComponent>(this, &IndicatorComponent::report) );
-    }
-    void report(string yml_path, YAML::Node time)
-    {
-        cout << "Time now " << time.as<string>() << endl;
-    }
-    static Component *factory(string myname,string k)
-    { cout << "IndicatorComponent ctor" << endl; return new IndicatorComponent(myname, k); }
-};
 
 class TestArchitect : public Architect
 {
@@ -86,8 +45,9 @@ public:
 TestArchitect::TestArchitect() : 
     Architect("control", "inproc://matrix.keymaster")
 {
-    add_component_factory("ClockComponent",     &ClockComponent::factory);
-    add_component_factory("IndicatorComponent", &IndicatorComponent::factory);
+    add_component_factory("SignalGenerator",     &ExSignalGenerator::factory);
+    add_component_factory("Accumulator",         &ExAccumulator::factory);
+    add_component_factory("Processor",           &ExProcessor::factory);
 
     try { basic_init(); } catch(ArchitectException e)
     {
@@ -102,7 +62,7 @@ TestArchitect::TestArchitect() :
 int main(int argc, char **argv)
 {
 
-    Architect::create_keymaster_server("hello_world.yaml");
+    Architect::create_keymaster_server("config.yaml");
     TestArchitect simple;
     
 
@@ -113,7 +73,7 @@ int main(int argc, char **argv)
     {
         cout << "initial standby state error" << endl;
     }
-    simple.set_system_mode("CLOCK");
+    simple.set_system_mode("default");
 
     // Everybody now in standby. Get things running by issuing a start event.
     simple.ready();
@@ -129,7 +89,8 @@ int main(int argc, char **argv)
         cout << "initial standby state error" << endl;
     }
             
-    sleep(10);
+    while(true) 
+        sleep(10);
     // Normal app would do something here.
     // tell the components to stop (They should go back to the Ready state.)
     simple.stop();
