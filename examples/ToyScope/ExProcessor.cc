@@ -126,19 +126,6 @@ void ExProcessor::poll()
 }
 
 bool
-ExProcessor::_do_ready()
-{
-    // connect data source
-    return true;
-}
-
-bool
-ExProcessor::_do_standby()
-{
-    return true; // not implemented
-}
-
-bool
 ExProcessor::connect()
 {
     // find the src component and sourcename for our sink in this mode

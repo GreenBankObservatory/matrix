@@ -155,19 +155,6 @@ void ExSignalGenerator::amplitude_changed(string path, YAML::Node new_amplitude)
 }
 
 bool
-ExSignalGenerator::_do_ready()
-{
-    // connect data source
-    return true;
-}
-
-bool
-ExSignalGenerator::_do_standby()
-{
-    return true; // not implemented
-}
-
-bool
 ExSignalGenerator::connect()
 {
     // Source only Components really don't need connect/disconnect

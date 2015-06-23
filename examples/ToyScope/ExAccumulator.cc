@@ -126,19 +126,6 @@ ExAccumulator::decimate_changed(string path, YAML::Node new_decimate)
 }
 
 bool
-ExAccumulator::_do_ready()
-{
-    // connect data source
-    return true;
-}
-
-bool
-ExAccumulator::_do_standby()
-{
-    return true; // not implemented
-}
-
-bool
 ExAccumulator::connect()
 {
     // find the src component and sourcename for our sink in this mode

@@ -35,35 +35,16 @@
 using namespace std;
 using namespace YAML;
 
-class TestArchitect : public Architect
-{
-public:
-    TestArchitect();
-    
-};
-
-TestArchitect::TestArchitect() : 
-    Architect("control", "inproc://matrix.keymaster")
-{
-    add_component_factory("SignalGenerator",     &ExSignalGenerator::factory);
-    add_component_factory("Accumulator",         &ExAccumulator::factory);
-    add_component_factory("Processor",           &ExProcessor::factory);
-
-    try { basic_init(); } catch(ArchitectException e)
-    {
-        cout << e.what() << endl;
-        throw e;
-    }
-
-    initialize(); // Sends the init event to get components initialized.    
-}
-
-
 int main(int argc, char **argv)
 {
 
+    // Make the Name to factory binding for the components used in this example
+    Architect::add_component_factory("SignalGenerator",     &ExSignalGenerator::factory);
+    Architect::add_component_factory("Accumulator",         &ExAccumulator::factory);
+    Architect::add_component_factory("Processor",           &ExProcessor::factory);
+
     Architect::create_keymaster_server("config.yaml");
-    TestArchitect simple;
+    Architect simple("control", "inproc://matrix.keymaster");
     
 
     // wait for the keymaster events which report components in the Standby state.
@@ -73,9 +54,13 @@ int main(int argc, char **argv)
     {
         cout << "initial standby state error" << endl;
     }
+    // Setup for the default configuration
     simple.set_system_mode("default");
 
-    // Everybody now in standby. Get things running by issuing a start event.
+    // All Components now in standby. 
+    // In this example, I go ahead and get things running by issuing 
+    // a 'get_ready' event. The result should be the *active* components 
+    // changing to the Ready state
     simple.ready();
     result = simple.wait_all_in_state("Ready", 1000000);
     if (!result)
@@ -88,17 +73,11 @@ int main(int argc, char **argv)
     {
         cout << "initial standby state error" << endl;
     }
-            
+    // I don't have anything for main to do, so just loop
+    // while the rest of the system operates.
+    //            
     while(true) 
         sleep(10);
-    // Normal app would do something here.
-    // tell the components to stop (They should go back to the Ready state.)
-    simple.stop();
-    result = simple.wait_all_in_state("Ready", 1000000);
-    if (!result)
-    {
-        cout << "initial standby state error" << endl;
-    }    
-    sleep(1);
+
     return 0;
 }
