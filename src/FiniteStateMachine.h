@@ -35,6 +35,10 @@
 ///
 /// Documentation for the FiniteStateMachine. This provides a simple yet extensible
 /// way to express a State machine. Code examples are given in the unit tests.
+/// States and Events may be represented in a number of various data-types.
+/// The most common choices are strings (easy to write), or some form of
+/// enumeration (e.g. int or long). Other types may be used, as long as they
+/// implement the required operations. (e.g. compare, equal, and ostream operators)
 ///
 namespace FSM
 {
@@ -98,6 +102,9 @@ public:
     }
 };
 
+// C++ 11 only template<class T> using Predicate = Action<T>;
+
+
 /// This class encapsulates a state machine 'arc' between two states.
 /// A StateTransition may optionally have a set of predicate methods
 /// to call, which must all return true in order for the transition
@@ -112,7 +119,8 @@ public:
                     T nextstate) :
         event_name(event),
         next_state(nextstate),
-        predicates()
+        predicates(),
+        arc_actions()
     {
 
     }
@@ -124,6 +132,7 @@ public:
     {
         return event_name;
     }
+    /// Verify predicates are satisfied in preparation for a state transition.
     bool check_predicates()
     {
         bool result = true;
@@ -134,6 +143,7 @@ public:
         return result;
     }
 
+    /// Add predicates and actions for this transition arc.
     void addPredicate(ActionBase *predicate, ActionBase *arc_action)
     {
         if (predicate)
@@ -145,7 +155,7 @@ public:
             arc_actions.push_back(std::shared_ptr<ActionBase>(arc_action));
         }
     }
-    
+    /// calls registered action routines on a per-transition arc basis. 
     bool call_arc_actions()
     {
         for (auto action=arc_actions.begin(); action != arc_actions.end(); ++action)
@@ -358,6 +368,38 @@ public:
         }
         s1->second.addTransition(event_name, to_state, predicate, arc_action);
     }
+    /// Same as above, but with a slightly different syntax which makes the
+    /// application specification a bit easier to read.
+    void addTransition(T from_state,
+                       T event_name,
+                       T to_state,
+                       std::vector<ActionBase *> predicates,
+                       std::vector<ActionBase *> actions)
+    {
+        for (auto p = predicates.begin(); p!=predicates.end(); ++p)
+        {
+            addTransition(from_state, event_name, to_state, *p, 0);
+        }
+        for (auto a = actions.begin(); a!=actions.end(); ++a)
+        {
+            addTransition(from_state, event_name, to_state, 0, *a);
+        }
+    }
+    /// Same as above, be making it easier to specify when only
+    /// zero or one actions are specified.
+    void addTransition(T from_state,
+                       T event_name,
+                       T to_state,
+                       std::vector<ActionBase *> predicates,
+                       ActionBase *arc_action = 0)
+    {
+        for (auto p = predicates.begin(); p!=predicates.end(); ++p)
+        {
+            addTransition(from_state, event_name, to_state, *p, 0);
+        }
+        addTransition(from_state, event_name, to_state, 0, arc_action);
+    }
+    
     /// Register a callback for when the named state is exited
     void addLeaveAction(T state_name, ActionBase *p)
     {
@@ -372,9 +414,6 @@ public:
             std::cerr << state_name << std::endl;
         }
     }
-
-
-
 
     /// Register a callback for when the named state is entered
     void addEnterAction(T state_name, ActionBase *p)
@@ -397,6 +436,38 @@ public:
         // TBF should do a fsck check on the fsm, states, transitions etc.
         initial_state = init;
         current_state = init;
+    }
+    
+    /// Perform an exploration of the transitions of the current state.
+    /// Inject the event matching the transition which satisfies all of
+    /// its predicates. Place a warning if more than one possibility
+    /// is found, and only use the first one. (Experimental method)
+    bool sequence()
+    {
+        // Check all available transition predicates, and make a list of the
+        // ones which are satisfing their predicates.
+        std::vector<T> possible_event;
+        auto transitionmap = states[current_state].getTransitions();
+        for (auto t = transitionmap.begin(); t!=transitionmap.end(); ++t)
+        {
+            auto result = t->second.check_predicates();
+            if (result)
+            {
+                possible_event.push_back(t->second.getEvent());
+            }
+        }
+        if (possible_event.size() > 1)
+        {
+            std::cerr << "FiniteStateMachine::sequence: more than one transition satifies its predicates"
+                      << "First one taken: event=" << possible_event[0] << std::endl;
+            std::cerr << "Other Possible events are:\n";
+            for (auto i=possible_event.begin(); i!=possible_event.end(); ++i)
+            {
+                std::cerr << *i << std::endl;
+            }
+            return handle_event(possible_event[0]);
+        }
+        return false;
     }
 
     // These methods are commonly used at runtime to process events:
@@ -493,6 +564,27 @@ public:
         return check_passed;
 
     }
+    
+    /// A debug routine which just enumerates the currently defined states, events, next state
+    bool show_fsm()
+    {
+        bool check_passed = true;
+        std::vector<T> targetlist;
+        // Check for eventless states.
+        for (auto s = states.begin(); s != states.end(); ++s)
+        {
+            auto transitionmap = s->second.getTransitions();
+            std::cout << "\tState: " << s->first << " has the following events/next states:\n";
+            // In each state, check the transitionmap for valid target states
+            for (auto tm = transitionmap.begin(); tm != transitionmap.end(); ++tm)
+            {
+                std::cout << "\t\tEvent " << tm->first << " Next State: " 
+                          << tm->second.getNextState() << std::endl;
+                          
+            }
+        }
+    }
+
 
 protected:
     typedef std::map<T, State<T> > Statemap;

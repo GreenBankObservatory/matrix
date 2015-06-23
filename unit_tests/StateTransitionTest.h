@@ -34,6 +34,7 @@ class StateTransitionTest : public CppUnit::TestCase
     CPPUNIT_TEST(test_medium_fsm);
     CPPUNIT_TEST(test_fancy_fsm);
     CPPUNIT_TEST(test_consistency_check);
+    CPPUNIT_TEST(test_sequence_fsm);
     CPPUNIT_TEST_SUITE_END();
     
     public:
@@ -42,6 +43,7 @@ class StateTransitionTest : public CppUnit::TestCase
     void test_medium_fsm();
     void test_fancy_fsm();
     void test_consistency_check();
+    void test_sequence_fsm();
 };
 
 

@@ -232,6 +232,7 @@ void StateTransitionTest::test_fancy_fsm()
     
     CPPUNIT_ASSERT(fsm.handle_event("hold") == true);
     CPPUNIT_ASSERT(fsm.getState() == "Off");       
+    fsm.show_fsm();
 }
 
 void StateTransitionTest::test_consistency_check()
@@ -253,6 +254,7 @@ void StateTransitionTest::test_consistency_check()
     CPPUNIT_ASSERT(fsm.run_consistency_check() == true);
     fsm.addTransition("S1", "E3", "S1");
     CPPUNIT_ASSERT(fsm.run_consistency_check() == true);
+    fsm.show_fsm();
     
     enum Test { S0, S1, E1, E2, E3 };
     FiniteStateMachine<uint32_t> ifsm;
@@ -274,4 +276,67 @@ void StateTransitionTest::test_consistency_check()
     CPPUNIT_ASSERT(ifsm.run_consistency_check() == true);
     
 }
+
+class Sequencer
+{
+public:
+    bool do_activating() { cout << "activating" << endl; }
+    bool do_commit() { cout << "arming" << endl; }
+    bool do_start() { cout << "starting" << endl; }
+    bool do_complete() { cout << "to ready" << endl; }
+    bool do_abort() { cout << "aborting" << endl; }
+    bool do_stop() { cout << "stopping" << endl; }
+    
+    bool system_ok() { return sys_ok; }
+    bool start_time_reached() { return t > tstart; }
+    bool stop_time_reached()  { return t > tstop; }
+    bool commit_time_reached() { return t> tcommit; }
+    bool has_error() { return error; }
+    bool has_no_error() { return !has_error(); }
+    
+    bool error;
+    bool sys_ok;
+    double tstart, tstop, tcommit, t;
+};
+
+void StateTransitionTest::test_sequence_fsm()
+{
+    FiniteStateMachine<std::string> fsm;
+    auto seq = new Sequencer;
+    
+    vector<ActionBase *> predicates;
+    predicates.push_back( new Action<Sequencer>(seq, &Sequencer::system_ok) );
+    predicates.push_back( new Action<Sequencer>(seq, &Sequencer::has_no_error) );
+    predicates.clear(); 
+    fsm.addTransition("READY", "ACTIVATE", "ACTIVATING",
+                      predicates, new Action<Sequencer>(seq, &Sequencer::do_activating));
+    
+    fsm.addTransition("ACTIVATING", "COMMIT", "ARMING",
+                new Action<Sequencer>(seq, &Sequencer::commit_time_reached),
+                new Action<Sequencer>(seq, &Sequencer::do_commit) );
+    fsm.addTransition("ARMING", "START", "RUNNING",
+                new Action<Sequencer>(seq, &Sequencer::start_time_reached),
+                new Action<Sequencer>(seq, &Sequencer::do_start) );
+    fsm.addTransition("RUNNING", "STOP", "STOPPING",
+                new Action<Sequencer>(seq, &Sequencer::stop_time_reached),
+                new Action<Sequencer>(seq, &Sequencer::do_stop) );
+    fsm.addTransition("STOPPING", "COMPLETE", "READY", 0,
+                new Action<Sequencer>(seq, &Sequencer::do_complete) );
+    fsm.addTransition("RUNNING", "ABORT", "ABORTING",
+                new Action<Sequencer>(seq, &Sequencer::has_error),
+                new Action<Sequencer>(seq, &Sequencer::do_abort) );
+    fsm.addTransition("RUNNING", "OK", "RUNNING",
+                new Action<Sequencer>(seq, &Sequencer::has_no_error),
+                new Action<Sequencer>(seq, &Sequencer::system_ok) ); 
+    predicates.push_back( new Action<Sequencer>(seq, &Sequencer::system_ok) );
+    predicates.push_back( new Action<Sequencer>(seq, &Sequencer::has_no_error) );         
+    fsm.addTransition("ABORTING", "COMPLETE", "READY", 
+                predicates,
+                new Action<Sequencer>(seq, &Sequencer::do_complete) );
+                
+    // CPPUNIT_ASSERT( fsm.run_consistency_check() );
+    // fsm.show_fsm();
+}
+    
+
 
