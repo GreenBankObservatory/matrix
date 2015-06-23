@@ -203,6 +203,8 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  unit_tests/Makefile
                  examples/Makefile
+                 examples/Helloworld/Makefile
+                 examples/ToyScope/Makefile
                  keychain/Makefile])
 
 AC_OUTPUT
