@@ -28,6 +28,7 @@
 #include "Architect.h"
 #include "Component.h"
 #include "Keymaster.h"
+#include "ZMQContext.h"
 
 using namespace std;
 using namespace YAML;
@@ -41,7 +42,7 @@ void hook(void)
 class ClockComponent : public Component
 {
 public:
-    ClockComponent(string name, string urn) : 
+    ClockComponent(string name, string urn) :
         Component(name, urn),
         run_thread(this, &ClockComponent::run_loop), ticks(0)
     {
@@ -59,7 +60,7 @@ public:
     }
     static Component *factory(string myname,string k)
     { cout << "ClockComponent ctor" << endl; return new ClockComponent(myname, k); }
-    
+
 protected:
     Thread<ClockComponent> run_thread;
     int ticks;
@@ -68,9 +69,9 @@ protected:
 class IndicatorComponent : public Component
 {
 public:
-    IndicatorComponent(string name, string urn) : Component(name, urn) 
+    IndicatorComponent(string name, string urn) : Component(name, urn)
     {
-        keymaster->subscribe("components.clock.time", 
+        keymaster->subscribe("components.clock.time",
                             new KeymasterMemberCB<IndicatorComponent>(this, &IndicatorComponent::report) );
     }
     void report(string yml_path, YAML::Node time)
@@ -85,10 +86,10 @@ class TestArchitect : public Architect
 {
 public:
     TestArchitect();
-    
+
 };
 
-TestArchitect::TestArchitect() : 
+TestArchitect::TestArchitect() :
     Architect("control", "inproc://matrix.keymaster")
 {
     add_component_factory("ClockComponent",     &ClockComponent::factory);
@@ -100,7 +101,7 @@ TestArchitect::TestArchitect() :
         throw e;
     }
 
-    initialize(); // Sends the init event to get components initialized.    
+    initialize(); // Sends the init event to get components initialized.
 }
 
 
@@ -111,7 +112,7 @@ int main(int argc, char **argv)
 
     Architect::create_keymaster_server("hello_world.yaml");
     TestArchitect simple;
-    
+
 
     // wait for the keymaster events which report components in the Standby state.
     // Probably should return if any component reports and error state????
@@ -135,16 +136,11 @@ int main(int argc, char **argv)
     {
         cout << "initial standby state error" << endl;
     }
-            
-    sleep(10);
-    // Normal app would do something here.
-    // tell the components to stop (They should go back to the Ready state.)
-    simple.stop();
-    result = simple.wait_all_in_state("Ready", 1000000);
-    if (!result)
-    {
-        cout << "initial standby state error" << endl;
-    }    
+
+    while (!simple.wait_all_in_state("Ready", 1000000));
+
+    Architect::destroy_keymaster_server();
+
     sleep(1);
     return 0;
 }

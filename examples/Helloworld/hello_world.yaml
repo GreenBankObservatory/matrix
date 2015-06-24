@@ -3,6 +3,7 @@ Keymaster:
   URLS:
     Initial:
       - inproc://matrix.keymaster
+      - tcp://*:42000
 
 # Components in the system
 #
