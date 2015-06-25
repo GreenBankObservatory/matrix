@@ -129,11 +129,9 @@ bool
 ExAccumulator::connect()
 {
     // find the src component and sourcename for our sink in this mode
-    ConnectionKey q(current_mode, my_instance_name, "input_data");
-    if (find_data_connection(q))
-    {
-        input_signal_sink.connect(get<0>(q), get<1>(q), get<2>(q));
-    }
+    connect_sink(input_signal_sink, "input_data");
+
+    // for output to graphing application:
     if (fout == 0)
     {
         fout = fopen("/tmp/data", "w+");

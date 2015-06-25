@@ -312,24 +312,24 @@ void StateTransitionTest::test_sequence_fsm()
                       predicates, new Action<Sequencer>(seq, &Sequencer::do_activating));
     
     fsm.addTransition("ACTIVATING", "COMMIT", "ARMING",
-                new Action<Sequencer>(seq, &Sequencer::commit_time_reached),
+                new Predicate<Sequencer>(seq, &Sequencer::commit_time_reached),
                 new Action<Sequencer>(seq, &Sequencer::do_commit) );
     fsm.addTransition("ARMING", "START", "RUNNING",
-                new Action<Sequencer>(seq, &Sequencer::start_time_reached),
+                new Predicate<Sequencer>(seq, &Sequencer::start_time_reached),
                 new Action<Sequencer>(seq, &Sequencer::do_start) );
     fsm.addTransition("RUNNING", "STOP", "STOPPING",
-                new Action<Sequencer>(seq, &Sequencer::stop_time_reached),
+                new Predicate<Sequencer>(seq, &Sequencer::stop_time_reached),
                 new Action<Sequencer>(seq, &Sequencer::do_stop) );
     fsm.addTransition("STOPPING", "COMPLETE", "READY", 0,
                 new Action<Sequencer>(seq, &Sequencer::do_complete) );
     fsm.addTransition("RUNNING", "ABORT", "ABORTING",
-                new Action<Sequencer>(seq, &Sequencer::has_error),
+                new Predicate<Sequencer>(seq, &Sequencer::has_error),
                 new Action<Sequencer>(seq, &Sequencer::do_abort) );
     fsm.addTransition("RUNNING", "OK", "RUNNING",
-                new Action<Sequencer>(seq, &Sequencer::has_no_error),
+                new Predicate<Sequencer>(seq, &Sequencer::has_no_error),
                 new Action<Sequencer>(seq, &Sequencer::system_ok) ); 
-    predicates.push_back( new Action<Sequencer>(seq, &Sequencer::system_ok) );
-    predicates.push_back( new Action<Sequencer>(seq, &Sequencer::has_no_error) );         
+    predicates.push_back( new Predicate<Sequencer>(seq, &Sequencer::system_ok) );
+    predicates.push_back( new Predicate<Sequencer>(seq, &Sequencer::has_no_error) );         
     fsm.addTransition("ABORTING", "COMPLETE", "READY", 
                 predicates,
                 new Action<Sequencer>(seq, &Sequencer::do_complete) );

@@ -161,6 +161,10 @@ protected:
     /// Query for a connection
     bool find_data_connection(ConnectionKey &);
     bool parse_data_connections();
+    template<typename J>
+    bool connect_sink(J &sink, std::string sinkname);
+
+
     void mode_changed(std::string path, YAML::Node n);
 
     /// The protected constructor, only available from the factory or derived classes
@@ -257,6 +261,16 @@ protected:
 };
 
 
+template <typename T>
+bool Component::connect_sink(T &sink, std::string sinkname)
+{
+    ConnectionKey q(current_mode, my_instance_name, sinkname);
+    if (find_data_connection(q))
+    {
+        sink.connect(std::get<0>(q), std::get<1>(q), std::get<2>(q));
+    }
+    return true;
+}    
 
 
 
