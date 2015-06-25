@@ -66,7 +66,7 @@ AM_PATH_CHECK()
 # C++ 11 support?
 AX_CXX_COMPILE_STDCXX_11(noext,optional)
 #AX_CXX_COMPILE_STDCXX_0X
-AC_CHECK_DEFINE(-std=c++11, ,CXXFLAGS="$CXXFLAGS -std=c++0x")
+#AC_CHECK_DEFINE(-std=c++11, ,CXXFLAGS="$CXXFLAGS -std=c++0x")
 
 ############################## ZEROMQ ###################################
 # Check for zeromq library
