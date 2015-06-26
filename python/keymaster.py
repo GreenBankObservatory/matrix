@@ -80,8 +80,6 @@ class Keymaster:
                                 else:
                                     # Key exists on Keymaster, and no
                                     # callback, so register one. First, test the function
-                                    bad_function = False
-
                                     try:
                                         x = inspect.getargspec(fcb)
 
@@ -93,7 +91,7 @@ class Keymaster:
                                             pipe.send_pyobj(key)
                                         else:
                                             pipe.send_pyobj(False, zmq.SNDMORE)
-                                            pipe.send_pyobj('Callback function must take 2 arguments')
+d                                            pipe.send_pyobj('Callback function must take 2 arguments')
                                     except TypeError:
                                         # not a function at all!
                                         pipe.send_pyobj(False, zmq.SNDMORE)
