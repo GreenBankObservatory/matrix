@@ -286,21 +286,26 @@ public:
     bool do_complete() { cout << "to ready" << endl; }
     bool do_abort() { cout << "aborting" << endl; }
     bool do_stop() { cout << "stopping" << endl; }
+    bool do_powerfail() { cout << "power failed" << endl; }
+    bool do_system_ok() { cout << "system ok" << endl; }
     
-    bool system_ok() { return sys_ok; }
+    bool system_ok() { return sys_ok && power_ok; }
     bool start_time_reached() { return t > tstart; }
     bool stop_time_reached()  { return t > tstop; }
     bool commit_time_reached() { return t> tcommit; }
     bool has_error() { return error; }
     bool has_no_error() { return !has_error(); }
+    bool power_failure() { return !power_ok; }
     
     bool error;
     bool sys_ok;
+    bool power_ok;
     double tstart, tstop, tcommit, t;
 };
 
 void StateTransitionTest::test_sequence_fsm()
 {
+    {
     FiniteStateMachine<std::string> fsm;
     auto seq = new Sequencer;
     
@@ -309,33 +314,82 @@ void StateTransitionTest::test_sequence_fsm()
     predicates.push_back( new Action<Sequencer>(seq, &Sequencer::has_no_error) );
     predicates.clear(); 
     fsm.addTransition("READY", "ACTIVATE", "ACTIVATING",
-                      predicates, new Action<Sequencer>(seq, &Sequencer::do_activating));
-    
-    fsm.addTransition("ACTIVATING", "COMMIT", "ARMING",
+                      predicates, 
+                      new Action<Sequencer>(seq, &Sequencer::do_activating));    
+    fsm.addTransition("ACTIVATING", "TICK", "ARMING",
                 new Predicate<Sequencer>(seq, &Sequencer::commit_time_reached),
                 new Action<Sequencer>(seq, &Sequencer::do_commit) );
-    fsm.addTransition("ARMING", "START", "RUNNING",
+    fsm.addTransition("ARMING", "TICK", "RUNNING",
                 new Predicate<Sequencer>(seq, &Sequencer::start_time_reached),
                 new Action<Sequencer>(seq, &Sequencer::do_start) );
-    fsm.addTransition("RUNNING", "STOP", "STOPPING",
+    fsm.addTransition("RUNNING", "TICK", "STOPPING",
                 new Predicate<Sequencer>(seq, &Sequencer::stop_time_reached),
                 new Action<Sequencer>(seq, &Sequencer::do_stop) );
-    fsm.addTransition("STOPPING", "COMPLETE", "READY", 0,
+    fsm.addTransition("RUNNING", "TICK", "POWERFAIL",
+                new Predicate<Sequencer>(seq, &Sequencer::power_failure),
+                new Action<Sequencer>(seq, &Sequencer::do_powerfail) );                
+    fsm.addTransition("STOPPING", "TICK", "READY", 0,
                 new Action<Sequencer>(seq, &Sequencer::do_complete) );
     fsm.addTransition("RUNNING", "ABORT", "ABORTING",
                 new Predicate<Sequencer>(seq, &Sequencer::has_error),
-                new Action<Sequencer>(seq, &Sequencer::do_abort) );
-    fsm.addTransition("RUNNING", "OK", "RUNNING",
+                new Action<Sequencer>(seq, &Sequencer::do_abort) );                
+    fsm.addTransition("RUNNING", "TICK", "RUNNING",
                 new Predicate<Sequencer>(seq, &Sequencer::has_no_error),
-                new Action<Sequencer>(seq, &Sequencer::system_ok) ); 
+                new Action<Sequencer>(seq, &Sequencer::do_system_ok) ); 
+                
     predicates.push_back( new Predicate<Sequencer>(seq, &Sequencer::system_ok) );
     predicates.push_back( new Predicate<Sequencer>(seq, &Sequencer::has_no_error) );         
-    fsm.addTransition("ABORTING", "COMPLETE", "READY", 
+    fsm.addTransition("ABORTING", "TICK", "READY", 
                 predicates,
                 new Action<Sequencer>(seq, &Sequencer::do_complete) );
-                
-    // CPPUNIT_ASSERT( fsm.run_consistency_check() );
-    // fsm.show_fsm();
+    predicates.clear();
+    fsm.addTransition("POWERFAIL", "POWERON", "READY", 
+                new Predicate<Sequencer>(seq, &Sequencer::system_ok),
+                new Action<Sequencer>(seq, &Sequencer::do_complete) );
+    //intentional dup: (doesn't add anything ... just testing for issues)
+    fsm.addTransition("POWERFAIL", "POWERON", "READY", 
+                new Predicate<Sequencer>(seq, &Sequencer::system_ok),
+                new Action<Sequencer>(seq, &Sequencer::do_complete) );                     
+    fsm.addTransition("POWERFAIL", "TICK", "READY", 
+                new Predicate<Sequencer>(seq, &Sequencer::system_ok),
+                new Action<Sequencer>(seq, &Sequencer::do_complete) ); 
+                                
+    CPPUNIT_ASSERT( fsm.run_consistency_check() );
+    fsm.show_fsm();
+    
+    fsm.setInitialState("READY");
+    seq->t = 1;
+    seq->tcommit = 2;
+    seq->tstart = 3;
+    seq->tstop = 4;
+    seq->power_ok = true;
+    seq->sys_ok = true;
+    fsm.specify_sequence_event("TICK");
+    CPPUNIT_ASSERT( !fsm.sequence() );
+    CPPUNIT_ASSERT( fsm.handle_event("ACTIVATE") );
+    CPPUNIT_ASSERT( fsm.getState() == "ACTIVATING" );
+    CPPUNIT_ASSERT( !fsm.sequence() );
+    seq->t++;
+    CPPUNIT_ASSERT( !fsm.sequence() );
+    seq->t++;
+    CPPUNIT_ASSERT( fsm.sequence() );
+    CPPUNIT_ASSERT( fsm.getState() == "ARMING" );
+    CPPUNIT_ASSERT( !fsm.sequence() );
+    seq->t++;
+    // RUNNING has a self-transition for TICK.
+    CPPUNIT_ASSERT( fsm.sequence() );
+    CPPUNIT_ASSERT( fsm.getState() == "RUNNING" );
+    CPPUNIT_ASSERT( fsm.sequence() );
+    seq->power_ok = false;
+    CPPUNIT_ASSERT( fsm.sequence() );
+    CPPUNIT_ASSERT( fsm.getState() == "POWERFAIL" );
+    CPPUNIT_ASSERT( !fsm.sequence() );
+    seq->power_ok = true;
+    CPPUNIT_ASSERT( fsm.sequence() );
+    CPPUNIT_ASSERT( fsm.getState() == "READY" );
+    }
+    cout << "test_fsm_complete" << endl;
+    
 }
     
 

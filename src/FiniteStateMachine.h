@@ -38,7 +38,7 @@
 /// States and Events may be represented in a number of various data-types.
 /// The most common choices are strings (easy to write), or some form of
 /// enumeration (e.g. int or long). Other types may be used, as long as they
-/// implement the required operations. (e.g. compare, equal, and ostream operators)
+/// implement the required operations. (e.g. compare, assign, ostream etc.)
 ///
 namespace FSM
 {
@@ -103,6 +103,12 @@ public:
 };
 
 // C++ 11 only template<class T> using Predicate = Action<T>;
+template<typename T>
+using Predicate = Action<T>;
+
+using PredicateList = std::vector<ActionBase *>;
+using ActionList = std::vector<ActionBase *>;
+
 
 
 /// This class encapsulates a state machine 'arc' between two states.
@@ -144,15 +150,16 @@ public:
     }
 
     /// Add predicates and actions for this transition arc.
-    void addPredicate(ActionBase *predicate, ActionBase *arc_action)
+    void addPredicate(std::vector<ActionBase *> &predicateList, 
+                      std::vector<ActionBase *> &arc_actionList)
     {
-        if (predicate)
+        for (auto p = predicateList.begin(); p!= predicateList.end(); ++p)
         {
-            predicates.push_back(std::shared_ptr<ActionBase>(predicate));
+            predicates.push_back(std::shared_ptr<ActionBase>(*p));
         }
-        if (arc_action)
+        for (auto a = arc_actionList.begin(); a!=arc_actionList.end(); ++a)
         {
-            arc_actions.push_back(std::shared_ptr<ActionBase>(arc_action));
+            arc_actions.push_back(std::shared_ptr<ActionBase>(*a));
         }
     }
     /// calls registered action routines on a per-transition arc basis. 
@@ -193,15 +200,19 @@ public:
     /// the contents of nxt_state is undefined.
     bool handle_event(T event, T &nxt_state)
     {
-        auto tr = transitionmap.find(event);
-        if (tr == transitionmap.end())
+        // search for the first transition which matches event
+        // and also satisfies all of its predicates
+        // NOTE: order of specification matters. This will walk
+        // the transitions in order of FSM addition.
+        auto tr = transitionmap.begin();
+        for(; tr!=transitionmap.end(); ++tr)
         {
-            // dont have any legal transitions for this event
-            std::cerr << "FSM: Event:" << event << " unrecognized -- no actions taken"
-                      << std::endl;
-            return false;
+            if (tr->first == event && tr->second.check_predicates())
+            {
+                break;
+            }
         }
-        if (tr->second.check_predicates())
+        if (tr!=transitionmap.end())
         {
             // predicates check, we are going to follow the transition.
             // call the transition arc action method if it exists
@@ -213,37 +224,28 @@ public:
 
     }
 
-    /// Query the state to check if an event is recognized.
-    bool is_event_known(T s)
+    /// Query the state to check if any transition recognizes the event.
+    bool is_event_known(T event)
     {
-        return (transitionmap.find(s) != transitionmap.end());
+        if (transitionmap.find(event) == transitionmap.end())
+        {
+            // dont have any legal transitions for this event
+            // This may not be an error!
+            // std::cerr << "FSM: Event:" << event << " unrecognized -- no actions taken"
+            //           << std::endl;
+            return false;
+        }
+        return true;
     }
 
     /// Add a state to state transition, optionally attaching an Action to be
     /// called if the event causes a state change.
-    void addTransition(T event, T next_state, ActionBase *predicate=0, ActionBase *arc_action=0)
+    void addTransition(T event, T next_state, PredicateList &predicateList, 
+                                              ActionList    &arc_actions)
     {
-        auto st = transitionmap.find(event);
-        if (st == transitionmap.end())
-        {
-            auto nt = std::pair<T, StateTransition<T>>(event, StateTransition<T>(event, next_state));
-            nt.second.addPredicate(predicate, arc_action);
-            transitionmap.insert(nt);
-            return;
-        }
-        st->second.addPredicate(predicate, arc_action);
-    }
-    /// Add a predicate callback which will be called whenever the named event is
-    /// received. The result of the predicate call must be true for the transition to proceed.
-    /// Otherwise the event is ignored, and no state change will take place.
-    void addEventPredicate(T eventname, ActionBase *action)
-    {
-        // find the transition for this event
-        auto t = transitionmap.find(eventname);
-        if (t != transitionmap.end())
-        {
-            t->second.addPredicate(action);
-        }
+        auto nt = std::make_pair(event, StateTransition<T>(event, next_state));
+        auto st = transitionmap.insert(nt);
+        st->second.addPredicate(predicateList, arc_actions);
     }
 
     /// Add a callback when the State is entered. Note that this is substantially
@@ -286,13 +288,13 @@ public:
             leaveAction->do_action();
         }
     }
-
-    const std::map<T, StateTransition<T> > & getTransitions()
+    // Mostly for debugging ...
+    const std::multimap<T, StateTransition<T> > & getTransitions()
     {
         return transitionmap;
     }
 protected:
-    std::map<T, StateTransition<T> > transitionmap;
+    std::multimap<T, StateTransition<T> > transitionmap;
     std::shared_ptr<ActionBase> enterAction, leaveAction;
     T state_name;
 };
@@ -344,7 +346,9 @@ class FiniteStateMachine
 public:
     FiniteStateMachine() : current_state(),
         prior_state(),
-        initial_state()
+        initial_state(),
+        states(),
+        sequence_event_specified(false)
     {}
     /// Cause a new empty state to be created
     void addState(T statename)
@@ -359,45 +363,46 @@ public:
                        ActionBase *predicate = 0,
                        ActionBase *arc_action = 0)
     {
-        auto s1 = states.find(from_state);
-        if (s1 == states.end())
-        {
-            // state doesn't exist, create one.
-            states[from_state] = State<T>(from_state);
-            s1 = states.find(from_state);
-        }
-        s1->second.addTransition(event_name, to_state, predicate, arc_action);
+        std::vector<ActionBase *> predList;
+        if (predicate)
+            predList.push_back(predicate);
+        std::vector<ActionBase *> arc_actions;
+        if (arc_action)
+            arc_actions.push_back(arc_action);
+        addTransition(from_state, event_name, to_state, predList, arc_actions);
     }
     /// Same as above, but with a slightly different syntax which makes the
     /// application specification a bit easier to read.
     void addTransition(T from_state,
                        T event_name,
                        T to_state,
-                       std::vector<ActionBase *> predicates,
-                       std::vector<ActionBase *> actions)
+                       std::vector<ActionBase *> &predicates,
+                       std::vector<ActionBase *> &actions)
     {
-        for (auto p = predicates.begin(); p!=predicates.end(); ++p)
+        auto s1 = states.find(from_state);
+        if (s1 == states.end())
         {
-            addTransition(from_state, event_name, to_state, *p, 0);
-        }
-        for (auto a = actions.begin(); a!=actions.end(); ++a)
-        {
-            addTransition(from_state, event_name, to_state, 0, *a);
-        }
+            // state doesn't exist, create one.
+            //auto ns = std::make_pair(from_state, State<T>(from_state));
+            //s1 = states.insert(ns);
+            states[from_state] = State<T>(from_state);
+            s1 = states.find(from_state);
+        }    
+        s1->second.addTransition(event_name, to_state, 
+                                 predicates, actions); 
     }
     /// Same as above, be making it easier to specify when only
     /// zero or one actions are specified.
     void addTransition(T from_state,
                        T event_name,
                        T to_state,
-                       std::vector<ActionBase *> predicates,
+                       std::vector<ActionBase *> &predicates,
                        ActionBase *arc_action = 0)
     {
-        for (auto p = predicates.begin(); p!=predicates.end(); ++p)
-        {
-            addTransition(from_state, event_name, to_state, *p, 0);
-        }
-        addTransition(from_state, event_name, to_state, 0, arc_action);
+        std::vector<ActionBase *> arc_actions;
+        if (arc_action)
+            arc_actions.push_back(arc_action);
+        addTransition(from_state, event_name, to_state, predicates, arc_actions);
     }
     
     /// Register a callback for when the named state is exited
@@ -444,33 +449,24 @@ public:
     /// is found, and only use the first one. (Experimental method)
     bool sequence()
     {
-        // Check all available transition predicates, and make a list of the
-        // ones which are satisfing their predicates.
-        std::vector<T> possible_event;
-        auto transitionmap = states[current_state].getTransitions();
-        for (auto t = transitionmap.begin(); t!=transitionmap.end(); ++t)
+        // Apply the 'sequence' or 'tick' event (specified elsewhere)
+        if (sequence_event_specified)
         {
-            auto result = t->second.check_predicates();
-            if (result)
-            {
-                possible_event.push_back(t->second.getEvent());
-            }
-        }
-        if (possible_event.size() > 1)
-        {
-            std::cerr << "FiniteStateMachine::sequence: more than one transition satifies its predicates"
-                      << "First one taken: event=" << possible_event[0] << std::endl;
-            std::cerr << "Other Possible events are:\n";
-            for (auto i=possible_event.begin(); i!=possible_event.end(); ++i)
-            {
-                std::cerr << *i << std::endl;
-            }
-            return handle_event(possible_event[0]);
+            return handle_event(sequence_event);
         }
         return false;
     }
+    void specify_sequence_event(T seq_event)
+    {
+        sequence_event = seq_event;
+        sequence_event_specified = true;
+    }
+    void reset_sequence_event()
+    {
+        sequence_event_specified = false;
+    }
 
-    // These methods are commonly used at runtime to process events:
+    /// These methods are commonly used at runtime to process events:
     /// send an event into the state machine. The return value indicates
     /// whether or not the event caused a state change.
     bool handle_event(T event)
@@ -587,9 +583,11 @@ public:
 
 
 protected:
-    typedef std::map<T, State<T> > Statemap;
+    typedef std::map<T, State<T> > Statemap; 
     T current_state, prior_state, initial_state;
     Statemap states;
+    T sequence_event;
+    bool sequence_event_specified;
 };
 
 };
