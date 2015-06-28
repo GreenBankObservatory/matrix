@@ -32,6 +32,8 @@
 #include "ExAccumulator.h"
 #include "ExProcessor.h"
 
+#define dbprintf if(true) printf
+
 using namespace std;
 using namespace YAML;
 
@@ -45,8 +47,10 @@ int main(int argc, char **argv)
 
     Architect::create_keymaster_server("config.yaml");
     Architect simple("control", "inproc://matrix.keymaster");
+    simple.basic_init();
+    simple.initialize();
     
-
+    dbprintf("waiting for components to standby\n");
     // wait for the keymaster events which report components in the Standby state.
     // Probably should return if any component reports and error state????
     bool result = simple.wait_all_in_state("Standby", 1000000);
@@ -55,6 +59,7 @@ int main(int argc, char **argv)
         cout << "initial standby state error" << endl;
     }
     // Setup for the default configuration
+    dbprintf("setting mode to default\n");
     simple.set_system_mode("default");
 
     // All Components now in standby. 
@@ -62,22 +67,29 @@ int main(int argc, char **argv)
     // a 'get_ready' event. The result should be the *active* components 
     // changing to the Ready state
     simple.ready();
+    dbprintf("waiting for components to ready\n");
     result = simple.wait_all_in_state("Ready", 1000000);
     if (!result)
     {
         cout << "initial standby state error" << endl;
     }
+    dbprintf("starting for components\n");
     simple.start();
+    dbprintf("waiting for components to ready\n");
     result = simple.wait_all_in_state("Running", 1000000);
     if (!result)
     {
         cout << "initial standby state error" << endl;
     }
+    dbprintf("components ready\n");
     // I don't have anything for main to do, so just loop
     // while the rest of the system operates.
     //            
     while(true) 
+    {
+        dbprintf("sleep\n");
         sleep(10);
+    }
 
     return 0;
 }
