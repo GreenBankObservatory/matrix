@@ -68,13 +68,14 @@ protected:
     void rate_changed(std::string, YAML::Node new_rate);
     void waveform_changed(std::string, YAML::Node new_waveform);
     void amplitude_changed(std::string, YAML::Node new_amplitude);
-    
+    void frequency_changed(std::string, YAML::Node new_frequency);
 protected:
     matrix::DataSource<double>     output_signal_source;    
   
     Thread<ExSignalGenerator>       poll_thread;
-    TCondition<bool>            poll_thread_started;
+    TCondition<bool>                poll_thread_started;
     double amplitude;
+    double frequency;
 
     int waveform_type;
     int rate_factor;

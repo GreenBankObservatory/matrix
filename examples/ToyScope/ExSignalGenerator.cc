@@ -56,9 +56,10 @@ ExSignalGenerator::ExSignalGenerator(string name, string km_url) :
     output_signal_source(km_url, my_instance_name,  "wavedata"),
     poll_thread(this, &ExSignalGenerator::poll),
     poll_thread_started(false),
-    amplitude(1.0),
+    amplitude(10.0),
     waveform_type(TONE),
-    rate_factor(1)
+    frequency(10.0),
+    rate_factor(100)
 {
     string looking_for;
     yaml_result yn;
@@ -69,6 +70,18 @@ ExSignalGenerator::ExSignalGenerator(string name, string km_url) :
         rate_factor = yn.node.as<int>();
         if (!rate_factor > 0)
             throw_value_error(looking_for, "rate keyword must be greater than zero");
+    }
+    else
+    {
+        KeymasterException q(looking_for + yn.err);
+        throw q;
+    }
+    looking_for = my_full_instance_name + ".amplitude";
+    if(keymaster->get(looking_for, yn))
+    {
+        amplitude = yn.node.as<double>();
+        if (!rate_factor > 0)
+            throw_value_error(looking_for, "amplitude keyword must be greater than zero");
     }
     else
     {
@@ -87,6 +100,10 @@ ExSignalGenerator::ExSignalGenerator(string name, string km_url) :
     cout << "subscribing to " << key << endl;
     keymaster->subscribe(key, new KeymasterMemberCB<ExSignalGenerator>(this,
                                   &ExSignalGenerator::amplitude_changed));                         
+    key = my_full_instance_name + ".frequency";
+    cout << "subscribing to " << key << endl;
+    keymaster->subscribe(key, new KeymasterMemberCB<ExSignalGenerator>(this,
+                                  &ExSignalGenerator::frequency_changed));
 }
 
 /// Disconnect and release resources.
@@ -103,16 +120,18 @@ void ExSignalGenerator::poll()
     double avg, sum, sample;
     int i;
     double n;
+    double s_per_c;
     n=0;
         while (1)
     {
         Time_t delay = 1000000000/static_cast<Time_t>(rate_factor);
         Time::thread_delay(delay);
+        s_per_c = rate_factor/frequency;
         switch (waveform_type)
         {
             case TONE:
-                sample = amplitude * cos(n/180.0 * M_PI);
-                n = n+5.0;
+                sample = amplitude * cos(n/s_per_c * M_PI);
+                n = n+1.0;
             break;
             case NOISE:
                 sample = amplitude * static_cast<double>(rand())/RAND_MAX;
@@ -124,8 +143,9 @@ void ExSignalGenerator::poll()
                 printf("unknown waveform?\n");
             break;
         }
-        output_signal_source.publish(sample);        
-        printf("SG: %f\n", sample);  
+        output_signal_source.publish(sample); 
+        if (ctr++%512 == 0)       
+            printf("SG: %f\n", sample);  
     }
 }
 
@@ -152,6 +172,12 @@ void ExSignalGenerator::amplitude_changed(string path, YAML::Node new_amplitude)
 {
     cout << "amplitude now" << new_amplitude << endl;
     amplitude = new_amplitude.as<double>();
+}
+
+void ExSignalGenerator::frequency_changed(string path, YAML::Node new_frequency)
+{
+    cout << "frequency now" << new_frequency << endl;
+    frequency = new_frequency.as<double>();
 }
 
 bool

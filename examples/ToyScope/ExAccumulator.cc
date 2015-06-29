@@ -93,7 +93,6 @@ void ExAccumulator::poll()
     poll_thread_started.signal(true);
     double avg, sum, sample;
     int i;
-    
     while (1)
     {
         sum = 0.0;
@@ -108,7 +107,7 @@ void ExAccumulator::poll()
         {
             fprintf(fout, "%f\n", avg);
             fflush(fout);
-            printf("AC: %f\n", avg);
+            // printf("AC: %f\n", avg);
         }
         else
         {
