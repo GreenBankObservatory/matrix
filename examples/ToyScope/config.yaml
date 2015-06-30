@@ -35,6 +35,11 @@ components:
     accumulator:
         type: Accumulator
         decimate: 1
+        Sources:
+            output_signal: C
+        Transports:
+            C:
+                Specified: [tcp]
 
 
 # Connection mapping for the various configurations. The mapping is a

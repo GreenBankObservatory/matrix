@@ -55,7 +55,6 @@ ExAccumulator::ExAccumulator(string name, string km_url) :
     Component(name, km_url),
     input_signal_sink(km_url),
     output_signal_source(km_url, my_instance_name, "output_signal"),
-    fout(0),
     poll_thread(this, &ExAccumulator::poll),
     poll_thread_started(false),
     decimate_factor(1)
@@ -104,19 +103,7 @@ void ExAccumulator::poll()
         }
         avg = sum/decimate_factor;
         output_signal_source.publish(avg);
-        
-        if (fout)
-        {
-            fprintf(fout, "%f\n", avg);
-            fflush(fout);
-            // printf("AC: %f\n", avg);
-        }
-        else
-        {
-            // printf("fifo not working\n");
-        }
-
-    }
+    }        
 }
 
 void
@@ -131,28 +118,13 @@ ExAccumulator::connect()
 {
     // find the src component and sourcename for our sink in this mode
     connect_sink(input_signal_sink, "input_data");
-
-    // for output to graphing application:
-    if ( false && fout == 0)
-    {
-        fout = fopen("/tmp/data", "w+");
-        if (!fout)
-        {
-            printf("Could not open fifo - dont expect anything to work!\n");
-            return false;
-        }
-    }
     return true;
 }
+
 bool
 ExAccumulator::disconnect()
 {
     input_signal_sink.disconnect();
-    if (fout)
-    {
-        fclose(fout);
-        fout = 0;
-    }
     return true;
 }
 

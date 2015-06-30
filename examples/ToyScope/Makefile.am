@@ -32,7 +32,7 @@ toy_scope_SOURCES = toy_scope.cc \
                     ExSignalGenerator.cc \
                     ExProcessor.cc
 toy_scope_CXXFLAGS = -I../../src
-toy_scope_LDADD = -L../../src/.libs -lmatrix -lrt -lboost_regex
+toy_scope_LDADD = -L../../src/.libs -lmatrix -lrt -lboost_regex 
 
 distclean-local:
 	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in

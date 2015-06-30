@@ -23,35 +23,45 @@
 
 
 
-#ifndef ExAccumulator_h
-#define ExAccumulator_h
+#ifndef ExFFT_h
+#define ExFFT_h
 
 #include "Time.h"
 #include "Component.h"
 #include "DataInterface.h"
 #include "DataSource.h"
 #include "DataSink.h"
+#include <fftw3.h>
 
-// An example of a really silly accumulator which down samples data
-// by a moving window average. Data is output to a source, which
-// is read by another program for display.
+/// A simple 'processor' component which has one sink input and one source
+/// output. Two types of operations can be specified: 
+/// 'none'   - data is copied as-is from input to output or 
+/// 'square' - input data is squared before output
 ///
 /// Component Specific Keywords:
-/// *  decimate - an integer controlling the number of input samples averaged per output
+/// *  operation - a string specifying the operation to perform, as noted above.
 /// Note: the above keyword may be changed while running
 ///
-/// Data Sinks (Inputs) - 'input_data', format is one double
-/// Data Sources (Outputs): 'output_signal', format is one double
-///
-class ExAccumulator : public Component
+/// Data Sinks (Inputs) :
+/// *  'input_data' - format is one type double element
+/// Data Sources (Outputs):
+/// *  'processed_data' - a copy of the input data with the specified operation
+/// applied (e.g. squaring).
+
+struct FFTIn
+{
+    double in[256][2];
+};
+
+class ExFFT : public Component
 {
 public:
   
     static Component *factory(std::string, std::string);
-    virtual ~ExAccumulator();
+    virtual ~ExFFT();
     
 protected:    
-    ExAccumulator(std::string name, std::string km_url);
+    ExFFT(std::string name, std::string km_url);
 
     /// Run-state loop 
     void poll();
@@ -62,16 +72,20 @@ protected:
     
     bool connect();
     bool disconnect();
-    void decimate_changed(std::string, YAML::Node);
+
+    void operation_changed(std::string, YAML::Node new_operation);
+    void N_changed(std::string path, YAML::Node new_op);
+    void parse_operation(std::string);
     
 protected:
-    matrix::DataSink<double,matrix::select_only>     input_signal_sink;    
+    matrix::DataSink<double, matrix::select_only>     input_signal_sink;    
     matrix::DataSource<double>     output_signal_source;
   
-    Thread<ExAccumulator>       poll_thread;
+    Thread<ExFFT>         poll_thread;
     TCondition<bool>            poll_thread_started;
-    int decimate_factor;
-     
+    int operation;
+    int N;
+    enum Operation { NONE, SQUARE }; 
     
 };
 
