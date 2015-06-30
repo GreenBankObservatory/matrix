@@ -54,6 +54,7 @@ ExAccumulator::factory(string name, string km_url)
 ExAccumulator::ExAccumulator(string name, string km_url) :
     Component(name, km_url),
     input_signal_sink(km_url),
+    output_signal_source(km_url, my_instance_name, "output_signal"),
     fout(0),
     poll_thread(this, &ExAccumulator::poll),
     poll_thread_started(false),
@@ -102,6 +103,7 @@ void ExAccumulator::poll()
             sum += sample;
         }
         avg = sum/decimate_factor;
+        output_signal_source.publish(avg);
         
         if (fout)
         {
@@ -111,7 +113,7 @@ void ExAccumulator::poll()
         }
         else
         {
-            printf("fifo not working\n");
+            // printf("fifo not working\n");
         }
 
     }
@@ -131,7 +133,7 @@ ExAccumulator::connect()
     connect_sink(input_signal_sink, "input_data");
 
     // for output to graphing application:
-    if (fout == 0)
+    if ( false && fout == 0)
     {
         fout = fopen("/tmp/data", "w+");
         if (!fout)

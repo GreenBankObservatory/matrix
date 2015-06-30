@@ -67,6 +67,7 @@ protected:
     
 protected:
     matrix::DataSink<double,matrix::select_only>     input_signal_sink;    
+    matrix::DataSource<double>     output_signal_source;
     FILE *fout; // for FIFO output
   
     Thread<ExAccumulator>       poll_thread;
