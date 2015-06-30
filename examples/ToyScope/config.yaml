@@ -5,6 +5,11 @@ Keymaster:
           - inproc://matrix.keymaster
           - tcp://*:42000
 
+
+architect:
+    control:
+        configuration: default
+
 # Components in the system
 # Each component has a name by which it is known. Some components have 0
 # or more data sources, and 0 or more data sinks. The sources are known

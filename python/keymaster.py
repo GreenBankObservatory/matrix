@@ -1,5 +1,28 @@
 ######################################################################
-# keymaster.py -- A python Matrix Keymaster client.
+#  keymaster.py - A Python Matrix Keymaster Client
+#
+#  Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#  General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+#  Correspondence concerning GBT software should be addressed as follows:
+#  GBT Operations
+#  National Radio Astronomy Observatory
+#  P. O. Box 2
+#  Green Bank, WV 24944-0002 USA
+#
 ######################################################################
 
 import yaml
@@ -17,7 +40,7 @@ def gen_random_string(rand_len = 10, chars = string.ascii_uppercase + string.asc
     """
     return ''.join(random.choice(chars) for _ in range(rand_len))
 
-class Keymaster:
+class Keymaster(object):
 
     class subscriber_task(threading.Thread):
         """Thread for subscriber services."""
@@ -65,49 +88,36 @@ class Keymaster:
 
                             if msg == self._keymaster.SUBSCRIBE:
                                 key = pipe.recv_pyobj()
-                                fcb = pipe.recv_pyobj()
+                                # fcb = pipe.recv_pyobj()
 
                                 if key == "":
                                     key = 'Root'
 
-                                if not self._keymaster.get(key):
-                                    pipe.send_pyobj(False, zmq.SNDMORE)
-                                    pipe.send_pyobj("'%s' does not exist on the Keymaster." % key)
-                                elif key in self._callbacks:
-                                    # there is already a callback, fail.
-                                    pipe.send_pyobj(False, zmq.SNDMORE)
-                                    pipe.send_pyobj("'%s' is already registered for a callback." % key)
-                                else:
-                                    # Key exists on Keymaster, and no
-                                    # callback, so register one. First, test the function
-                                    try:
-                                        x = inspect.getargspec(fcb)
-
-                                        # Should be a function that takes two parameters.
-                                        if len(x.args) == 2:
-                                            self._callbacks[key] = fcb
-                                            sub_sock.setsockopt(zmq.SUBSCRIBE, key)
-                                            pipe.send_pyobj(True, zmq.SNDMORE)
-                                            pipe.send_pyobj(key)
-                                        else:
-                                            pipe.send_pyobj(False, zmq.SNDMORE)
-d                                            pipe.send_pyobj('Callback function must take 2 arguments')
-                                    except TypeError:
-                                        # not a function at all!
-                                        pipe.send_pyobj(False, zmq.SNDMORE)
-                                        pipe.send_pyobj('Callback object is not a function!')
+                                sub_sock.setsockopt(zmq.SUBSCRIBE, key)
+                                pipe.send_pyobj(True, zmq.SNDMORE)
+                                pipe.send_pyobj(key)
 
                             elif msg == self._keymaster.UNSUBSCRIBE:
                                 key = pipe.recv_pyobj()
-                                sub_sock.setsockopt(zmq.UNSUBSCRIBE, key)
 
                                 if key in self._callbacks:
+                                    sub_sock.setsockopt(zmq.UNSUBSCRIBE, key)
                                     self._callbacks.pop(key)
                                     pipe.send_pyobj(True, zmq.SNDMORE)
                                     pipe.send_pyobj("'%s' unsubscribed." % key)
                                 else:
                                     pipe.send_pyobj(False, zmq.SNDMORE)
                                     pipe.send_pyobj("'%s': No such key is subscribed." % key)
+
+                            elif msg == self._keymaster.UNSUBSCRIBE_ALL:
+                                keys_cleared = self._callbacks.keys()
+
+                                for key in self._callbacks:
+                                    sub_sock.setsockopt(zmq.UNSUBSCRIBE, key)
+
+                                self._callbacks.clear()
+                                pipe.send_pyobj(True, zmq.SNDMORE)
+                                pipe.send_pyobj('Keys cleared: %s' % ', '.join(keys_cleared))
 
                             elif msg == self._keymaster.QUIT:
                                 pipe.send_pyobj(True)
@@ -122,7 +132,7 @@ d                                            pipe.send_pyobj('Callback function 
 
                             if len(msg) > 1:
                                 if key in self._callbacks:
-                                    n = msg[1]
+                                    n = yaml.load(msg[1])
                                     mci = self._callbacks[key]
                                     mci(key, n)
                 pipe.close()
@@ -139,8 +149,9 @@ d                                            pipe.send_pyobj('Callback function 
     def __init__(self, url, ctx = None):
         self.SUBSCRIBE = 10
         self.UNSUBSCRIBE = 11
-        self.QUIT = 12
-        self.PING = 13
+        self.UNSUBSCRIBE_ALL = 12
+        self.QUIT = 13
+        self.PING = 14
         self._km_url = url
         self._km = None
         self._sub_task = None
@@ -154,6 +165,13 @@ d                                            pipe.send_pyobj('Callback function 
         if self._km:
             self._km.close()
 
+        self._kill_subscriber_thread()
+
+    def _kill_subscriber_thread(self):
+        """Terminates the subscriber thread by sending it the 'QUIT' message,
+        closing the control pipe, and joining on the thread.
+
+        """
         if self._sub_task:
             pipe = self._ctx.socket(zmq.REQ)
             pipe.connect(self._sub_task.pipe_url)
@@ -162,6 +180,7 @@ d                                            pipe.send_pyobj('Callback function 
             pipe.close()
             self._sub_task.join()
             del self._sub_task
+            self._sub_task = None
 
     def _keymaster_socket(self):
         """returns the keymaster socket, creating one if needed."""
@@ -212,6 +231,19 @@ d                                            pipe.send_pyobj('Callback function 
         subscribed.
 
         """
+        # check to see if key exists
+        if not self.get(key):
+            return (False, "'%s' does not exist on the Keymaster." % key)
+
+        try:
+            x = inspect.getargspec(cb_fun)
+
+            # Should be a function that takes two parameters.
+            if len(x.args) != 2:
+                return (False, 'Callback function must take 2 arguments')
+        except TypeError:
+            # not a function at all!
+            return (False, 'Callback object is not a function!')
 
         # start the subscriber task if not already running
         if not self._sub_task:
@@ -219,11 +251,17 @@ d                                            pipe.send_pyobj('Callback function 
             self._sub_task.start()
             sleep(1) # give it time to start
 
+        # there is already a callback, fail.
+        if key in self._sub_task._callbacks:
+            return (False, "'%s' is already registered for a callback." % key)
+
+        # everything is good, set up the callback
+        self._sub_task._callbacks[key] = cb_fun
         pipe = self._ctx.socket(zmq.REQ)
         pipe.connect(self._sub_task.pipe_url)
         pipe.send_pyobj(self.SUBSCRIBE, zmq.SNDMORE)
-        pipe.send_pyobj(key, zmq.SNDMORE)
-        pipe.send_pyobj(cb_fun)
+        pipe.send_pyobj(key)
+
         rval = pipe.recv_pyobj()
         msg = pipe.recv_pyobj()
         return (rval, msg)
@@ -250,6 +288,22 @@ d                                            pipe.send_pyobj('Callback function 
             return (rval, msg)
         return (False, 'No subscriber thread running!')
 
+
+    def unsubscribe_all(self):
+        """Causes all callbacks to be unsubscribed, and terminates the
+           subscriber thread. Next call to 'subscribe' will restart
+           it.
+
+        """
+        if self._sub_task:
+            pipe = self._ctx.socket(zmq.REQ)
+            pipe.connect(self._sub_task.pipe_url)
+            pipe.send_pyobj(self.UNSUBSCRIBE_ALL)
+            rval = pipe.recv_pyobj()
+            msg = pipe.recv_pyobj()
+            self._kill_subscriber_thread()
+            return (rval, msg)
+        return (False, 'No subscriber thread running!')
 
 def my_callback(key, val):
     print key
