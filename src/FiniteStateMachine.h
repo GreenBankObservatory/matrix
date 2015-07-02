@@ -31,6 +31,7 @@
 #include<memory>
 #include<string>
 #include<algorithm>
+#include<functional>
 
 ///
 /// Documentation for the FiniteStateMachine. This provides a simple yet extensible
@@ -53,9 +54,15 @@ class ActionBase
 /// For user-defined Actions, the return value is ignored.
 ///
 public:
+    using PredicateOperator = std::function<bool(bool, bool)>;
     virtual bool do_action()
     {
+        std::cout << "ActionBase::do_action() called" << std::endl; 
         return false;
+    }
+    virtual PredicateOperator bin_operator()
+    {
+        return 0;
     }
 };
 
@@ -83,13 +90,13 @@ public:
 
     Action(T *obj, ActionMethod cb) :
         _object(obj),
-        _faction(cb)
+        _faction(cb)       
     {
     }
     ///
     /// Invoke a call to the user provided callback
     ///
-    bool do_action()
+    bool do_action() override
     {
         if (_object && _faction)
         {
@@ -102,12 +109,49 @@ public:
     }
 };
 
-// C++ 11 only template<class T> using Predicate = Action<T>;
-template<typename T>
-using Predicate = Action<T>;
+template <typename T>
+class Predicate : public ActionBase
+{
+public:
+    typedef bool (T::*PredicateMethod)(void);
+
+    T  *_object;
+    PredicateMethod _predicate;
+    PredicateOperator _operation; 
+
+    /// Expression/predicate evaluating whether a transition should
+    /// proceed or not. The default for a list of predicates is to
+    /// 'and' each one. The first Predicate in the list will get
+    /// a 
+    Predicate(T *obj, PredicateMethod cb, 
+              PredicateOperator op=std::logical_and<bool>() ) :
+        _object(obj),
+        _predicate(cb),
+        _operation(op)
+    {
+    }
+    ///
+    /// Invoke a call to the user provided callback
+    ///
+    bool do_action() override
+    {
+        if (_object && _predicate)
+        {
+            return (_object->*_predicate)();
+        }
+        else
+        {
+            return false;
+        }
+    }
+    PredicateOperator bin_operator() override
+    {
+        return _operation;
+    }
+};
 
 using PredicateList = std::vector<ActionBase *>;
-using ActionList = std::vector<ActionBase *>;
+using ActionList    = std::vector<ActionBase *>;
 
 
 
@@ -139,19 +183,31 @@ public:
         return event_name;
     }
     /// Verify predicates are satisfied in preparation for a state transition.
+    /// Each Predicate also stores a logical binary operation, which specifies
+    /// how the result of the predicate should be combined with the prior result.
+    /// Note that the first Predicate has no prior result, so its operation is
+    /// ignored.
     bool check_predicates()
     {
         bool result = true;
-        for (auto p = predicates.begin(); result && p!=predicates.end(); ++p)
+        for (auto p = predicates.begin(); p!=predicates.end(); ++p)
         {
-            result = (*p)->do_action() && result;
+            // the first predicate has no prior result, so the operation is ignored
+            if (p == predicates.begin())
+            {
+                result = (*p)->do_action();
+            }
+            else if ((*p)->bin_operator())
+            {
+                result = (*p)->bin_operator()(result, (*p)->do_action());
+            }
         }
         return result;
     }
 
     /// Add predicates and actions for this transition arc.
-    void addPredicate(std::vector<ActionBase *> &predicateList, 
-                      std::vector<ActionBase *> &arc_actionList)
+    void addPredicate(PredicateList &predicateList, 
+                      ActionList    &arc_actionList)
     {
         for (auto p = predicateList.begin(); p!= predicateList.end(); ++p)
         {
