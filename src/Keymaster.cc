@@ -947,6 +947,14 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
         _r = yr;
         return yr;
     }
+    catch (YAML::Exception e)
+    {
+        msg << e.what();
+        yr.err = msg.str();
+        yr.result = false;
+        _r = yr;
+        return yr;
+    }
     catch (MatrixException e)
     {
         _handle_keymaster_server_exception();

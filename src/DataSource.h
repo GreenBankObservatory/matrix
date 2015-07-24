@@ -30,9 +30,113 @@
 #define _DATA_SOURCE_H_
 
 #include "Keymaster.h"
+#include "DataInterface.h"
+
+#include <vector>
 
 namespace matrix
 {
+
+/**
+ * \class GenericBuffer
+ *
+ * This provides a buffer class for which a specialization of DataSink
+ * exists to send _not the class itself_ but only the contents of
+ * buffer attached to it over the line. This allows a
+ * DataSource<GenericBuffer> to be dynamically configured to be the
+ * data source for any sink, provided the buffer is set to the right
+ * size and is structured appropriately. A (contrived) example:
+ *
+ *      struct foo
+ *      {
+ *          int a;
+ *          int b;
+ *          double c;
+ *          int d;
+ *      };
+ *
+ *      DataSource<GenericBuffer> src;
+ *      DataSink<foo> sink;
+ *      GenericBuffer buf;
+ *      buf.resize(sizeof(foo));
+ *      foo *fp = (foo *)buf.data();
+ *      fp->a = 0x1234;
+ *      fp->b = 0x2345;
+ *      fp->c = 3.14159;
+ *      fp->d = 0x3456;
+ *      src.publish(buf);
+ *
+ *      // if 'sink' is connected to 'src', then:
+ *      foo msg;
+ *      sink.get(msg);
+ *      cout << hex << msg.a
+ *           << ", " << msg.b
+ *           << ", " << dec << msg.c
+ *           << ", " << hex << msg.d << endl;
+ *      // output is "1234, 2345, 3.14159, 3456"
+ *
+ * So why do this? Why not just use a DataSource<foo> to begin with?
+ * The answer to this is that now we can _dynamically_ create a data
+ * source that will satisfy any DataSink. Now it satisfies
+ * DataSink<foo>, but later in the life of the program the same
+ * DataSource can publish data that will satisfy a DataSink<bar> for a
+ * struct bar. Such a DataSource would allow a hypothetical component
+ * to dynamically at run-time read a description of 'bar' somewhere
+ * (from the Keymaster, for example), resize the GenericBuffer 'buf',
+ * load it according to the description, and publish a 'bar'
+ * compatible payload. This can be very useful during program
+ * development, where a component is being developed and tested but
+ * an upstream component is not yet available. A generic test
+ * component as described above may be used in its place.
+ *
+ */
+
+    class GenericBuffer
+    {
+    public:
+        GenericBuffer()
+        {
+        }
+
+        GenericBuffer(const GenericBuffer &gb)
+        {
+            _copy(gb);
+        }
+
+        void resize(size_t size)
+        {
+            _buffer.resize(size);
+        }
+
+        size_t size() const
+        {
+            return _buffer.size();
+        }
+
+        unsigned char *data()
+        {
+            return _buffer.data();
+        }
+
+        const GenericBuffer &operator=(const GenericBuffer &rhs)
+        {
+            _copy(rhs);
+            return *this;
+        }
+
+    private:
+        void _copy(const GenericBuffer &gb)
+        {
+            if (_buffer.size() != gb._buffer.size())
+            {
+                _buffer.resize(gb._buffer.size());
+            }
+
+            memcpy((void *)_buffer.data(), (void *)gb._buffer.data(), _buffer.size());
+        }
+
+        std::vector<unsigned char> _buffer;
+    };
 
 /**
  * \class DataSource
@@ -129,7 +233,7 @@ namespace matrix
         _ts.reset();
         TransportServer::release_transport(_component_name, _transport_name);
     }
-    
+
 /**
  * Puts a value of type 'T' to the data source. 'T' must be a
  * contiguous type: a POD, or struct of PODS, or an array of such.
@@ -160,6 +264,23 @@ namespace matrix
     {
         return _ts->publish(_key, val);
     }
+
+/**
+ * Specialization for matrix::GenericBuffer version.
+ *
+ * @param val: A matrix::GenericBuffer acting as a buffer, whose
+ * internal buffer contains the bytes to be published.
+ *
+ * @return true if the put succeeds, false otherwise.
+ *
+ */
+
+    template <>
+    inline bool DataSource<matrix::GenericBuffer>::publish(matrix::GenericBuffer &val)
+    {
+        return _ts->publish(_key, val.data(), val.size());
+    }
+
 }
 
 #endif

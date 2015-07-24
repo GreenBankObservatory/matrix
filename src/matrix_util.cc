@@ -29,6 +29,7 @@
 #include <set>
 #include <string>
 #include <algorithm>
+#include <sys/time.h>
 
 using namespace std;
 
@@ -49,7 +50,7 @@ namespace mxutils
  */
 
 
-    bool is_numeric_p(char c)
+    bool is_non_numeric_p(char c)
     {
         static char cs[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                             'A', 'B', 'C', 'D', 'E', 'F',
@@ -72,7 +73,191 @@ namespace mxutils
     string strip_non_numeric(const string &s)
     {
         string stripped = s;
-        stripped.erase(remove_if(stripped.begin(), stripped.end(), is_numeric_p), stripped.end());
+        remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
         return stripped;
+    }
+
+/**
+ * This utility will call nanosleep with the proper fields. It will
+ * resume sleeping after being interrupted by a signal.
+ *
+ * Note: Don't use this if you want your nanosleep to be interrupted
+ * by a signal!
+ *
+ * @param seconds: int, number of seconds to sleep
+ *
+ * @param nanoseconds: int, number of nanoseconds to sleep.
+ *
+ */
+
+    void do_nanosleep(int seconds, int nanoseconds)
+
+    {
+        timespec req, rem;
+        req.tv_sec = (time_t)seconds;
+        req.tv_nsec = (long)nanoseconds;
+
+        // nanosleep could be interupted by signal.
+        while (nanosleep(&req, &rem) == -1)
+        {
+            req.tv_sec = rem.tv_sec;
+            req.tv_nsec = rem.tv_nsec;
+        }
+    }
+
+/**
+ * operator < for struct timeval. Easily compare if one timeval is
+ * less than another.
+ *
+ * example:
+ *
+ *      timeval a, b;
+ *      ...
+ *      gettimeofday(&b, NULL);
+ *
+ *      if (b < a)
+ *      {
+ *       ...
+ *      }
+ * @param lhs: the left-hand side operand
+ *
+ * @param rhs: the righ-hand side operand
+ *
+ * @return a boolean value, true if lhs is < rhs.
+ *
+ */
+
+    bool operator<(timeval &lhs, timeval &rhs)
+    {
+        if (lhs.tv_sec < rhs.tv_sec)
+        {
+            return true;
+        }
+        else if (lhs.tv_sec == rhs.tv_sec)
+        {
+            return lhs.tv_usec < rhs.tv_usec;
+        }
+
+        return false;
+    }
+
+/**
+ * operator+() adds two timevals together, returning a third, which
+ * will correctly hold the sum of the two operands.
+ *
+ * @param lhs, holding the left-hand operand (in infix notation).
+ *
+ * @param rhs, holding the right-hand operand.
+ *
+ * @return a timeval with the correct time sum.
+ *
+ */
+
+    timeval operator+(timeval lhs, timeval rhs)
+    {
+        timeval t = {0, 0};
+
+        t.tv_usec = lhs.tv_usec + rhs.tv_usec;
+
+        while (t.tv_usec > 999999)
+        {
+            t.tv_sec++;
+            t.tv_usec -= 1000000;
+        }
+
+        t.tv_sec += lhs.tv_sec + rhs.tv_sec;
+        return t;
+    }
+
+/**
+ * operator+() for a timeval and a double. Adds a floating point
+ * representation of a number of seconds together with a time
+ * represented by a timeval, returning the sum as a timeval.
+ *
+ * example:
+ *
+ *      timeval now, sum;
+ *      gettimeofday(&now, NULL);
+ *      sum = now + 1.2; // adds 1.2 seconds to the value of 'now'
+ *                       // placing the result in 'sum'
+ *
+ * @param lhs: the left-hand side operand, as a timeval value
+ *
+ * @param rhs: the right-hand side operand, in seconds
+ *
+ * @return a timeval, the sum of the two values.
+ *
+ */
+
+    timeval operator+(timeval lhs, double rhs)
+    {
+        double x, ipart;
+        timeval t;
+
+        x = modf(rhs, &ipart);
+        t.tv_usec = (int64_t)(x * 1e6);
+        t.tv_sec = ipart;
+    
+        return lhs + t;
+    }
+
+/**
+ * operator-() for two timevals. Will compute the difference of two
+ * timevals, returning a timeval == {0, 0} if the operation would
+ * result in a negative timeval.
+ *
+ * @param lhs: the left-hand operand
+ *
+ * @param rhs: the right-hand operand
+ *
+ * @return the difference between the two timevals, or a timeval ==
+ * {0, 0} if the difference would be negative (i.e. rhs > lhs).
+ *
+ */
+
+    timeval operator-(timeval lhs, timeval rhs)
+    {
+        timeval t = { 0, 0 };
+
+        if (rhs < lhs)
+        {
+
+            if (lhs.tv_usec < rhs.tv_usec)
+            {
+                lhs.tv_sec--;
+                lhs.tv_usec += 1000000;
+            }
+
+            t.tv_usec = lhs.tv_usec - rhs.tv_usec;
+            t.tv_sec = lhs.tv_sec - rhs.tv_sec;
+        }
+    
+        return t;
+    }
+
+/**
+ * operator<< extractor for timeval.
+ *
+ * example:
+ *
+ *      timeval t = {100, 500000};
+ *
+ *      cout << t << endl;
+ *
+ *  output:
+ *       { tv_sec: 100, tv_usec 500000 }
+ *
+ * @param t: the timeval to output
+ *
+ * @return an ostream reference (for chaining)
+ *
+ */
+
+    ostream & operator<<(ostream &os, const timeval &t)
+    {
+        os << "{ tv_sec: " << t.tv_sec
+           << ", tv_usec: " << t.tv_usec
+           << " }";
+        return os;
     }
 }

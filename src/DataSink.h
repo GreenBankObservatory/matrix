@@ -30,6 +30,8 @@
 
 #include "tsemfifo.h"
 
+#include <sstream>
+
 /**
  * \class DataSink is the client data interface, and abstracts the
  * data from the transport mechanism.
@@ -281,10 +283,13 @@ namespace matrix
     {
         if (sizeof(T) != sze)
         {
-            throw MatrixException("DataSink::_data_handler()", "size mismatch error.");
+            std::ostringstream msg;
+            msg << "size mismatch error. sizeof(T) == " << sizeof(T)
+                << " and given data buffer size is " << sze;
+            throw MatrixException("DataSink::_data_handler()", msg.str());
         }
 
-        ringbuf.try_put(*(T *)data);
+        ringbuf.put(*(T *)data);
     }
 
     template <>

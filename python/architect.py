@@ -56,6 +56,7 @@ class Architect(object):
     def __del__(self):
         self._keymaster.unsubscribe('components')
         self._keymaster.unsubscribe('architect')
+        del(self._keymaster)
 
     def check_all_in_state(self, state):
         """check that all component states are in the state specified.
@@ -63,7 +64,7 @@ class Architect(object):
         *state*: The state to check.
 
         """
-        comps = self._components
+        comps = self._keymaster.get('components')
         states = [comps[i]['state'] for i in comps if comps[i]['active']]
         return all(x == state for x in states)
 
@@ -155,6 +156,7 @@ class Architect(object):
         """
         Returns the current Architect state.
         """
+        self._architect = self._keymaster.get('architect')
         return self._architect['control']['state']
 
 

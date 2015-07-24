@@ -34,8 +34,10 @@
 #include <algorithm>
 #include <iterator>
 #include <vector>
-
+#include <ostream>
 #include <boost/algorithm/string.hpp>
+
+struct timeval;
 
 class MatrixException : public std::runtime_error
 {
@@ -67,6 +69,15 @@ private:
 
 namespace mxutils
 {
+    bool is_non_numeric_p(char c);
+    std::string strip_non_numeric(const std::string &s);
+    void do_nanosleep(int seconds, int nanoseconds);
+    bool operator<(timeval &lhs, timeval &rhs);
+    timeval operator+(timeval lhs, timeval rhs);
+    timeval operator+(timeval lhs, double rhs);
+    timeval operator-(timeval lhs, timeval rhs);
+    std::ostream & operator<<(std::ostream &os, const timeval &t);
+    
 /**
  * \class fn_string_join is a simple functor that provides a handy way to
  * join strings from a container of strings, using the delimiter
@@ -118,7 +129,7 @@ namespace mxutils
         std::string _subs;
     };
 
-    bool is_numeric_p(char c);
+    bool is_non_numeric_p(char c);
     std::string strip_non_numeric(const std::string &s);
 
 /**
@@ -175,6 +186,28 @@ namespace mxutils
     {
         return (unsigned int)stoul(strip_non_numeric(s));
     }
+
+    template <> inline long convert<long>(const std::string &s)
+    {
+        return (long)stol(strip_non_numeric(s));
+    }
+
+    template <> inline unsigned long convert<unsigned long>(const std::string &s)
+    {
+        return stoul(strip_non_numeric(s));
+    }
+
+    template <> inline bool convert<bool>(const std::string &s)
+    {
+        bool v = false;
+
+        if (s == "True" or s == "true")
+        {
+            v = true;
+        }
+        
+        return v;
+    }       
 
     template <> inline double convert<double>(const std::string &s)
     {

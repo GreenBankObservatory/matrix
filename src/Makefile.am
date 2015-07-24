@@ -42,6 +42,7 @@ headers_HEADERS = \
     RTDataInterface.h \
     Semaphore.h \
     TCondition.h \
+    TestDataGenerator.h \
     Thread.h \
     ThreadLock.h \
     Time.h \
@@ -61,6 +62,7 @@ libmatrix_la_SOURCES = \
     Mutex.cc  \
     RTDataInterface.cc \
     Semaphore.cc \
+    TestDataGenerator.cc \
     Thread.cc \
     Time.cc \
     ZMQContext.cc \
