@@ -165,7 +165,6 @@ namespace matrix
         timeval t, now;
         string name;
         ThreadLock<Mutex> l(_data_mutex);
-        unsigned long iteration(0), old_iteration(0);
         string iter_key = my_full_instance_name + ".poll_iterations";
 
         for (test_data_t::iterator i = test_data.begin(); i != test_data.end(); ++i)
@@ -175,7 +174,6 @@ namespace matrix
                                      this, &TestDataGenerator::data_configuration_changed));
         }
 
-        keymaster->put(iter_key, iteration, true);
         gettimeofday(&now, NULL);
 
         for (data_specs_t::iterator i = data_specs.begin(); i != data_specs.end(); ++i)
@@ -212,14 +210,6 @@ namespace matrix
 
                 gettimeofday(&now, NULL);
                 sleepytime[name] = now + data_specs[name].interval;
-            }
-
-            ++iteration;
-
-            if ((iteration - old_iteration) >= 10)
-            {
-                keymaster->put(iter_key, iteration);
-                old_iteration = iteration;
             }
         }
 

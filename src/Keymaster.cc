@@ -111,6 +111,24 @@ struct KeymasterServer::KmImpl
 
     struct data_package
     {
+        data_package()
+        {
+            node.reset();
+        }
+        
+        ~data_package()
+        {
+            node.reset();
+        }
+        
+       data_package &operator=(data_package &rhs)
+        {
+            key = rhs.key;
+            node.reset();
+            node = rhs.node;
+            return *this;
+        }
+        
         std::string key;
         YAML::Node node;
     };
@@ -118,7 +136,7 @@ struct KeymasterServer::KmImpl
     void server_task();
     void state_manager_task();
     bool load_config_file(string filename);
-    bool publish(std::string key);
+    bool publish(std::string key, bool block = false);
     void run();
     void terminate();
 
@@ -638,6 +656,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                         YAML::Node n = YAML::Load(yaml_string);
                         r = put_yaml_node(_root_node, keychain, n, create);
                         rval << r;
+                        n.reset();
                         z_send(state_sock, rval.str(), 0);
 
                         if (r.result)
@@ -666,7 +685,7 @@ void KeymasterServer::KmImpl::state_manager_task()
 
                         if (r.result)
                         {
-                            publish(keychain);
+                            publish(keychain, true);
                         }
                     }
                     else
@@ -711,22 +730,26 @@ void KeymasterServer::KmImpl::state_manager_task()
  *
  */
 
-bool KeymasterServer::KmImpl::publish(std::string key)
+bool KeymasterServer::KmImpl::publish(std::string key, bool block)
 {
     data_package dp;
 
     dp.key = key;
     // Clone the root YAML::Node. The publisher will be running in a
     // different thread, so do this to avoid locks & ensure only the
-    // state thread actually accesses _root_node.
+    // state thread actually accesses _root_node. Further, if the
+    // queue backs up, ensures each element retains the state it had
+    // when placed in the queue, given yaml-cpp's unconventional
+    // assignemnt semantics.
     dp.node = YAML::Clone(_root_node);
 
-    if (!_data_queue.try_put(dp))
+    if (block)
     {
-        return false;
+        _data_queue.put(dp);
+        return true;
     }
-
-    return true;
+    
+    return _data_queue.try_put(dp);
 }
 
 /**

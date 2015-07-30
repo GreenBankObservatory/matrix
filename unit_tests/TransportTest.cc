@@ -33,6 +33,7 @@
 
 #include "Keymaster.h"
 #include "yaml_util.h"
+#include "matrix_util.h"
 #include "TransportTest.h"
 #include "TCondition.h"
 #include "DataInterface.h"
@@ -56,36 +57,6 @@ static std::string yaml_configuration =
     "        Specified: [rtinproc]\n"\
     "    Sources:\n"\
     "      lines: A\n";
-
-
-/********************************************************************
- * do_nanosleep(int seconds, int nanoseconds)
- *
- * A little helper function to do nanosleep correctly and
- * conveniently. Sets up the timespec structures, and nanosleeps,
- * trapping for interrupt signals. On interrupt, resumes sleep with
- * remaining time.
- *
- * @param int seconds: Integral seconds to sleep.
- *
- * @param int nanoseconds: The nanosecond component of sleep time.
- *
- *******************************************************************/
-
-void do_nanosleep(int seconds, int nanoseconds)
-
-{
-    timespec req, rem;
-    req.tv_sec = (time_t)seconds;
-    req.tv_nsec = (long)nanoseconds;
-
-    // nanosleep could be interupted by signal.
-    while (nanosleep(&req, &rem) == -1)
-    {
-        req.tv_sec = rem.tv_sec;
-        req.tv_nsec = rem.tv_nsec;
-    }
-}
 
 
 void TransportTest::setUp()

@@ -86,6 +86,7 @@ namespace mxutils
     {
         YAML::Node n = yr.to_yaml_node();
         os << endl << n << endl;
+        n.reset();
         return os;
     }
 
