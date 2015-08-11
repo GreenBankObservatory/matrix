@@ -105,13 +105,20 @@ template <typename T> class TCondition : public Mutex
     /// or false if a timeout or error occured.
     bool wait(T const &s, int usecs);
     
-    /// wait with a timeout for the value to be equal to s.
+    /// wait without a timeout for the value to be equal to s.
     /// Upon returning, the internal mutex is locked, and
     /// the method unlock() must be used to unlock it.
     /// Return value is true if the timeout was not reached,
     /// or false otherwise.
     void wait_with_lock(T const &s);
     
+    /// wait with a timeout for the value to be equal to s.
+    /// Upon returning, the internal mutex is locked, and
+    /// the method unlock() must be used to unlock it.
+    /// Return value is true if the timeout was not reached,
+    /// or false otherwise.
+    bool wait_with_lock(T const &s, int usecs);
+
     /// Waits without checking the internal value. Upon returning
     /// the internal mutex is locked, and must be unlocked by calling
     /// the unlock() method. Return value is true if no timeout occured,
@@ -299,28 +306,7 @@ template <typename T> void TCondition<T>::broadcast(T const &s)
 template <typename T> bool TCondition<T>::wait(T const &s, int usecs)
 
 {
-    timespec to;
-    int status;
-    bool rval = true;
-    
-    Time::Time_t time_to_return;
-    
-    time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
-    Time::time2timespec(time_to_return, to);
-
-    lock();
-
-    while (_value != s)
-    {
-        status = pthread_cond_timedwait(&_cond, &mutex, &to);
-
-        if (status == ETIMEDOUT)
-        {
-            rval = false;
-            break;
-        }
-    }
-
+    bool rval = wait_with_lock(s, usecs);
     unlock();
     return rval;
 
@@ -364,6 +350,48 @@ template <typename T> void TCondition<T>::wait_with_lock(T const &s)
         pthread_cond_wait(&_cond, &mutex);
     }
     // Do not unlock!
+}
+
+/****************************************************************//**
+ * Waits for a corresponding signal or broadcast, then returns without
+ * unlocking.
+ *
+ * @param s: The condition value we are waiting for.
+ * @param usecs: The timeout in microseconds.
+ *
+ * @return true if wait succeeded for the particular value.  false if it
+ *         timed out.
+ *
+ *******************************************************************/
+
+template <typename T> bool TCondition<T>::wait_with_lock(T const &s, int usecs)
+
+{
+    timespec to;
+    int status;
+    bool rval = true;
+    
+    Time::Time_t time_to_return;
+    
+    time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
+    Time::time2timespec(time_to_return, to);
+
+    lock();
+
+    while (_value != s)
+    {
+        status = pthread_cond_timedwait(&_cond, &mutex, &to);
+
+        if (status == ETIMEDOUT)
+        {
+            rval = false;
+            break;
+        }
+    }
+
+    // Do not unlock!
+    return rval;
+
 }
 
 // Wait with a timeout, but ignore the internal value.

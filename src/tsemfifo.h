@@ -39,6 +39,15 @@
 #include "ThreadLock.h"
 #include "Time.h"
 
+struct fifo_notifier
+{
+    void operator()(int n) {_call(n);}
+    void exec(int n)       {_call(n);}
+private:
+    virtual void _call(int) {}
+
+};
+
 /**
  * \class tsemfifo
  *
@@ -121,6 +130,7 @@ template <typename T> class tsemfifo
     unsigned int size();
     unsigned int capacity();
     void resize(size_t size = FIFO_SIZE);
+    void set_notifier(std::shared_ptr<fifo_notifier>);
 
   private:
 
@@ -142,7 +152,7 @@ template <typename T> class tsemfifo
     sem_t _empty_sem;
     TCondition<bool> _release;
     TCondition<bool> _empty;
-
+    std::shared_ptr<fifo_notifier> _notifier;
     Mutex _critical_section;
 };
 
@@ -192,7 +202,8 @@ template <class T> tsemfifo<T>::tsemfifo(size_t size)
     : _buffer(size),
       _buf_len(size),
       _release(false),
-      _empty(true)
+      _empty(true),
+      _notifier(new fifo_notifier)
 
 {
     ThreadLock<Mutex> l(_critical_section);
@@ -318,6 +329,7 @@ template <class T> void tsemfifo<T>::_put(T &obj)
     }
 
     ++_objects;
+    _notifier->exec(_objects);
     l.unlock();
 
     if (sem_post(&_full_sem) == -1)
@@ -421,9 +433,9 @@ template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
 
 {
     timespec ts;
-    
+
     Time::time2timespec(Time::getUTC() + time_out, ts);
-    
+
     if (sem_timedwait(&_empty_sem, &ts) == -1)
     {
         Exception e;
@@ -576,7 +588,7 @@ template <class T> bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
     timespec ts;
 
     Time::time2timespec(Time::getUTC() + time_out, ts);
-    
+
     if (sem_timedwait(&_full_sem, &ts) == -1)
     {
         Exception e;
@@ -648,6 +660,23 @@ template <class T> unsigned int tsemfifo<T>::capacity()
   o = _buf_len;
   return o;
 
+}
+
+/**
+ * Allows another party to insert a snipped of code to execute when
+ * the `tsemfifo::_put()` is called. The code is a functor of base
+ * type 'notifier', which receives the number of items in the queue
+ * after the successful `_put()`.
+ *
+ * @param n: A `std::shared_ptr` pointing to a `fifo_notifier` derived functor.
+ *
+ */
+
+template <class T> void tsemfifo<T>::set_notifier(std::shared_ptr<fifo_notifier> n)
+{
+    ThreadLock<Mutex> l(_critical_section);
+    l.lock();
+    _notifier = n;
 }
 
 #endif  // _TSEMFIFO_H_

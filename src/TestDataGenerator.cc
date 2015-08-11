@@ -318,6 +318,11 @@ namespace matrix
     {
         size_t storage_size(8), remaining(8), offset(0);
 
+        if (fields.size() == 1) // special case, just one field
+        {
+            return type_info[fields.front().type];
+        }
+
         for (list<data_field>::iterator i = fields.begin(); i != fields.end(); ++i)
         {
             size_t s(type_info[i->type]);

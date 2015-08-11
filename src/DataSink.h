@@ -215,6 +215,175 @@ namespace matrix
     };
 
 /**
+ * \class DataSinkBase
+ *
+ * Base class for the DataSink types. Needed for poller class. Since
+ * every DataSink<T> is potentially a different type (depending on T),
+ * the poller needs some way to manipulate them. It only needs the
+ * items() and set_notifier() interface to do so.
+ *
+ */
+
+    class DataSinkBase
+    {
+    public:
+        DataSinkBase() {}
+        virtual ~DataSinkBase() {}
+
+        virtual size_t items() = 0;
+        virtual void set_notifier(std::shared_ptr<fifo_notifier> n) = 0;
+    };
+
+/**
+ * \class poller
+ *
+ * Allows a thread to be notified when any or all of given DataSinks
+ * is/are ready to be read.
+ *
+ * example:
+ *
+ *      DataSink<int> x(...);
+ *      DataSink<double> y(...);
+ *      poller p;
+ *      int x_in;
+ *      double y_in;
+ *
+ *      ...
+ *      p.push_back(&x);
+ *      p.push_back(&y);
+ *
+ *      while (run)
+ *      {
+ *          // returns true if any of the DataSinks are ready to read,
+ *          // false if the time-out (in us) expired. Time-out here is
+ *          // 5 mS. (there is also an all_of() function)
+ *
+ *          if (p.any_of(5000))
+ *          {
+ *              if (x.items())
+ *              {
+ *                  x.try_get(x_in);
+ *                  // do something with x_in
+ *              }
+ *
+ *              if (y.items())
+ *              {
+ *                  y.try_get(y_in);
+ *                  // do something with y_in
+ *              }
+ *          }
+ *      }
+ *
+ */
+
+    class poller
+    {
+        struct notifier : public fifo_notifier
+        {
+            notifier(TCondition<bool> &n)
+                : item_placed(n)
+            {
+            }
+            
+            virtual void _call(int)
+            {
+                item_placed.signal(true);
+            }
+
+            TCondition<bool> &item_placed;
+        };
+
+        TCondition<bool> _item_placed;
+        std::shared_ptr<fifo_notifier> _notifier;
+        std::vector<DataSinkBase *> _queues;
+
+    public:
+        poller()
+            : _item_placed(false),
+              _notifier(new poller::notifier(_item_placed))
+        {
+        }
+        
+/**
+ * Adds a DataSink to the poller. The DataSink is added by address as
+ * each DataSink may be of a different type, but may be referenced via
+ * a DataSinkBase pointer.
+ *
+ * @param ds: Address of the DataSink.
+ *
+ */
+
+        void push_back(DataSinkBase *ds)
+        {
+            ds->set_notifier(_notifier);
+            _queues.push_back(ds);
+        }
+        
+/**
+ * Blocks for `usecs` microseconds or until any of the added DataSinks
+ * becomes readable.
+ *
+ * @param usecs: the time to wait, in microseconds.
+ *
+ * @return true if one of the DataSinks became ready to read, false if
+ * it times out.
+ *
+ */
+
+        bool any_of(int usecs)
+        {
+            ThreadLock<decltype(_item_placed)> l(_item_placed);
+            timespec curtime, to;
+            Time::Time_t time_to_quit = Time::getUTC() + ((Time::Time_t)usecs) * 1000L;
+            l.lock();
+
+            while (!std::any_of(_queues.begin(), _queues.end(), [](DataSinkBase *i) {return i->items() > 0;}))
+            {
+                _item_placed.wait_locked_with_timeout(usecs);
+                
+                if (Time::getUTC() >= time_to_quit)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+/**
+ * blocks for `usecs` microseconds, or until all DataSinks in the
+ * poller become readable.
+ *
+ * @param usecs: the time to wait, in microseconds.
+ *
+ * @return true if all of the DataSinks became ready to read, false if
+ * it times out.
+ *
+ */
+
+        bool all_of(int usecs)
+        {
+            ThreadLock<decltype(_item_placed)> l(_item_placed);
+            timespec curtime, to;
+            Time::Time_t time_to_quit = Time::getUTC() + ((Time::Time_t)usecs) * 1000L;
+            l.lock();
+
+            while (!std::all_of(_queues.begin(), _queues.end(), [](DataSinkBase *i) {return i->items() > 0;}))
+            {
+                _item_placed.wait_locked_with_timeout(usecs);
+                
+                if (Time::getUTC() >= time_to_quit)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    };
+
+
+/**
  * \class DataSink
  *
  * DataSink is a template class that allows a client to connect to a
@@ -301,8 +470,9 @@ namespace matrix
         ringbuf.try_put(val);
     }
 
+
     template <typename T, typename U = select_specified>
-    class DataSink
+    class DataSink : public DataSinkBase
     {
     public:
         DataSink(std::string km_urn, size_t ringbuf_size = 10);
@@ -312,6 +482,7 @@ namespace matrix
         bool try_get(T &);
         bool timed_get(T &, Time::Time_t);
         size_t items();
+        void set_notifier(std::shared_ptr<fifo_notifier> n);
 
         void connect(std::string component_name, std::string data_name, std::string transport = "");
         void disconnect();
@@ -533,6 +704,22 @@ namespace matrix
     size_t DataSink<T, U>::items()
     {
         return (size_t)_ringbuf.size();
+    }
+
+/**
+ * Passes a notifier functor to the ring buffer. The notifier is
+ * called when data is placed into the ring buffer, allowing the
+ * poller (or other code) to be notified when data is available.
+ *
+ * @param n: a shared_ptr<fifo_notifier>. fifo_notifier is the base
+ * class for the notifier functors.
+ *
+ */
+
+    template <typename T, typename U>
+    void DataSink<T, U>::set_notifier(std::shared_ptr<fifo_notifier> n)
+    {
+        _ringbuf.set_notifier(n);
     }
 }
 
