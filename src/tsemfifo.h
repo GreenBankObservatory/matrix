@@ -37,6 +37,7 @@
 #include "TCondition.h"
 #include "Mutex.h"
 #include "ThreadLock.h"
+#include "Time.h"
 
 /**
  * \class tsemfifo
@@ -112,8 +113,10 @@ template <typename T> class tsemfifo
     void flush();
     bool put(T &obj);
     bool try_put(T &obj);
+    bool timed_put(T &obj, Time::Time_t time_out);
     bool get(T &obj);
     bool try_get(T &obj);
+    bool timed_get(T &obj, Time::Time_t time_out);
     bool wait_for_empty(int milliseconds = -1);
     unsigned int size();
     unsigned int capacity();
@@ -398,6 +401,47 @@ template <class T> bool tsemfifo<T>::try_put(T &obj)
 }
 
 /**
+ * Puts a new value at the tail of the FIFO.  timed_put() will block
+ * for 'time_out' nano seconds if the buffer is full. See 'return' below.
+ *
+ * Throws a tsemfifo::Exception if there is a sem_timedwait() failure.
+ *
+ * @param obj: Object to put (copy) into the buffer.
+ *
+ * @param time_out: Time to wait for the FIFO to become not full, in
+ * nano seconds.
+ *
+ * @return true on success, false otherwise. A return value of false
+ * indicates that the queue is full, and 'time_out' nano seconds have
+ * elapsed.
+ *
+ */
+
+template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
+
+{
+    timespec ts;
+    
+    Time::time2timespec(Time::getUTC() + time_out, ts);
+    
+    if (sem_timedwait(&_empty_sem, &ts) == -1)
+    {
+        Exception e;
+        e.what(errno, "tsemfifo<T>::timed_put()");
+
+        if (e.error_code() == ETIMEDOUT)
+        {
+            return false;
+        }
+
+        throw e;
+    }
+
+    _put(obj);
+    return true;
+}
+
+/**
  * This private helper function actually does the manipulatio of the
  * FIFO to retrieve an object for get() and try_get() once these have
  * determined that there is an object to get.
@@ -509,6 +553,47 @@ template <class T> bool tsemfifo<T>::try_get(T &obj)
     _get(obj);
     return true;
 }
+
+/**
+ * Gets a value out of the head of the FIFO.  timed_get() will block
+ * for 'time_out' nano seconds if there is nothing at the head of the
+ * FIFO.  See return value.
+ *
+ * @param obj: object to which FIFO object will be copied to.
+ *
+ * @param time_out: The time, in nano seconds, to wait for the FIFO to
+ * become not empty.
+ *
+ * @return timed_get() will return true if there was a value at the head
+ *         of the FIFO, false if the FIFO was empty at the expiration
+ *         of 'time_out'.
+ *
+ */
+
+template <class T> bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
+
+{
+    timespec ts;
+
+    Time::time2timespec(Time::getUTC() + time_out, ts);
+    
+    if (sem_timedwait(&_full_sem, &ts) == -1)
+    {
+        Exception e;
+        e.what(errno, "tsemfifo<T>::timed_get()");
+
+        if (e.error_code() == ETIMEDOUT)
+        {
+            return false;
+        }
+
+        throw e;
+    }
+
+    _get(obj);
+    return true;
+}
+
 
 /**
  * If any thread is waiting on get() or put(), this will release them.

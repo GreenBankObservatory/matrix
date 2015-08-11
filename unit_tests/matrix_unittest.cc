@@ -31,6 +31,7 @@
 #include "utility_test.h"
 #include "keymaster_test.h"
 #include "TransportTest.h"
+#include "TSemfifoTest.h"
 #include "Thread.h"
 
 using namespace std;
@@ -44,6 +45,7 @@ int main(int argc, char **argv)
     runner.addTest(UtilityTest::suite());
     runner.addTest(KeymasterTest::suite());
     runner.addTest(TransportTest::suite());
+    runner.addTest(TSemfifoTest::suite());
     runner.run();
     return 0;
 }

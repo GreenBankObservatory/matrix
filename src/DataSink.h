@@ -28,6 +28,7 @@
 #if !defined (_DATA_SINK_H_)
 #define _DATA_SINK_H_
 
+#include "Time.h"
 #include "tsemfifo.h"
 
 #include <sstream>
@@ -309,6 +310,8 @@ namespace matrix
 
         void get(T &);
         bool try_get(T &);
+        bool timed_get(T &, Time::Time_t);
+        size_t items();
 
         void connect(std::string component_name, std::string data_name, std::string transport = "");
         void disconnect();
@@ -433,6 +436,23 @@ namespace matrix
     }
 
 /**
+ * Performs a blocking get for the data source's data, with
+ * time-out. Will block for the specified time while waiting for it.
+ *
+ * @param val: The data from the data source
+ *
+ * @param time_out: the time-out, in nanoseconds (relative)
+ *
+ */
+
+    template <typename T, typename U>
+    bool DataSink<T, U>::timed_get(T &val, Time::Time_t time_out)
+    {
+        _check_connected();
+        return _ringbuf.timed_get(val, time_out);
+    }
+
+/**
  * Connects to a data source. DataSink does this by obtaining a
  * pointer to a TransportClient and subscribing to the desired key,
  * which it creates here from the <component_name>.<data_name>.
@@ -502,6 +522,19 @@ namespace matrix
         }
     }
 
+/**
+ * Returns the number of items waiting in the receive ringbuffer.
+ *
+ * @return A size_t indicating the number of items ready to be read.
+ *
+ */
+
+    template <typename T, typename U>
+    size_t DataSink<T, U>::items()
+    {
+        return (size_t)_ringbuf.size();
+    }
 }
+
 
 #endif

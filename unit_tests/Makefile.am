@@ -34,6 +34,7 @@ matrix_unittest_SOURCES = \
 	TransportTest.cc \
 	keymaster_test.cc \
 	matrix_unittest.cc \
+	TSemfifoTest.cc \
 	utility_test.cc
 
 matrix_unittest_CXXFLAGS = -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src -O0 -g
