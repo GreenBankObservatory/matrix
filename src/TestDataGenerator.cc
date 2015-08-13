@@ -102,6 +102,7 @@ namespace matrix
         type_info["bool"] = sizeof(bool);
         type_info["float"] = sizeof(float);
         type_info["double"] = sizeof(double);
+        type_info["long double"] = sizeof(long double);
     }
 
 /**
@@ -285,29 +286,54 @@ namespace matrix
 
 /**
  * Computes the size of the total buffer needed for the data source,
- * and the offset of the various fields. This can be a bit tricky
- * since gcc in the x86_64 architecture stores stuff on 8-byte
- * boundaries, and within that 4-byte types are stored on 4-byte
- * boundaries. Everything else is fitted around this:
+ * and the offset of the various fields. gcc in the x86_64
+ * architecture stores structures in memory as a multiple of the
+ * largest type of field in the structure. Thus, if the largest
+ * element is an int, the size will be a multiple of 4; if it is a
+ * long, of 8; etc. All elements must be stored on boundaries that
+ * respect their size: int16_t on two-byte boundaries, int on 4-byte
+ * boundaries, etc. Padding is added to make this work.
+ *
+ * case of long or double as largest field:
  *
  *     ---------------|---------------
  *               8 - byte value
  *     ---------------|---------------
  *       4-byte val   | 4-byte val
  *     ---------------|---------------
- *       4-byte val   |  padding
+ *       4-byte val   |  padding (pd)
  *     ---------------|---------------
  *               8 - byte value
  *     ---------------|---------------
  *     1BV|1BV|  2BV  | 4-byte val
  *     ---------------|---------------
- *     1BV|    pad    | 4-byte val
+ *     1BV|    pd     | 4-byte val
  *
  *              etc...
  *
- * As it is computing the size it also saves the offsets into the
- * various 'data_field' structures so that the data may be properly
- * accessed later.
+ * case of int or float being largest field:
+ *
+ *     ---------------
+ *      4-byte value
+ *     ---------------
+ *      2BV   |1BV|pd
+ *     ---------------
+ *      1BV|pd| 2BV
+ *     ---------------
+ *      4-byte value
+ *     ---------------
+ *      2BV   | pd
+ *
+ *        etc...
+ *
+ * Structures that contain only one field are the size of that field
+ * without any padding, since that one element is the largest element
+ * type. So for a struct foo_t {int16_t i16;};, sizeof(foo_t) would be
+ * 2.
+ *
+ * As it is computing the size this function also saves the offsets
+ * into the various 'data_field' structures so that the data may be
+ * properly accessed later.
  *
  * @return A size_t which is the size that the GenericBuffer should be
  * set to in order to contain the data properly.
@@ -316,37 +342,36 @@ namespace matrix
 
     size_t TestDataGenerator::data_source_info::size()
     {
-        size_t storage_size(8), remaining(8), offset(0);
+        // storage element size, offset in element, number of elements
+        // used.
+        size_t s_elem_size, offset(0), s_elems(1);
 
-        if (fields.size() == 1) // special case, just one field
-        {
-            return type_info[fields.front().type];
-        }
+        // find largest element in structure.
+        std::list<data_field>::iterator i = 
+            max_element(fields.begin(), fields.end(),
+                        [this](data_field &i, data_field &j)
+                        {
+                            return type_info[i.type] < type_info[j.type];
+                        });
+        s_elem_size = type_info[i->type];
 
+        // compute the offset and multiples of largest element
         for (list<data_field>::iterator i = fields.begin(); i != fields.end(); ++i)
         {
             size_t s(type_info[i->type]);
-
-            if (remaining == 0 || s > remaining)
+            offset += offset % s;
+            
+            if (s_elem_size - offset < s)
             {
-                offset += remaining % 8;
-                storage_size += 8;
-                remaining = 8;
+                offset = 0;
+                s_elems++;
             }
-
-            if (s == 4)
-            {
-                size_t pad = remaining % s;
-                remaining -= pad;
-                offset += pad;
-            }
-
-            remaining -= s;
-            i->offset = offset;
-            offset = storage_size - remaining;
+            
+            i->offset = s_elem_size * (s_elems - 1) + offset;
+            offset += s;
         }
-
-        return storage_size;
+        
+        return s_elem_size * s_elems;
     }
 
 /**
