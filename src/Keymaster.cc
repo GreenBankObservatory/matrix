@@ -111,26 +111,8 @@ struct KeymasterServer::KmImpl
 
     struct data_package
     {
-        data_package()
-        {
-            node.reset();
-        }
-        
-        ~data_package()
-        {
-            node.reset();
-        }
-        
-       data_package &operator=(data_package &rhs)
-        {
-            key = rhs.key;
-            node.reset();
-            node = rhs.node;
-            return *this;
-        }
-        
         std::string key;
-        YAML::Node node;
+        std::string val;
     };
 
     void server_task();
@@ -449,44 +431,11 @@ void KeymasterServer::KmImpl::server_task()
 
     while (_data_queue.get(dp))
     {
-        // Publish data. Whenever a node is modified, we need to of
-        // course publish that node. But we also need to publish
-        // upstream nodes, because someone may have subscribed to them,
-        // and a change to this key means a change to all upstream
-        // keys. So if the node is "foo.bar.baz", we publish "foo",
-        // "foo.bar", and "foo.bar.baz"
 
         try
         {
-            // Publish "Root" if there is no key
-            if (dp.key.empty())
-            {
-                ostringstream yr;
-                yr << dp.node;
-                z_send(data_publisher, string("Root"), ZMQ_SNDMORE);
-                z_send(data_publisher, yr.str(), 0);
-            }
-            else
-            {
-                vector<string> keys;
-                boost::split(keys, dp.key, boost::is_any_of("."));
-
-                // Publish with keys
-                for (int i = 1; i < keys.size() + 1; ++i)
-                {
-                    string key = boost::algorithm::join(vector<string>(keys.begin(), keys.begin() + i), ".");
-                    yaml_result r = get_yaml_node(dp.node, key);
-
-                    if (r.result == true)
-                    {
-                        ostringstream yr;
-                        // we just need the node that goes with the key.
-                        yr << r.node;
-                        z_send(data_publisher, key, ZMQ_SNDMORE);
-                        z_send(data_publisher, yr.str(), 0);
-                    }
-                }
-            }
+            z_send(data_publisher, dp.key, ZMQ_SNDMORE);
+            z_send(data_publisher, dp.val, 0);
         }
         catch (zmq::error_t e)
         {
@@ -542,7 +491,7 @@ void KeymasterServer::KmImpl::state_manager_task()
              << "_state_service_urls = " << endl;
         output_vector(_state_service_urls, cerr);
         cerr << endl;
-        
+
         return;
     }
 
@@ -715,13 +664,12 @@ void KeymasterServer::KmImpl::state_manager_task()
 }
 
 /**
- * This is the KeymasterServer's Data publishing facility.  It is a private
- * function that does all the work preparing data for publication.
- * The data and metadata are copied into a 'data_package' object and
- * posted on the publication semaphore queue.  Public inline functions
- * such as 'publish_data()' call this with the appropriate parameters
- * set.  This 'publish' function assumes the data is not Sampler or
- * Parameter data.
+ * Publish data. Whenever a node is modified, we need to of
+ * course publish that node. But we also need to publish
+ * upstream nodes, because someone may have subscribed to them,
+ * and a change to this key means a change to all upstream
+ * keys. So if the node is "foo.bar.baz", we publish "foo",
+ * "foo.bar", and "foo.bar.baz"
  *
  * @param key: the data key
  *
@@ -732,23 +680,53 @@ void KeymasterServer::KmImpl::state_manager_task()
 
 bool KeymasterServer::KmImpl::publish(std::string key, bool block)
 {
-    data_package dp;
+    data_package dp = {key, ""};
+    YAML::Node node = _root_node;
 
-    dp.key = key;
-    // Clone the root YAML::Node. The publisher will be running in a
-    // different thread, so do this to avoid locks & ensure only the
-    // state thread actually accesses _root_node. Further, if the
-    // queue backs up, ensures each element retains the state it had
-    // when placed in the queue, given yaml-cpp's unconventional
-    // assignemnt semantics.
-    dp.node = YAML::Clone(_root_node);
+    // Publish "Root" if there is no key
+    try
+    {
+        if (dp.key.empty())
+        {
+            ostringstream yr;
+            yr << node;
+            dp.key = "Root";
+            dp.val = yr.str();
+        }
+        else
+        {
+            vector<string> keys;
+            boost::split(keys, dp.key, boost::is_any_of("."));
+
+            // Publish with keys
+            for (int i = 1; i < keys.size() + 1; ++i)
+            {
+                string key = boost::algorithm::join(vector<string>(keys.begin(), keys.begin() + i), ".");
+                yaml_result r = get_yaml_node(node, key);
+
+                if (r.result == true)
+                {
+                    ostringstream yr;
+                    // we just need the node that goes with the key.
+                    yr << r.node;
+                    dp.key = key;
+                    dp.val = yr.str();
+                }
+            }
+        }
+    }
+    catch (YAML::Exception e)
+    {
+        cerr << "YAML exception in publish: " << e.what() << endl;
+        return false;
+    }
 
     if (block)
     {
         _data_queue.put(dp);
         return true;
     }
-    
+
     return _data_queue.try_put(dp);
 }
 
@@ -941,7 +919,7 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
     yaml_result yr;
     ThreadLock<Mutex> lck(_shared_lock);
     ostringstream msg;
-    
+
     try
     {
         msg << "Keymaster: Failed to " << cmd << " key '" << key;
@@ -962,7 +940,7 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
         {
             z_send(*km, flag, 0, KM_TIMEOUT);
         }
-        
+
         // use a reasonable time-out, in case Keymaster is gone.
         z_recv(*km, response, KM_TIMEOUT);
 
@@ -1146,7 +1124,7 @@ bool Keymaster::del(std::string key)
 {
     string cmd("DEL");
     yaml_result yr;
-    
+
     yr = _call_keymaster(cmd, key);
     return yr.result;
 }
@@ -1225,7 +1203,7 @@ bool Keymaster::unsubscribe(string key)
 /**
  * Returns a copy of the latest yaml_result.
  *
- * @param 
+ * @param
  *
  * @return A yaml_result which is a copy of the latest result.
  *
@@ -1266,7 +1244,7 @@ void Keymaster::_run()
                  << endl;
         }
     }
-    
+
     lck.lock();
 
     // Check again, but this time after locking. Locking before

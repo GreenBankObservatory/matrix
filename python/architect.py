@@ -32,6 +32,7 @@ import zmq
 import keymaster
 import Queue
 import time
+import weakref
 
 class Architect(object):
 
@@ -41,22 +42,37 @@ class Architect(object):
         self._timeout = 4.0
         self._components = self._keymaster.get('components')
         self._architect = self._keymaster.get('architect')
-
-        def cb_components(key, val):
-            if key == 'components':
-                self._components = val
-
-        def cb_architect(key, val):
-            if key == 'architect':
-                self._architect = val
-
-        self._keymaster.subscribe('components', cb_components)
-        self._keymaster.subscribe('architect', cb_architect)
+        self.ArchitectCallback('components')
+        self.ArchitectCallback('architect')
+        print 'Architect created'
 
     def __del__(self):
         self._keymaster.unsubscribe('components')
         self._keymaster.unsubscribe('architect')
-        del(self._keymaster)
+        self._keymaster._kill_subscriber_thread()
+        print 'Architect terminated'
+
+    def ArchitectCallback(self, sub_key):
+        """
+        Requests that the internal Keymaster client create a callback for 'sub_key'.
+
+        *sub_key*: the Keymaster key of interest.
+        """
+        
+        # prevent circular reference
+        arch = weakref.ref(self)
+
+        def cb(key, val):
+            if key == sub_key:
+                arch().set_data(key, val)
+
+        self._keymaster.subscribe(sub_key, cb)
+
+    def set_data(self, key, val):
+        if key == 'components':
+            self._components = val
+        elif key == 'architect':
+            self._architect = val
 
     def check_all_in_state(self, state):
         """check that all component states are in the state specified.
@@ -68,6 +84,12 @@ class Architect(object):
         states = [comps[i]['state'] for i in comps if comps[i]['active']]
         return all(x == state for x in states)
 
+    def kget(self, key):
+        return self._keymaster.get(key)
+
+    def kput(self, key, value, create = False):
+        return self._keymaster.put(key, value, create)
+
     def wait_all_in_state(self, statename, timeout):
         """wait until component states are all in the state specified.
 
@@ -78,7 +100,7 @@ class Architect(object):
 
         rval = False
         total_wait_time = 0.0
-        
+
         while True:
             if self.check_all_in_state(statename):
                 rval = True
@@ -91,7 +113,7 @@ class Architect(object):
                 break
 
         return rval
-  
+
     def send_event(self, event):
         """Issue an arbitrary user-defined event to the FSM.
 
@@ -106,7 +128,7 @@ class Architect(object):
         """
 
         return [i for i in self._components if self._components[i]['active']]
-        
+
     def get_system_modes(self):
         """returns a list of supported modes. Modes are specified in the
         'connections' section of the YAML configuration file.
@@ -121,7 +143,7 @@ class Architect(object):
         """
 
         return self._architect['control']['configuration']
-        
+
     def set_system_mode(self, mode):
         """Set a specific mode. The mode name should be defined in the
         "connections" section of the configuration file. The system
@@ -173,7 +195,7 @@ class Architect(object):
         """
         self.send_event('do_standby')
         return self.wait_all_in_state('Standby', self._timeout)
-        
+
     def start(self):
         """From the Ready state, prepare to run and enter the Running state.
 

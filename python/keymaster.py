@@ -31,6 +31,7 @@ import threading
 import string
 import random
 import inspect
+import weakref
 from time import sleep
 
 def gen_random_string(rand_len = 10, chars = string.ascii_uppercase + string.ascii_lowercase + string.digits):
@@ -47,16 +48,21 @@ class Keymaster(object):
 
         def __init__(self, keymaster):
             threading.Thread.__init__(self)
-            self._keymaster = keymaster
+            self._keymaster = weakref.ref(keymaster)
             km_url = keymaster._km_url
             # Get the as-configured publication URLs
-            pub_urls = self._keymaster.get('Keymaster.URLS.AsConfigured.Pub')
+            pub_urls = self._keymaster().get('Keymaster.URLS.AsConfigured.Pub')
             # choose the one who's transport is the same as that of our
             # keymaster's request URL. i.e., if tcp, then use the pub tcp, etc.
             self._pub_url = [p for p in pub_urls if p.split(':')[0] == km_url.split(':')[0]][0]
             # main thread communicates to this thread via ZMQ inproc REQ/REP.
             self.pipe_url = "inproc://" + gen_random_string(20)
             self._callbacks = {}
+            self.end_thread = False
+
+        def __del__(self):
+            self.end_thread = True
+            self.join()
 
         def run(self):
             """The thread code.
@@ -67,7 +73,7 @@ class Keymaster(object):
 
             """
             try:
-                ctx = self._keymaster._ctx
+                ctx = self._keymaster()._ctx
                 sub_sock = ctx.socket(zmq.SUB)
                 pipe = ctx.socket(zmq.REP)
                 poller = zmq.Poller()
@@ -75,9 +81,8 @@ class Keymaster(object):
                 pipe.bind(self.pipe_url);
                 poller.register(sub_sock, flags = zmq.POLLIN)
                 poller.register(pipe, flags = zmq.POLLIN)
-                end_thread = False
 
-                while not end_thread:
+                while not self.end_thread:
                     event = poller.poll()
 
                     for e in event:
@@ -86,7 +91,7 @@ class Keymaster(object):
                         if sock == pipe:
                             msg = pipe.recv_pyobj()
 
-                            if msg == self._keymaster.SUBSCRIBE:
+                            if msg == self._keymaster().SUBSCRIBE:
                                 key = pipe.recv_pyobj()
                                 # fcb = pipe.recv_pyobj()
 
@@ -97,7 +102,7 @@ class Keymaster(object):
                                 pipe.send_pyobj(True, zmq.SNDMORE)
                                 pipe.send_pyobj(key)
 
-                            elif msg == self._keymaster.UNSUBSCRIBE:
+                            elif msg == self._keymaster().UNSUBSCRIBE:
                                 key = pipe.recv_pyobj()
 
                                 if key in self._callbacks:
@@ -109,7 +114,7 @@ class Keymaster(object):
                                     pipe.send_pyobj(False, zmq.SNDMORE)
                                     pipe.send_pyobj("'%s': No such key is subscribed." % key)
 
-                            elif msg == self._keymaster.UNSUBSCRIBE_ALL:
+                            elif msg == self._keymaster().UNSUBSCRIBE_ALL:
                                 keys_cleared = self._callbacks.keys()
 
                                 for key in self._callbacks:
@@ -119,11 +124,11 @@ class Keymaster(object):
                                 pipe.send_pyobj(True, zmq.SNDMORE)
                                 pipe.send_pyobj('Keys cleared: %s' % ', '.join(keys_cleared))
 
-                            elif msg == self._keymaster.QUIT:
+                            elif msg == self._keymaster().QUIT:
                                 pipe.send_pyobj(True)
-                                end_thread = True
+                                self.end_thread = True
 
-                            elif msg == self._keymaster.PING:
+                            elif msg == self._keymaster().PING:
                                 pipe.send_pyobj(True)
 
                         if sock == sub_sock:
@@ -142,6 +147,8 @@ class Keymaster(object):
                 print 'In subscriber thread, exception zmq.core.error.ZMQError:', e
                 print "pipe_url:", self.pipe_url
                 print " pub_url:", self._pub_url
+            except:
+                self.end_thread = True
             finally:
                 print "Keymaster: Ending subscriber thread."
 
@@ -161,11 +168,12 @@ class Keymaster(object):
         else:
             self._ctx = zmq.Context(1)
 
+        print "Keymaster created."
+
     def __del__(self):
         if self._km:
             self._km.close()
-
-        self._kill_subscriber_thread()
+        print "Keymaster terminated."
 
     def _kill_subscriber_thread(self):
         """Terminates the subscriber thread by sending it the 'QUIT' message,
