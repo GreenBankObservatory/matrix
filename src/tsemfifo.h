@@ -34,6 +34,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <vector>
+#include <memory>
 #include "TCondition.h"
 #include "Mutex.h"
 #include "ThreadLock.h"
