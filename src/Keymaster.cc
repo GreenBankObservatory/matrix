@@ -40,6 +40,7 @@
 #include <sstream>
 #include <map>
 #include <vector>
+#include <list>
 #include <iostream>
 #include <sstream>
 #include <exception>
@@ -146,7 +147,7 @@ struct KeymasterServer::KmImpl
     std::vector<std::string> _state_service_urls;
     std::vector<std::string> _publish_service_urls;
 
-    YAML::Node _root_node;    //<? THE keymaster node
+    list<YAML::Node> _root_node;    //<? THE keymaster node
 };
 
 /**
@@ -179,7 +180,7 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
 {
     int i = 0;
 
-    _root_node = YAML::Clone(config);
+    _root_node.push_front(YAML::Clone(config));
     setup_urls();
 
     if (using_tcp() && !getCanonicalHostname(_hostname))
@@ -279,7 +280,7 @@ void KeymasterServer::KmImpl::terminate()
 void KeymasterServer::KmImpl::setup_urls()
 {
     vector<string>::const_iterator cvi;
-    vector<string> urls = _root_node["Keymaster"]["URLS"]["Initial"].as<vector<string> >();
+    vector<string> urls = _root_node.front()["Keymaster"]["URLS"]["Initial"].as<vector<string> >();
 
     for (cvi = urls.begin(); cvi != urls.end(); ++cvi)
     {
@@ -431,7 +432,6 @@ void KeymasterServer::KmImpl::server_task()
 
     while (_data_queue.get(dp))
     {
-
         try
         {
             z_send(data_publisher, dp.key, ZMQ_SNDMORE);
@@ -464,6 +464,7 @@ void KeymasterServer::KmImpl::state_manager_task()
     zmq::context_t &ctx = ZMQContext::Instance()->get_context();
     zmq::socket_t state_sock(ctx, ZMQ_REP);
     zmq::socket_t pipe(ctx, ZMQ_PAIR);  // mostly to tell this task to go away
+    unsigned int put_counter(0), clone_interval(1000);
 
     try
     {
@@ -482,7 +483,7 @@ void KeymasterServer::KmImpl::state_manager_task()
     {
         // bind to all state server URLs
         bind_server(state_sock, _state_service_urls, false);
-        put_yaml_val(_root_node, "KeymasterServer.URLS", _state_service_urls, true);
+        put_yaml_val(_root_node.front(), "KeymasterServer.URLS", _state_service_urls, true);
     }
     catch (zmq::error_t e)
     {
@@ -496,8 +497,10 @@ void KeymasterServer::KmImpl::state_manager_task()
     }
 
 
-    yaml_result rs = put_yaml_val(_root_node, "Keymaster.URLS.AsConfigured.State", _state_service_urls, true);
-    yaml_result rp = put_yaml_val(_root_node, "Keymaster.URLS.AsConfigured.Pub", _publish_service_urls, true);
+    yaml_result rs = put_yaml_val(_root_node.front(),
+                                  "Keymaster.URLS.AsConfigured.State", _state_service_urls, true);
+    yaml_result rp = put_yaml_val(_root_node.front(),
+                                  "Keymaster.URLS.AsConfigured.Pub", _publish_service_urls, true);
 
     if (! (rs.result && rp.result))
     {
@@ -568,7 +571,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                             keychain = "";
                         }
 
-                        yaml_result r = get_yaml_node(_root_node, keychain);
+                        yaml_result r = get_yaml_node(_root_node.front(), keychain);
                         rval << r;
                         z_send(state_sock, rval.str(), 0);
                     }
@@ -603,16 +606,34 @@ void KeymasterServer::KmImpl::state_manager_task()
                         yaml_result r;
                         ostringstream rval;
                         YAML::Node n = YAML::Load(yaml_string);
-                        r = put_yaml_node(_root_node, keychain, n, create);
-                        rval << r;
-                        n.reset();
-                        z_send(state_sock, rval.str(), 0);
+
+                        r = put_yaml_node(_root_node.front(), keychain, n, create);
 
                         if (r.result)
                         {
                             publish(keychain);
                         }
-                    }
+
+                        rval << r;
+                        z_send(state_sock, rval.str(), 0);
+
+                        // What follows is here to prevent undue
+                        // memory usage. yaml-cpp has an unbounded
+                        // memory use problem (see
+                        // https://github.com/jbeder/yaml-cpp/issues/232
+                        // ). Cloning the node and dropping the
+                        // original one flushes out the memory. We do
+                        // it at every nth put--as specified by
+                        // `clone_interval`--where n is large enough
+                        // not to impact performance but small enough
+                        // to ensure no runaway memory use.
+
+                        if ((++put_counter % clone_interval) == 0)
+                        {
+                            _root_node.push_front(YAML::Clone(_root_node.front()));
+                            _root_node.pop_back();
+                        }
+                   }
                     else
                     {
                         string msg("ERROR: Keychain and value expected, but not received!");
@@ -627,7 +648,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                     if (!frame.empty())
                     {
                         string keychain = frame[0];
-                        yaml_result r = delete_yaml_node(_root_node, keychain);
+                        yaml_result r = delete_yaml_node(_root_node.front(), keychain);
                         ostringstream rval;
                         rval << r;
                         z_send(state_sock, rval.str(), 0);
@@ -680,12 +701,12 @@ void KeymasterServer::KmImpl::state_manager_task()
 
 bool KeymasterServer::KmImpl::publish(std::string key, bool block)
 {
-    data_package dp = {key, ""};
-    YAML::Node node = _root_node;
-
     // Publish "Root" if there is no key
     try
     {
+        data_package dp = {key, ""};
+        YAML::Node node = _root_node.front();
+
         if (dp.key.empty())
         {
             ostringstream yr;
@@ -714,20 +735,20 @@ bool KeymasterServer::KmImpl::publish(std::string key, bool block)
                 }
             }
         }
+
+        if (block)
+        {
+            _data_queue.put(dp);
+            return true;
+        }
+
+        return _data_queue.try_put(dp);
     }
     catch (YAML::Exception e)
     {
         cerr << "YAML exception in publish: " << e.what() << endl;
         return false;
     }
-
-    if (block)
-    {
-        _data_queue.put(dp);
-        return true;
-    }
-
-    return _data_queue.try_put(dp);
 }
 
 /**
@@ -1103,6 +1124,7 @@ bool Keymaster::put(std::string key, YAML::Node n, bool create)
 
     val << n;
     yr = _call_keymaster(cmd, key, val.str(), create ? create_flag : "");
+    n.reset();
     return yr.result;
 }
 
@@ -1365,18 +1387,22 @@ void Keymaster::_subscriber_task()
 
                 if (!val.empty())
                 {
-                    YAML::Node n = YAML::Load(val[0]);
                     map<string, KeymasterCallbackBase *>::const_iterator mci;
                     mci = _callbacks.find(key);
 
                     if (mci != _callbacks.end())
                     {
+                        YAML::Node n = YAML::Load(val[0]);
                         mci->second->exec(mci->first, n);
                     }
                 }
             }
         }
         catch (zmq::error_t e)
+        {
+            cout << "Keymaster subscriber task: " << e.what() << endl;
+        }
+        catch (YAML::Exception e)
         {
             cout << "Keymaster subscriber task: " << e.what() << endl;
         }
