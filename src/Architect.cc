@@ -198,10 +198,6 @@ bool Architect::create_component_instances()
             keymaster->subscribe(key,
                                  new KeymasterMemberCB<Architect>(this,
                                          &Architect::component_state_changed));
-            // create a .command key for the component to listen to
-            keymaster->put(root + comp_instance_name + ".command", "do_init", true);
-            keymaster->put(root + comp_instance_name + ".active", false,   true);
-            keymaster->put(root + comp_instance_name + ".mode", "default",   true);
             // Now do the actual creation
             l.lock();
             components[comp_instance_name].instance = shared_ptr<Component>(
@@ -211,6 +207,9 @@ bool Architect::create_component_instances()
             components[comp_instance_name].instance->basic_init();
             components[comp_instance_name].active = true;
             l.unlock();
+            // component will now be listening to these...
+            keymaster->put(root + comp_instance_name + ".command", "do_init");
+            keymaster->put(root + comp_instance_name + ".mode", "default");
         }
     }
     return true;

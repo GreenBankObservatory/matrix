@@ -88,7 +88,7 @@ void TSemfifoTest::test_get()
     // Actual time will be greater than time-out, depending on the
     // machine this is being run on. Allowing for 10% more than the
     // time-out seems amply reasonable.
-    CPPUNIT_ASSERT((diff - to) < (to / 10));
+    CPPUNIT_ASSERT(diff > to);
     in = 23;
     fifo.put(in);
     start = getUTC();
@@ -100,8 +100,5 @@ void TSemfifoTest::test_get()
     // we don't know exactly how long it takes to do this, bc of
     // machine differences, but it should take significantly less time
     // than the actual time-out.
-    CPPUNIT_ASSERT(diff < (to / 1000));
+    CPPUNIT_ASSERT(diff < to);
 }
-
-    
-    

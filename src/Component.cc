@@ -269,16 +269,25 @@ void Component::terminate()
 
 bool Component::_basic_init()
 {
+    cmd_thread.start();
+    cmd_thread_started.wait(true);
+
     try
     {
         // perform other user-defined initializations in derived class
+
+        // Create some keymaster keys that this component will need:
         keymaster->put(my_full_instance_name + ".state", fsm.getState(), true);
+        keymaster->put(my_full_instance_name + ".command", "none", true);
+        keymaster->put(my_full_instance_name + ".active", false, true);
+        keymaster->put(my_full_instance_name + ".mode", "default", true);
+        // Subscribe to command and mode. Component will react to these.
         keymaster->subscribe(my_full_instance_name + ".command",
                              new KeymasterMemberCB<Component>(this,
                                      &Component::command_changed) );
         keymaster->subscribe(my_full_instance_name + ".mode",
                              new KeymasterMemberCB<Component>(this,
-                                     &Component::mode_changed) );                                     
+                                     &Component::mode_changed) );
     }
     catch (KeymasterException e)
     {
@@ -286,8 +295,6 @@ bool Component::_basic_init()
         return false;
     }
 
-    cmd_thread.start();
-    cmd_thread_started.wait(true);
     return true;
 }
 
