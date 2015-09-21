@@ -284,7 +284,7 @@ namespace matrix
                 : item_placed(n)
             {
             }
-            
+
             virtual void _call(int)
             {
                 item_placed.signal(true);
@@ -303,7 +303,7 @@ namespace matrix
               _notifier(new poller::notifier(_item_placed))
         {
         }
-        
+
 /**
  * Adds a DataSink to the poller. The DataSink is added by address as
  * each DataSink may be of a different type, but may be referenced via
@@ -318,7 +318,7 @@ namespace matrix
             ds->set_notifier(_notifier);
             _queues.push_back(ds);
         }
-        
+
 /**
  * Blocks for `usecs` microseconds or until any of the added DataSinks
  * becomes readable.
@@ -340,7 +340,7 @@ namespace matrix
             while (!std::any_of(_queues.begin(), _queues.end(), [](DataSinkBase *i) {return i->items() > 0;}))
             {
                 _item_placed.wait_locked_with_timeout(usecs);
-                
+
                 if (Time::getUTC() >= time_to_quit)
                 {
                     return false;
@@ -371,7 +371,7 @@ namespace matrix
             while (!std::all_of(_queues.begin(), _queues.end(), [](DataSinkBase *i) {return i->items() > 0;}))
             {
                 _item_placed.wait_locked_with_timeout(usecs);
-                
+
                 if (Time::getUTC() >= time_to_quit)
                 {
                     return false;
@@ -482,10 +482,13 @@ namespace matrix
         bool try_get(T &);
         bool timed_get(T &, Time::Time_t);
         size_t items();
+        size_t flush(int items);
         void set_notifier(std::shared_ptr<fifo_notifier> n);
 
-        void connect(std::string component_name, std::string data_name, std::string transport = "");
+        void connect(std::string component_name, std::string data_name,
+                     std::string transport = "");
         void disconnect();
+        bool connected() {return _connected;}
 
     private:
 
@@ -704,6 +707,25 @@ namespace matrix
     size_t DataSink<T, U>::items()
     {
         return (size_t)_ringbuf.size();
+    }
+
+/**
+ * Flushes a requested number of items out of the receive queue,
+ * starting with the oldest values. These values are dropped.
+ *
+ * @param items: The number of items to drop, oldest first. If 'items'
+ * equals or exceeds the number of elements in the queue, all will be
+ * dropped. If 'items' is negative, all but abs(items) will be dropped.
+ *
+ * @return A size_t specifying the number of items remaining in the
+ * receive queue.
+ *
+ */
+
+    template <typename T, typename U>
+    size_t DataSink<T, U>::flush(int items)
+    {
+        return (size_t)_ringbuf.flush(items);
     }
 
 /**

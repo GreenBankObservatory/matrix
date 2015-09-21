@@ -121,6 +121,7 @@ template <typename T> class tsemfifo
 
     void release();
     void flush();
+    unsigned int  flush(int items);
     bool put(T &obj);
     bool try_put(T &obj);
     bool timed_put(T &obj, Time::Time_t time_out);
@@ -271,6 +272,79 @@ template <class T> void tsemfifo<T>::flush()
     _release.set_value(false);
     _empty.set_value(true);
     _head = _tail = _objects = 0;
+}
+
+/**
+ * Flushes 'items' items out of the queue.
+ *
+ * @param items: The number of items to drop, oldest first. If 'items'
+ * equals or exceeds the number of elements in the queue, all will be
+ * dropped. If 'items' is negative, all but abs(items) will be dropped.
+ *
+ * @return an integer, tne number of items remaining in the queue.
+ *
+ */
+
+template <class T> unsigned int tsemfifo<T>::flush(int items)
+
+{
+    ThreadLock<Mutex> l(_critical_section);
+
+    l.lock();
+
+    // Check to see if items is negative. If so, the caller intends
+    // that all but the abs(items) should be flushed.
+    if (items < 0)
+    {
+        // The number of remaining items in this case needs to be
+        // fewer than the actual number in the queue. If not, just
+        // return the number of items in the queue.
+        if (abs(items) < _objects)
+        {
+            items = _objects - abs(items);
+        }
+        else
+        {
+            return _objects;
+        }
+    }
+
+    if (items > _objects)
+    {
+        items = _objects;
+    }
+
+    _head = (_head + items) % _buf_len;
+    _objects = _objects - items;
+
+    if (!_objects)               // Was not empty, now empty.  Set empty event.
+    {
+        _empty.broadcast(true);
+    }
+
+    std::cout << "_head = " << _head << std::endl;
+    std::cout << "_objects = " << _objects << std::endl;
+    
+    for (int i = 0; i < items; ++i)
+    {
+        int r = sem_wait(&_full_sem);
+
+        if (r == -1 && errno != EINTR)
+        {
+            Exception e;
+            e.what(errno, "tsemfifo<T>::get()");
+            throw e;
+        }
+
+        if (sem_post(&_empty_sem) == -1)
+        {
+            Exception e;
+            e.what(errno, "tsemfifo<T>::flush(int items)");
+            throw e;
+        }
+    }
+    
+    return _objects;
 }
 
 /**
