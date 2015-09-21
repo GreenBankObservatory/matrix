@@ -35,11 +35,13 @@ class TSemfifoTest : public CppUnit::TestCase
     CPPUNIT_TEST_SUITE(TSemfifoTest);
     CPPUNIT_TEST(test_size);
     CPPUNIT_TEST(test_get);
+    CPPUNIT_TEST(test_flush);
     CPPUNIT_TEST_SUITE_END();
     
     public:
     void test_size();
     void test_get();
+    void test_flush();
 
 };
 

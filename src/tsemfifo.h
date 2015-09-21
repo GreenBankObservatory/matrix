@@ -125,6 +125,7 @@ template <typename T> class tsemfifo
     bool put(T &obj);
     bool try_put(T &obj);
     bool timed_put(T &obj, Time::Time_t time_out);
+    void put_no_block(T &obj);
     bool get(T &obj);
     bool try_get(T &obj);
     bool timed_get(T &obj, Time::Time_t time_out);
@@ -322,9 +323,6 @@ template <class T> unsigned int tsemfifo<T>::flush(int items)
         _empty.broadcast(true);
     }
 
-    std::cout << "_head = " << _head << std::endl;
-    std::cout << "_objects = " << _objects << std::endl;
-    
     for (int i = 0; i < items; ++i)
     {
         int r = sem_wait(&_full_sem);
@@ -526,6 +524,25 @@ template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
 
     _put(obj);
     return true;
+}
+
+/**
+ * This put does not block, and bumps off the oldest entry if the fifo
+ * is full.
+ *
+ * @param obj: object to place into the FIFO
+ *
+ */
+
+template <class T> void tsemfifo<T>::put_no_block(T &obj)
+{
+    // try_put() will fail and return 'false' if the fifo is full. In
+    // that case, flush the oldest ojbect, and this should provide
+    // enough room to put the object.
+    while (!try_put(obj))
+    {
+        flush(1);
+    }
 }
 
 /**

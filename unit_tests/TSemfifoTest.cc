@@ -83,8 +83,6 @@ void TSemfifoTest::test_get()
     Time_t start = getUTC();
     CPPUNIT_ASSERT(fifo.timed_get(out, to) == false);
     Time_t diff = getUTC() - start;
-    cout << endl << "diff = " << diff << endl;
-    cout << "to = " << to << endl;
     // Actual time will be greater than time-out, depending on the
     // machine this is being run on. Allowing for 10% more than the
     // time-out seems amply reasonable.
@@ -95,10 +93,65 @@ void TSemfifoTest::test_get()
     CPPUNIT_ASSERT(fifo.timed_get(out, to) == true);
     diff = getUTC() - start;
     CPPUNIT_ASSERT(out == in);
-    cout << endl << "diff = " << diff << endl;
-    cout << "to = " << to << endl;
     // we don't know exactly how long it takes to do this, bc of
     // machine differences, but it should take significantly less time
     // than the actual time-out.
     CPPUNIT_ASSERT(diff < to);
+}
+
+void TSemfifoTest::test_flush()
+{
+    int k;
+    tsemfifo<int> fifo(15);
+    
+    for (int i = 0; i < 10; ++i)
+    {
+        fifo.put(i);
+    }
+
+    // flush five oldest
+    fifo.flush(5);
+    CPPUNIT_ASSERT(fifo.size() == 5);    
+    // flush all-but-two
+
+    fifo.flush(-2);
+    CPPUNIT_ASSERT(fifo.size() == 2);    
+
+    // this forces a roll-around, and since 'put_no_block()' was used
+    // (which calls 'flush(1)', oldest value will be flushed every
+    // time the buffer is full. It is full at 15, and already had
+    // 2. So the next value that 'get()' fetches should be 1.
+    for (int i = 0; i < 16; ++i)
+    {
+        fifo.put_no_block(i);
+    }
+
+    fifo.get(k);
+
+    CPPUNIT_ASSERT(k == 1);
+    // drop all but the last one
+    fifo.flush(-1);
+    fifo.get(k);
+    CPPUNIT_ASSERT(fifo.size() == 0);
+    CPPUNIT_ASSERT(k == 15);
+
+    for (int i = 0; i < 10; ++i)
+    {
+        fifo.put(i);
+    }
+
+    fifo.flush();
+    CPPUNIT_ASSERT(fifo.size() == 0);
+    
+    for (int i = 0; i < 10; ++i)
+    {
+        fifo.put(i);
+    }
+
+    // flush all-but-20; should leave it as is
+    fifo.flush(-20);
+    CPPUNIT_ASSERT(fifo.size() == 10);
+    // flush more than there are. Should leave it empty.
+    fifo.flush(100);
+    CPPUNIT_ASSERT(fifo.size() == 0);
 }

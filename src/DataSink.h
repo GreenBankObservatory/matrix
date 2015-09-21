@@ -459,7 +459,7 @@ namespace matrix
             throw MatrixException("DataSink::_data_handler()", msg.str());
         }
 
-        ringbuf.put(*(T *)data);
+        ringbuf.put_no_block(*(T *)data);
     }
 
     template <>
@@ -467,7 +467,7 @@ namespace matrix
     {
         std::string val(sze, 0);
         std::memmove((char *)val.data(), data, sze);
-        ringbuf.try_put(val);
+        ringbuf.put_no_block(val);
     }
 
 
