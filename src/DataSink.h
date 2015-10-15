@@ -693,6 +693,7 @@ namespace matrix
             _tc.reset();
             TransportClient::release_transport(_urn);
             _connected = false;
+            flush(items());
         }
     }
 

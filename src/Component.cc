@@ -334,6 +334,8 @@ void Component::_command_loop()
             cerr << e.what() << endl;
             throw e;
         }
+
+        dbprintf("%s: processing command %s\n", __PRETTY_FUNCTION__, command.c_str());
         process_command(command);
     }
 }
@@ -396,6 +398,7 @@ bool Component::_handle_leaving_state()
 bool Component::_handle_entering_state()
 {
     // propagate the state change to the keymaster...
+    dbprintf("%s: state changed\n", __PRETTY_FUNCTION__);
     state_changed();
     return true;
 }
@@ -465,12 +468,14 @@ bool Component::_ready()
 /// Send a state change to the keymaster.
 bool Component::_report_state(std::string newstate)
 {
+    dbprintf("%s: reporting new state -->> %s\n", __PRETTY_FUNCTION__, newstate.c_str());
     keymaster->put(my_full_instance_name + ".state", newstate);
     return true;
 }
 
 bool Component::_state_changed(void)
 {
+    dbprintf("%s: reporting state change\n", __PRETTY_FUNCTION__);
     return report_state( get_state() );
 }
 
