@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <pthread.h>
+#include <string>
 
 /**
  * \class Thread
@@ -99,7 +100,7 @@ public:
     Thread(T *object_, THREADPROC proc_, size_t stacksize_ = 0);
     ~Thread();
 
-    int start();
+    int start(std::string thread_name = {});
     bool running();
     void stop();
     void stop_without_cancel();
@@ -161,7 +162,7 @@ template<typename T> Thread<T>::~Thread()
  *
  */
 
-template<typename T> int Thread<T>::start()
+template<typename T> int Thread<T>::start(std::string thread_name)
 {
     int err;
 
@@ -194,6 +195,14 @@ template<typename T> int Thread<T>::start()
 #else
     err = pthread_create(&id, 0, thread_proc, this);
 #endif
+
+#ifdef _GNU_SOURCE
+    if (!thread_name.empty())
+    {
+        pthread_setname_np(id, thread_name.c_str());
+    }
+#endif
+
     return err;
 }
 
