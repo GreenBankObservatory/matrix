@@ -125,7 +125,7 @@ template <typename T> class tsemfifo
     bool put(T &obj);
     bool try_put(T &obj);
     bool timed_put(T &obj, Time::Time_t time_out);
-    void put_no_block(T &obj);
+    unsigned int put_no_block(T &obj);
     bool get(T &obj);
     bool try_get(T &obj);
     bool timed_get(T &obj, Time::Time_t time_out);
@@ -534,15 +534,20 @@ template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
  *
  */
 
-template <class T> void tsemfifo<T>::put_no_block(T &obj)
+template <class T> unsigned int tsemfifo<T>::put_no_block(T &obj)
 {
+    unsigned int flushed(0);
+    
     // try_put() will fail and return 'false' if the fifo is full. In
     // that case, flush the oldest ojbect, and this should provide
     // enough room to put the object.
     while (!try_put(obj))
     {
         flush(1);
+        ++flushed;
     }
+
+    return flushed;
 }
 
 /**

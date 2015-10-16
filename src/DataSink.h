@@ -449,7 +449,7 @@ namespace matrix
  */
 
     template <typename T>
-    void _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf)
+    int _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf)
     {
         if (sizeof(T) != sze)
         {
@@ -459,15 +459,15 @@ namespace matrix
             throw MatrixException("DataSink::_data_handler()", msg.str());
         }
 
-        ringbuf.put_no_block(*(T *)data);
+        return ringbuf.put_no_block(*(T *)data);
     }
 
     template <>
-    inline void _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf)
+    inline int _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf)
     {
         std::string val(sze, 0);
         std::memmove((char *)val.data(), data, sze);
-        ringbuf.put_no_block(val);
+        return ringbuf.put_no_block(val);
     }
 
 
@@ -482,6 +482,7 @@ namespace matrix
         bool try_get(T &);
         bool timed_get(T &, Time::Time_t);
         size_t items();
+        size_t lost_items();
         size_t flush(int items);
         void set_notifier(std::shared_ptr<fifo_notifier> n);
 
@@ -503,10 +504,11 @@ namespace matrix
                 return;
             }
 
-            matrix::_data_handler<T>(data, sze, _ringbuf);
+            _lost_data += matrix::_data_handler<T>(data, sze, _ringbuf);
         }
 
         bool _connected;
+        size_t _lost_data;
         std::string _key;
         std::string _km_urn;
         std::string _urn;
@@ -665,6 +667,7 @@ namespace matrix
 
         _urn = tss(component_name, data_name);;
         _key = component_name + "." + data_name;
+        _lost_data = 0L;
         _tc = TransportClient::get_transport(_urn);
         _tc->connect(_urn);
         _tc->subscribe(_key, &_cb);
@@ -708,6 +711,24 @@ namespace matrix
     size_t DataSink<T, U>::items()
     {
         return (size_t)_ringbuf.size();
+    }
+
+/**
+ * Returns the number of items dropped off the end of the
+ * ringbuffer. This happens if the ring buffer is being filled faster
+ * than it is being emptied.
+ *
+ * The count of lost items is reset upon connection, so is meaningful
+ * only for that connection period.
+ *
+ * @return A size_t indicating the number of lost items during this connection. 
+ *
+ */
+
+    template <typename T, typename U>
+    size_t DataSink<T, U>::lost_items()
+    {
+        return _lost_data;
     }
 
 /**
