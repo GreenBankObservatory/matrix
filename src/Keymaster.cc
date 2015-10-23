@@ -884,7 +884,10 @@ Keymaster::Keymaster(string keymaster_url, bool shared)
     _km_url(keymaster_url),
     _pipe_url(string("inproc://") + gen_random_string(20)),
     _subscriber_thread(this, &Keymaster::_subscriber_task),
-    _subscriber_thread_ready(false)
+    _subscriber_thread_ready(false),
+    _put_thread(this, &Keymaster::_put_task),
+    _put_thread_ready(false),
+    _put_thread_run(false)
 {
 }
 
@@ -912,6 +915,12 @@ Keymaster::~Keymaster()
         ThreadLock<Mutex> lck(_shared_lock);
         _km_->setsockopt(ZMQ_LINGER, &zero, sizeof zero);
         _km_->close();
+    }
+
+    if (_put_thread.running())
+    {
+        _put_thread_run = false;
+        _put_thread.stop_without_cancel();
     }
 }
 
@@ -1094,6 +1103,51 @@ bool Keymaster::get(std::string key, yaml_result &yr)
  * Puts a YAML::Node representing some value at the node represented by
  * the given keychain. Will optionally create new nodes if some part of
  * the keychain does not exist.
+ *
+ * example:
+ *
+ *      Keymaster km("inproc://keymaster");
+ *      int packets;
+ *      string n;
+ *      ...
+ *
+ *      // update packets processed
+ *      n = to_string(packets)
+ *      km.put_nb("STATUS.PACKETS", n);
+ *
+ * The key "STATUS.PACKETS", the string 'n', and a boolean parameter
+ * (default is false) will be packed into a std::tuple, and placed
+ * into a FIFO. Another thread will process the other end of the FIFO,
+ * and communicate the request to the KeymasterServer. The calling
+ * thread can continue long before this process is complete.
+ *
+ * @param key: The keychain. Keychains are a sequence of keys separated
+ * by periods (".") which will specify a path to a value in the
+ * keystore.
+ *
+ * @param n: The new value to place at the end of the keychain.
+ *
+ * @param create: If true, the keymaster will create a new node for 'n',
+ * and any new nodes it needs in between the last good key on the chain
+ * and the key corresponding to 'n'.
+ *
+ */
+
+void Keymaster::put_nb(std::string key, std::string n, bool create)
+{
+    _run_put(); // does nothing if already running
+    
+    tuple<string, string, bool> state(key, n, create);
+    _put_fifo.put_no_block(state);
+}
+
+/**
+ * Puts a YAML::Node representing some value at the node represented by
+ * the given keychain. Will optionally create new nodes if some part of
+ * the keychain does not exist. Does not block during the put, placing
+ * all the data into a queue for transmission by another thread. This
+ * is useful in situations where execution time becomes critical,
+ * and/or the actual results of the put don't matter.
  *
  * example:
  *
@@ -1414,4 +1468,73 @@ void Keymaster::_subscriber_task()
     zero = 0;
     sub_sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
     sub_sock.close();
+}
+
+/**
+ * Starts the deferred put thread, if it is not already running.
+ *
+ */
+
+void Keymaster::_run_put()
+{
+    ThreadLock<Mutex> lck(_shared_lock);
+
+    lck.lock();
+    _put_thread_run = true;
+
+    if (!_put_thread.running())
+    {
+        if ((_put_thread.start() != 0) || (!_put_thread_ready.wait(true, 1000000)))
+        {
+            throw(runtime_error("Keymaster: unable to start deferred put thread"));
+        }
+    }
+}
+
+/**
+ * Thread entry point for the deferred put thread. Reads a tuple out
+ * of the status queue, splitting it into a key, a value, and a create
+ * flag.
+ *
+ */
+
+void Keymaster::_put_task()
+{
+    tuple<string, string, bool> state;
+    map<string, string> memo;
+    string key, message;
+    bool create = false;
+    map<string, string>::iterator mi;
+
+    _put_thread_ready.signal(true);
+
+    while (_put_thread_run)
+    {
+        if (_put_fifo.timed_get(state, 5000000))
+        {
+            key = std::get<0>(state);
+            message = std::get<1>(state);
+
+            key.shrink_to_fit();
+            message.shrink_to_fit();
+
+            if ((mi = memo.find(key)) != memo.end())
+            {
+                if (mi->second == message)
+                {
+                    continue; // don't spam the keymaster with
+                              // duplicate values.
+                }
+
+                create = false;
+            }
+            else if (std::get<2>(state)) // new key, must set 'create' flag
+            {                            // but only if caller requested it.
+                create = true;
+            }
+
+            memo[key] = message;
+            put(key, YAML::Node(message), create);
+        }
+    }
 }

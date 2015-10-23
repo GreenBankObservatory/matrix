@@ -32,12 +32,14 @@
 #include "matrix_util.h"
 #include "Thread.h"
 #include "TCondition.h"
+#include "tsemfifo.h"
 
 #include <string>
 #include <vector>
 #include <exception>
 #include <stdexcept>
 #include <sstream>
+#include <tuple>
 
 #include <boost/shared_ptr.hpp>
 #include <yaml-cpp/yaml.h>
@@ -160,6 +162,7 @@ public:
     YAML::Node get(std::string key);
     bool get(std::string key, mxutils::yaml_result &yr);
     bool put(std::string key, YAML::Node n, bool create = false);
+    void put_nb(std::string key, std::string val, bool create = true);
     bool del(std::string key);
     bool subscribe(std::string key, KeymasterCallbackBase *f);
     bool unsubscribe(std::string key);
@@ -174,7 +177,9 @@ public:
 private:
 
     void _subscriber_task();
+    void _put_task();
     void _run();
+    void _run_put();
     void _handle_keymaster_server_exception();
     mxutils::yaml_result _call_keymaster(std::string cmd, std::string key,
                                          std::string val = "", std::string flag = "");
@@ -189,6 +194,10 @@ private:
     std::map<std::string, KeymasterCallbackBase *> _callbacks;
     Thread<Keymaster> _subscriber_thread;
     TCondition<bool> _subscriber_thread_ready;
+    Thread<Keymaster> _put_thread;
+    TCondition<bool> _put_thread_ready;
+    bool _put_thread_run;
+    tsemfifo<std::tuple<std::string, std::string, bool> > _put_fifo;
     Mutex _shared_lock;
 };
 
