@@ -138,6 +138,8 @@ bool Architect::configure_component_modes()
     l.lock();
     try
     {
+        active_mode_components.clear();
+
         // for each modeset
         for (YAML::const_iterator md = km_mode.begin(); md != km_mode.end(); ++md)
         {
@@ -326,6 +328,10 @@ void Architect::component_state_changed(string yml_path, YAML::Node new_status)
     _component_state_changed(yml_path, new_status);
 }
 
+void Architect::connections_changed(string path, YAML::Node n)
+{
+    configure_component_modes();
+}
 
 
 // Send an event filtered by the components active status.
@@ -387,7 +393,9 @@ bool Architect::_basic_init()
         keymaster->subscribe(my_full_instance_name + ".configuration",
                              new KeymasterMemberCB<Architect>(this,
                                      &Architect::system_mode_changed) );
-
+        keymaster->subscribe("connections",
+                             new KeymasterMemberCB<Architect>(
+                                 this, &Architect::connections_changed));
     }
     catch (KeymasterException e)
     {

@@ -178,6 +178,10 @@ protected:
     /// A callback for component state changes.
     void component_state_changed(std::string comp_name, YAML::Node newstate);
 
+    /// A callback for connections state changes. Allows for dynamic
+    /// changing of modes.
+    void connections_changed(std::string, YAML::Node);
+
     /// A service thread which examines component states and reports the
     /// aggregated system state.
     void component_state_reporting_loop();
