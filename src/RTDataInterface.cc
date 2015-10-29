@@ -83,7 +83,7 @@ namespace matrix
         // "component.data". So if component 'cat' emits data 'meow', the
         // key would be "cat.meow". This class needs some way to
         // populate this map. This is done via the 'subscribe' method.
-        map<string, DataCallbackBase *> _clients;
+        multimap<string, DataCallbackBase *> _clients;
         string _urn;
     };
 
@@ -122,7 +122,13 @@ namespace matrix
     }
 
 /**
- * Publishes data by key, void * and size
+ * Publishes data by key, void * and size. Data from DataSinks are
+ * published with a key that corresponds to the source component and
+ * data, with the format 'source.data', where 'source' is the source
+ * component's name, and 'data' is the named data stream. Each data
+ * stream 'source.data' may have multiple clients. RTTransportServer,
+ * like ZMQ based transports, may publish the same data to multiple
+ * clients.
  *
  * @param key: The data key
  *
@@ -138,10 +144,13 @@ namespace matrix
     bool RTTransportServer::Impl::publish(string key, void const *data, size_t sze)
     {
         bool rval = false;
-        map<string, DataCallbackBase *>::iterator client;
+        multimap<string, DataCallbackBase *>::iterator client;
 
-        if ((client = _clients.find(key)) != _clients.end())
+        // Find all clients subscribed to the data represented by 'key'.
+        for (client = _clients.equal_range(key).first;
+             client != _clients.equal_range(key).second; ++client)
         {
+            // call their callbacks with the data.
             client->second->exec(key, (void *)data, sze);
             rval = true;
         }
@@ -183,7 +192,7 @@ namespace matrix
 
     bool RTTransportServer::Impl::subscribe(string key, DataCallbackBase *cb)
     {
-        _clients[key] = cb;
+        _clients.insert(make_pair(key, cb));
         return true;
     }
 
@@ -206,17 +215,24 @@ namespace matrix
     bool RTTransportServer::Impl::unsubscribe(string key, DataCallbackBase *cb)
     {
         bool rval = false;
-        map<string, DataCallbackBase *>::iterator client;
+        multimap<string, DataCallbackBase *>::iterator client;
 
-        if ((client = _clients.find(key)) != _clients.end())
+        // Many clients may be registered for this data under
+        // 'key'. Look for an exact match of key, cb:
+        for (client = _clients.equal_range(key).first;
+             client != _clients.equal_range(key).second; ++client)
         {
-            // make sure it is the right callback, to prevent others
-            // from unsubscribing a client.
             if (client->second == cb)
             {
-                _clients.erase(client);
-                rval = true;
+                break;
             }
+        }
+
+        if (client != _clients.equal_range(key).second)
+        {
+            // found it!
+            _clients.erase(client);
+            rval = true;
         }
 
         return rval;
@@ -294,7 +310,7 @@ namespace matrix
     {
         _impl->unsubscribe(key, cb);
     }
-    
+
 /**
  * This private function provides the TransportServer 'publish()' functionality.
  *
@@ -337,8 +353,8 @@ namespace matrix
     {
         return new RTTransportClient(urn);
     }
-    
-    
+
+
 
 /**
  * RTTranportClient constructor.
@@ -352,52 +368,52 @@ namespace matrix
         : TransportClient(urn)
     {
     }
-    
+
 
     RTTransportClient::~RTTransportClient()
     {
         _unsubscribe(_key, _cb);
     }
-    
+
     bool RTTransportClient::_connect(string)
     {
         bool rval = false;
-        
+
         if (!_key.empty() && _cb != NULL)
         {
             rval = _subscribe(_key, _cb);
         }
-        
+
         return rval;
     }
-    
+
     bool RTTransportClient::_disconnect()
     {
         bool rval = false;
-        
+
         if (!_key.empty() && _cb != NULL)
         {
             rval = _unsubscribe(_key, _cb);
         }
-       
+
         return rval;
     }
-    
+
     bool RTTransportClient::_subscribe(string key, DataCallbackBase *cb)
     {
         bool rval = false;
         std::map<std::string, RTTransportServer *>::iterator server;
-        
+
         _key = key;
         _cb = cb;
-        
+
         if ((server = RTTransportServer::_rttransports.find(_urn))
             != RTTransportServer::_rttransports.end())
         {
             // got the RTTransportServer...
             rval = server->second->_subscribe(key, cb);
         }
-        
+
         return rval;
     }
 
@@ -405,20 +421,20 @@ namespace matrix
     {
         bool rval = false;
         std::map<std::string, RTTransportServer *>::iterator server;
-        
+
         _key = key;
         _cb = cb;
-        
+
         if ((server = RTTransportServer::_rttransports.find(_urn))
             != RTTransportServer::_rttransports.end())
         {
             // got the RTTransportServer...
             rval = server->second->_unsubscribe(key, cb);
         }
-        
+
         return rval;
     }
 }
 
-    
-    
+
+
