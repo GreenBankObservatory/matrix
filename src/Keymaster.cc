@@ -701,6 +701,8 @@ void KeymasterServer::KmImpl::state_manager_task()
 
 bool KeymasterServer::KmImpl::publish(std::string key, bool block)
 {
+    bool rval = true;
+    
     // Publish "Root" if there is no key
     try
     {
@@ -732,23 +734,26 @@ bool KeymasterServer::KmImpl::publish(std::string key, bool block)
                     yr << r.node;
                     dp.key = key;
                     dp.val = yr.str();
+
+                    if (block)
+                    {
+                        _data_queue.put(dp);
+                    }
+                    else
+                    {
+                        rval = rval and _data_queue.try_put(dp);                    
+                    }
                 }
             }
         }
-
-        if (block)
-        {
-            _data_queue.put(dp);
-            return true;
-        }
-
-        return _data_queue.try_put(dp);
     }
     catch (YAML::Exception e)
     {
         cerr << "YAML exception in publish: " << e.what() << endl;
         return false;
     }
+
+    return rval;
 }
 
 /**
@@ -1136,7 +1141,7 @@ bool Keymaster::get(std::string key, yaml_result &yr)
 void Keymaster::put_nb(std::string key, std::string n, bool create)
 {
     _run_put(); // does nothing if already running
-    
+
     tuple<string, string, bool> state(key, n, create);
     _put_fifo.put_no_block(state);
 }
