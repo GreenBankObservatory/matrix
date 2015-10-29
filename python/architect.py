@@ -40,47 +40,27 @@ class Architect(object):
         self._keymaster = keymaster.Keymaster(km_url, context)
         self._name = name
         self._timeout = 4.0
-        self._components = self._keymaster.get('components')
-        self._architect = self._keymaster.get('architect')
-        self.ArchitectCallback('components')
-        self.ArchitectCallback('architect')
         print 'Architect created'
 
     def __del__(self):
-        self._keymaster.unsubscribe('components')
-        self._keymaster.unsubscribe('architect')
-        self._keymaster._kill_subscriber_thread()
         print 'Architect terminated'
 
-    def ArchitectCallback(self, sub_key):
-        """
-        Requests that the internal Keymaster client create a callback for 'sub_key'.
-
-        *sub_key*: the Keymaster key of interest.
-        """
+    def get_architect(self):
+        return self._keymaster.get('architect')
         
-        # prevent circular reference
-        arch = weakref.ref(self)
+    def get_components(self):
+        return self._keymaster.get('components')
 
-        def cb(key, val):
-            if key == sub_key:
-                arch().set_data(key, val)
-
-        self._keymaster.subscribe(sub_key, cb)
-
-    def set_data(self, key, val):
-        if key == 'components':
-            self._components = val
-        elif key == 'architect':
-            self._architect = val
-
+    def get_connections(self):
+        return self._keymaster.get('connections')
+        
     def check_all_in_state(self, state):
         """check that all component states are in the state specified.
 
         *state*: The state to check.
 
         """
-        comps = self._keymaster.get('components')
+        comps = self.get_components()
         states = [comps[i]['state'] for i in comps if comps[i]['active']]
         return all(x == state for x in states)
 
@@ -126,8 +106,8 @@ class Architect(object):
     def get_active_components(self):
         """Returns a list of components selected for this mode.
         """
-
-        return [i for i in self._components if self._components[i]['active']]
+        components = self.get_components()
+        return [i for i in components if components[i]['active']]
 
     def get_system_modes(self):
         """returns a list of supported modes. Modes are specified in the
@@ -141,8 +121,7 @@ class Architect(object):
     def get_system_mode(self):
         """returns the currently set mode.
         """
-
-        return self._architect['control']['configuration']
+        return self.get_architect()['control']['configuration']
 
     def set_system_mode(self, mode):
         """Set a specific mode. The mode name should be defined in the
@@ -153,7 +132,7 @@ class Architect(object):
         *mode*: The mode, or "connections", key name, a string.
 
         """
-        arch_state = self._architect['control']['state']
+        arch_state = self.get_state()
         modes = self.get_system_modes()
 
         # system must be in 'Standby' for mode changes to take place
@@ -178,8 +157,7 @@ class Architect(object):
         """
         Returns the current Architect state.
         """
-        self._architect = self._keymaster.get('architect')
-        return self._architect['control']['state']
+        return self.get_architect()['control']['state']
 
 
     def ready(self):
