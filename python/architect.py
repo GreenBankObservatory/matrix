@@ -61,8 +61,8 @@ class Architect(object):
 
         """
         comps = self.get_components()
-        states = [comps[i]['state'] for i in comps if comps[i]['active']]
-        return all(x == state for x in states)
+        comp_states = {i: comps[i]['state'] for i in comps if comps[i]['active']}
+        return (all(comp_states[x] == state for x in comp_states), comp_states)
 
     def kget(self, key):
         return self._keymaster.get(key)
@@ -82,8 +82,8 @@ class Architect(object):
         total_wait_time = 0.0
 
         while True:
-            if self.check_all_in_state(statename):
-                rval = True
+            rval, states = self.check_all_in_state(statename)
+            if rval:
                 break
 
             total_wait_time += 0.1
@@ -92,7 +92,7 @@ class Architect(object):
             if total_wait_time > timeout:
                 break
 
-        return rval
+        return (rval, states)
 
     def send_event(self, event):
         """Issue an arbitrary user-defined event to the FSM.
