@@ -28,6 +28,8 @@
 #include "RTDataInterface.h"
 #include "zmq_util.h"
 #include "Keymaster.h"
+#include "Mutex.h"
+#include "ThreadLock.h"
 
 #include <string>
 
@@ -83,6 +85,7 @@ namespace matrix
         // "component.data". So if component 'cat' emits data 'meow', the
         // key would be "cat.meow". This class needs some way to
         // populate this map. This is done via the 'subscribe' method.
+        Mutex _client_mutex;
         multimap<string, DataCallbackBase *> _clients;
         string _urn;
     };
@@ -145,6 +148,9 @@ namespace matrix
     {
         bool rval = false;
         multimap<string, DataCallbackBase *>::iterator client;
+        ThreadLock<Mutex> l(_client_mutex);
+
+        l.lock();
 
         // Find all clients subscribed to the data represented by 'key'.
         for (client = _clients.equal_range(key).first;
@@ -192,6 +198,9 @@ namespace matrix
 
     bool RTTransportServer::Impl::subscribe(string key, DataCallbackBase *cb)
     {
+        ThreadLock<Mutex> l(_client_mutex);
+
+        l.lock();
         _clients.insert(make_pair(key, cb));
         return true;
     }
@@ -216,6 +225,9 @@ namespace matrix
     {
         bool rval = false;
         multimap<string, DataCallbackBase *>::iterator client;
+        ThreadLock<Mutex> l(_client_mutex);
+
+        l.lock();
 
         // Many clients may be registered for this data under
         // 'key'. Look for an exact match of key, cb:
