@@ -776,4 +776,5 @@ template <class T> void tsemfifo<T>::set_notifier(std::shared_ptr<fifo_notifier>
     _notifier = n;
 }
 
+
 #endif  // _TSEMFIFO_H_

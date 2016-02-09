@@ -217,6 +217,18 @@ bool Architect::create_component_instances()
     return true;
 }
 
+std::shared_ptr<Component> Architect::get_component_by_name(std::string name)
+{
+    ComponentMap::iterator cm = components.find(name);
+
+    if (cm != components.end())
+    {
+        return cm->second.instance;
+    }
+
+    return std::shared_ptr<Component>();
+}
+
 // Verify all components are in the desired state
 bool Architect::check_all_in_state(string statename)
 {

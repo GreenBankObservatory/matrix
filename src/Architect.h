@@ -157,6 +157,8 @@ public:
     /// shutdown the controller and its components
     void terminate();
 
+    std::shared_ptr<Component> get_component_by_name(std::string name);
+
     struct ComponentInfo
     {
         std::shared_ptr<Component> instance;

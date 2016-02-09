@@ -27,6 +27,8 @@
 
 #include "matrix_util.h"
 #include <set>
+#include <iostream>
+#include <iomanip>
 #include <string>
 #include <algorithm>
 #include <sys/time.h>
@@ -76,6 +78,49 @@ namespace mxutils
         remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
         return stripped;
     }
+
+/********************************************************************
+ * ToHex(const string &s, bool upper_case)
+ *
+ * Converts a binary string to the kind of hex byte output you'd see in
+ * a hex editor. See
+ * http://stackoverflow.com/questions/9621893/c-read-binary-file-and-convert-to-hex
+ *
+ * @param const string &s: the byte buffer.
+ * @param bool upper_case: Set to true if upper case hex output desired.
+ *
+ * @return A std::string, the hex string.
+ *
+ *******************************************************************/
+
+string ToHex(const string &s, bool upper_case, size_t max_len)
+{
+    ostringstream ret;
+    size_t max;
+
+    if (max_len)
+    {
+        max = min(max_len, s.length());
+    }
+    else
+    {
+        max = s.length();
+    }
+
+    for (string::size_type i = 0; i < max; ++i)
+    {
+        int z = s[i]&0xff;
+        ret << std::hex << std::setfill('0') << std::setw(2)
+            << (upper_case ? std::uppercase : std::nouppercase) << z << " ";
+    }
+
+    if (max_len)
+    {
+        ret << "... (len=" << s.length() << ")";
+    }
+
+    return ret.str();
+}
 
 /**
  * This utility will call nanosleep with the proper fields. It will

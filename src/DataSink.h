@@ -30,6 +30,7 @@
 
 #include "Time.h"
 #include "tsemfifo.h"
+#include "DataInterface.h"
 
 #include <sstream>
 
@@ -448,6 +449,20 @@ namespace matrix
  *
  */
 
+    /**
+     * General implementation for all types T. This is used by the
+     * transport to provide the data to the tsemfifo belonging to a
+     * specific DataSink.
+     *
+     * @param data: The data buffer
+     * @param sze: The size in bytes of the buffer
+     * @param ringbuf: the ringbuf to place the string into.
+     *
+     * @return The number of the oldest entries flushed from the
+     * buffer to make room for this one. Ideally this is 0.
+     *
+     */
+
     template <typename T>
     int _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf)
     {
@@ -462,6 +477,25 @@ namespace matrix
         return ringbuf.put_no_block(*(T *)data);
     }
 
+    /**
+     * std::string specialization for _data_handler, wich is used by
+     * the transport to provide the data to the DataSink's
+     * tsemfifo. Using std::strings has some implications: When the
+     * string is placed into the fifo, it's operator=() will be used
+     * to transfer the data. This means whatever previous buffer the
+     * string inside the fifo was using will be deleted, and a pointer
+     * to a new buffer given to it (by std::string, in this
+     * function). This means memory allocation and deallocation.
+     *
+     * @param data: The data buffer
+     * @param sze: The size in bytes of the buffer
+     * @param ringbuf: the ringbuf to place the string into.
+     *
+     * @return The number of the oldest entries flushed from the
+     * buffer to make room for this one. Ideally this is 0.
+     *
+     */
+    
     template <>
     inline int _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf)
     {
@@ -470,7 +504,47 @@ namespace matrix
         return ringbuf.put_no_block(val);
     }
 
+    /**
+     * matrix::GenericBuffer specialization for _data_handler, wich is used by
+     * the transport to provide the data to the DataSink's
+     * tsemfifo. matrix::GenericBuffer provides a dynamically
+     * resizable buffer. In a DataSource, it is useful for matching
+     * the expected size of a DataSink, and when used in a DataSync,
+     * useful for matching the incoming size from a
+     * DataSource. GenericBuffers will only resize themselves when the
+     * incoming data size does not match the previously allocated
+     * size. In that case a new buffer of the right size will be
+     * allocated. Otherwise data is copied to the buffers without any
+     * allocation or deallocation or transfer of buffer, as with
+     * std::string.
+     *
+     * @param data: The data buffer
+     * @param sze: The size in bytes of the buffer
+     * @param ringbuf: the ringbuf to place the string into.
+     *
+     * @return The number of the oldest entries flushed from the
+     * buffer to make room for this one. Ideally this is 0.
+     *
+     */
 
+    template <>
+    inline int _data_handler<matrix::GenericBuffer>(void *data, size_t sze, tsemfifo<matrix::GenericBuffer> &ringbuf)
+    {
+        matrix::GenericBuffer buf;
+
+        if (buf.size() != sze)
+        {
+            buf.resize(sze);
+        }
+
+        // TBF? A copy could be eliminated here if tsemfifo had a
+        // 'get_next_no_block()' and a 'put()' (with empty parameter list),
+        // wich would handle the semaphores properly to mark it as put,
+        // to get the next available slot and copy it directly to this.
+        std::memmove((unsigned char *)buf.data(), data, sze);
+        return ringbuf.put_no_block(buf);
+    }
+    
     template <typename T, typename U = select_specified>
     class DataSink : public DataSinkBase
     {
@@ -665,7 +739,7 @@ namespace matrix
             disconnect();
         }
 
-        _urn = tss(component_name, data_name);;
+        _urn = tss(component_name, data_name);
         _key = component_name + "." + data_name;
         _lost_data = 0L;
         _tc = TransportClient::get_transport(_urn);

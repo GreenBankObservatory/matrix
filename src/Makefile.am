@@ -31,12 +31,13 @@ lib_LTLIBRARIES = libmatrix.la
 
 headersdir = $(includedir)
 headers_HEADERS = \
-    Component.h \
     Architect.h \
+    Component.h \
     DataInterface.h \
     DataSink.h \
     DataSource.h \
     FiniteStateMachine.h \
+    GenericDataConsumer.h \
     Keymaster.h \
     Mutex.h \
     RTDataInterface.h \
@@ -58,6 +59,7 @@ libmatrix_la_SOURCES = \
     Architect.cc \
     Component.cc \
     DataInterface.cc \
+    GenericDataConsumer.cc \
     Keymaster.cc \
     Mutex.cc  \
     RTDataInterface.cc \

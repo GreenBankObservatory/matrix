@@ -77,6 +77,7 @@ namespace mxutils
     timeval operator+(timeval lhs, double rhs);
     timeval operator-(timeval lhs, timeval rhs);
     std::ostream & operator<<(std::ostream &os, const timeval &t);
+    std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
     
 /**
  * \class fn_string_join is a simple functor that provides a handy way to
@@ -177,24 +178,44 @@ namespace mxutils
         return s;
     }
 
-    template <> inline int convert<int>(const std::string &s)
+    template <> inline int8_t convert<int8_t>(const std::string &s)
     {
-        return stoi(strip_non_numeric(s));
+        return (int8_t)stoi(s);
     }
 
-    template <> inline unsigned int convert<unsigned int>(const std::string &s)
+    template <> inline uint8_t convert<uint8_t>(const std::string &s)
     {
-        return (unsigned int)stoul(strip_non_numeric(s));
+        return (uint8_t)stoul(s);
     }
 
-    template <> inline long convert<long>(const std::string &s)
+    template <> inline int16_t convert<int16_t>(const std::string &s)
     {
-        return (long)stol(strip_non_numeric(s));
+        return (int16_t)stoi(s);
     }
 
-    template <> inline unsigned long convert<unsigned long>(const std::string &s)
+    template <> inline uint16_t convert<uint16_t>(const std::string &s)
     {
-        return stoul(strip_non_numeric(s));
+        return (uint16_t)stoul(s);
+    }
+
+    template <> inline int32_t convert<int32_t>(const std::string &s)
+    {
+        return (int32_t)stoi(strip_non_numeric(s));
+    }
+
+    template <> inline uint32_t convert<uint32_t>(const std::string &s)
+    {
+        return (uint32_t)stoul(strip_non_numeric(s));
+    }
+
+    template <> inline int64_t convert<int64_t>(const std::string &s)
+    {
+        return (int64_t)stol(strip_non_numeric(s));
+    }
+
+    template <> inline uint64_t convert<uint64_t>(const std::string &s)
+    {
+        return (uint64_t)stoul(strip_non_numeric(s));
     }
 
     template <> inline bool convert<bool>(const std::string &s)

@@ -31,6 +31,7 @@
 
 #include "TestDataGenerator.h"
 #include "matrix_util.h"
+#include "DataInterface.h"
 
 #include <string>
 #include <map>
@@ -75,37 +76,6 @@ namespace matrix
     }
 
 /**
- * Constructor to the data_source_info nested structure, which
- * contains a description of the data to be output for a source.
- *
- */
-
-    TestDataGenerator::data_source_info::data_source_info()
-    {
-        type_info["int8_t"] = sizeof(int8_t);
-        type_info["uint8_t"] = sizeof(uint8_t);
-        type_info["int16_t"] = sizeof(int16_t);
-        type_info["uint16_t"] = sizeof(uint16_t);
-        type_info["int32_t"] = sizeof(int32_t);
-        type_info["uint32_t"] = sizeof(uint32_t);
-        type_info["int64_t"] = sizeof(int64_t);
-        type_info["uint64_t"] = sizeof(uint64_t);
-        type_info["char"] = sizeof(char);
-        type_info["unsigned char"] = sizeof(unsigned char);
-        type_info["short"] = sizeof(short);
-        type_info["unsigned short"] = sizeof(unsigned short);
-        type_info["int"] = sizeof(int);
-        type_info["unsigned"] = sizeof(unsigned);
-        type_info["unsigned int"] = sizeof(unsigned int);
-        type_info["long"] = sizeof(long);
-        type_info["unsigned long"] = sizeof(unsigned long);
-        type_info["bool"] = sizeof(bool);
-        type_info["float"] = sizeof(float);
-        type_info["double"] = sizeof(double);
-        type_info["long double"] = sizeof(long double);
-    }
-
-/**
  * The factory for the TestDataGenerator component.
  *
  * @param name: the name of the component
@@ -136,6 +106,7 @@ namespace matrix
           poll_thread_started(false),
           _run(true)
     {
+        _read_source_information();
     }
 
 /**
@@ -262,119 +233,6 @@ namespace matrix
     }
 
 /**
- * Adds a field description to the fields list in the data_source_info object. Field
- * descriptions consist of a vector<string> of the form
- *
- *      [field_name, field_type, initial_val]
- *
- * The fields list describes the data structure.
- *
- * @param f: the vector containing the description for the field.
- *
- */
-
-    void TestDataGenerator::data_source_info::add_field(std::vector<std::string> &f)
-    {
-        data_source_info::data_field df;
-
-        df.name = f[0];
-        df.type = f[1];
-        df.initial_val = f[2];
-
-        fields.push_back(df);
-    }
-
-/**
- * Computes the size of the total buffer needed for the data source,
- * and the offset of the various fields. gcc in the x86_64
- * architecture stores structures in memory as a multiple of the
- * largest type of field in the structure. Thus, if the largest
- * element is an int, the size will be a multiple of 4; if it is a
- * long, of 8; etc. All elements must be stored on boundaries that
- * respect their size: int16_t on two-byte boundaries, int on 4-byte
- * boundaries, etc. Padding is added to make this work.
- *
- * case of long or double as largest field:
- *
- *     ---------------|---------------
- *               8 - byte value
- *     ---------------|---------------
- *       4-byte val   | 4-byte val
- *     ---------------|---------------
- *       4-byte val   |  padding (pd)
- *     ---------------|---------------
- *               8 - byte value
- *     ---------------|---------------
- *     1BV|1BV|  2BV  | 4-byte val
- *     ---------------|---------------
- *     1BV|    pd     | 4-byte val
- *
- *              etc...
- *
- * case of int or float being largest field:
- *
- *     ---------------
- *      4-byte value
- *     ---------------
- *      2BV   |1BV|pd
- *     ---------------
- *      1BV|pd| 2BV
- *     ---------------
- *      4-byte value
- *     ---------------
- *      2BV   | pd
- *
- *        etc...
- *
- * Structures that contain only one field are the size of that field
- * without any padding, since that one element is the largest element
- * type. So for a struct foo_t {int16_t i16;};, sizeof(foo_t) would be
- * 2.
- *
- * As it is computing the size this function also saves the offsets
- * into the various 'data_field' structures so that the data may be
- * properly accessed later.
- *
- * @return A size_t which is the size that the GenericBuffer should be
- * set to in order to contain the data properly.
- *
- */
-
-    size_t TestDataGenerator::data_source_info::size()
-    {
-        // storage element size, offset in element, number of elements
-        // used.
-        size_t s_elem_size, offset(0), s_elems(1);
-
-        // find largest element in structure.
-        std::list<data_field>::iterator i = 
-            max_element(fields.begin(), fields.end(),
-                        [this](data_field &i, data_field &j)
-                        {
-                            return type_info[i.type] < type_info[j.type];
-                        });
-        s_elem_size = type_info[i->type];
-
-        // compute the offset and multiples of largest element
-        for (list<data_field>::iterator i = fields.begin(); i != fields.end(); ++i)
-        {
-            size_t s(type_info[i->type]);
-            offset += offset % s;
-            
-            if (s_elem_size - offset < s)
-            {
-                offset = 0;
-                s_elems++;
-            }
-            
-            i->offset = s_elem_size * (s_elems - 1) + offset;
-            offset += s;
-        }
-        
-        return s_elem_size * s_elems;
-    }
-
-/**
  * Reads the data description for the component's sources from the
  * keymaster, building data_source_info objects with that data, and
  * creates the data buffers that will be published based on these
@@ -395,46 +253,12 @@ namespace matrix
 
             for (map<string, string>::iterator i = srcs.begin(); i != srcs.end(); ++i)
             {
+                // set up the DataSources:
                 shared_ptr<DataSource<GenericBuffer> > gb(
                     new DataSource<GenericBuffer>(keymaster_url, my_instance_name, i->first));
-
                 sources[i->first] = gb;
-                data_source_info dsi;
-                string periodic = yn.node["standins"][i->first]["periodic"].as<string>();
-                dsi.interval = _parse_interval(periodic);
-
-                YAML::Node fields = yn.node["standins"][i->first]["fields"];
-
-                if (fields.IsSequence())
-                {
-                    vector<vector<string> > vs = fields.as<vector<vector<string> > >();
-
-                    for (vector<vector<string> >::iterator k = vs.begin(); k != vs.end(); ++k)
-                    {
-                        dsi.add_field(*k);
-                    }
-
-                    data_specs[i->first] = dsi;
-                }
-                else if (fields.IsMap())
-                {
-                    map<string, vector<string> > vs = fields.as<map<string, vector<string> > >();
-
-                    for (int i = 0; i < vs.size(); ++i)
-                    {
-                        std::string s = std::to_string(i);
-                        dsi.add_field(vs[s]);
-                    }
-
-                    data_specs[i->first] = dsi;
-                }
-                else
-                {
-                    ostringstream msg;
-                    msg << "Unable to convert YAML input " << fields << "Neither vector or map.";
-                    throw MatrixException("TestDataGenerator::_read_source_information()",
-                                          msg.str());
-                }
+                // parse the data descriptions corresponding to this source
+                _parse_data_description(i->first, yn.node["standins"][i->first]);
             }
         }
         catch (YAML::Exception e)
@@ -443,9 +267,62 @@ namespace matrix
             msg << "Unable to convert YAML input " << e.what();
             throw MatrixException("TestDataGenerator::_read_source_information()", msg.str());
         }
-
-
     }
+
+    bool TestDataGenerator::_parse_data_description(string name, YAML::Node desc)
+    {
+        bool rval = true;
+
+        try
+        {
+            YAML:: Node fields = desc ["fields"];
+            data_description dsi(fields);
+            vector <string> dv;
+
+            // Get the default values:
+            if (fields.IsSequence())
+            {
+                vector<vector<string> > vs = fields.as<vector<vector<string> > >();
+
+                for (vector<vector<string> >::iterator k = vs.begin(); k != vs.end(); ++k)
+                {
+                    dv.push_back((*k)[3]);
+                }
+            }
+            else if (fields.IsMap())
+            {
+                map<string, vector<string> > vs = fields.as<map<string, vector<string> > >();
+
+                for (int i = 0; i < vs.size(); ++i)
+                {
+                    std::string s = std::to_string(i);
+                    dv.push_back(vs[s][3]);
+                }
+            }
+            else
+            {
+                // problem. Just do nothing and return
+                cout << "TestDataGenerator::_parse_data_description(): 'field' node neither map nor sequence." << endl
+                     << fields << endl;
+                return false;
+            }
+
+            // save the interval
+            dsi. interval = _parse_interval (desc["periodic"].as<string>());
+            // store the source data description
+            data_specs [name] = dsi;
+            // store the default values
+            default_vals [name] = dv;
+        }
+        catch (YAML::Exception e)
+        {
+            cerr << "TestDataGenerator::_parse_data_description(): YAML::Exception: " << e.what() << endl;
+            rval = false;
+        }
+
+        return rval;
+    }
+
 
 /**
  * Keymaster callback function. The publishing thread subscribes to
@@ -471,86 +348,39 @@ namespace matrix
     {
         ThreadLock<Mutex> l(_data_mutex);
         vector<string> parts;
+        boost::split(parts, key, boost::is_any_of("."));
+        string name(parts.back());
 
         l.lock();
-        boost::split(parts, key, boost::is_any_of("."));
-        data_source_info dsi, &old_dsi = data_specs[parts.back()];
+        data_description old_dsi = data_specs[name];
+        vector<string> defaults = default_vals[name];
 
-        try
+        if (!_parse_data_description(name, n))
         {
-            dsi.interval = _parse_interval(n["periodic"].as<string>());
-
-            YAML::Node fields = n["fields"];
-
-            if (fields.IsSequence())
-            {
-                vector<vector<string> > vs = fields.as<vector<vector<string> > >();
-
-                for (vector<vector<string> >::iterator k = vs.begin(); k != vs.end(); ++k)
-                {
-                    dsi.add_field(*k);
-                }
-            }
-            else if (fields.IsMap())
-            {
-                map<string, vector<string> > vs = fields.as<map<string, vector<string> > >();
-
-                for (int i = 0; i < vs.size(); ++i)
-                {
-                    std::string s = std::to_string(i);
-                    dsi.add_field(vs[s]);
-                }
-            }
-            else
-            {
-                // problem. Just do nothing and return
-                cout << "TestDataGenerator::data_configuration_changed(): node neither map nor sequence." << endl
-                     << n << endl;
-            }
-
-            // make sure all types match the old types. We cannot change
-            // that while running.
-            if (equal(dsi.fields.begin(), dsi.fields.end(), old_dsi.fields.begin(),
-                      [] (data_source_info::data_field &a, data_source_info::data_field &b)
-                      { return a.type == b.type;}))
-            {
-                data_specs[parts.back()] = dsi;
-                test_data[parts.back()] = dsi.compute_generic_buffer();
-            }
-            else
-            {
-                cout << "Cannot change types while in \"Running\" state." << endl;
-            }
+            return;
         }
-        catch (YAML::Exception e)
+
+        data_description &dsi = data_specs[name];
+        YAML::Node fields = n["fields"];
+
+        // make sure all types match the old types. We cannot change
+        // that while running.
+        if (!equal(dsi.fields.begin(), dsi.fields.end(), old_dsi.fields.begin(),
+                  [] (data_description::data_field &a, data_description::data_field &b)
+                  { return a.type == b.type;}))
         {
-            // problem. Just do nothing and return
-            cout << "TestDataGenerator::data_configuration_changed(): Malformed node." << endl
-                 << n << endl;
+            cout << "Cannot change types while in \"Running\" state." << endl;
+            // restore old stuff
+            data_specs[name] = old_dsi;
+            default_vals[name] = defaults;
         }
+
+        // good or bad, (re)create the generic test data buffer
+        test_data[name] = _create_generic_buffer(default_vals[name], data_specs[name]);
     }
 
 /**
- * Generates GenericBuffer objects for all sources based on the data
- * description of those sources and stores them in a map. The keys to
- * that map are the names of the data sources.
- *
- */
-
-    void TestDataGenerator::_create_test_data_buffers()
-    {
-        test_data.clear();
-
-        for (std::map<std::string, data_source_info>::iterator i = data_specs.begin();
-             i != data_specs.end(); ++i)
-        {
-            GenericBuffer gb = i->second.compute_generic_buffer();
-            test_data[i->first] = gb;
-        }
-    }
-
-/**
- * This function, a member of data_source_info, creates a
+ * This function, a member of data_description, creates a
  * GenericBuffer based on the data description for that data
  * source. Currently supports the following type names:
  *
@@ -564,7 +394,7 @@ namespace matrix
  *
  */
 
-    GenericBuffer TestDataGenerator::data_source_info::compute_generic_buffer()
+    GenericBuffer TestDataGenerator::_create_generic_buffer(vector<string> &init_vals, data_description dd)
     {
         GenericBuffer gb;
         size_t offset = 0;
@@ -572,77 +402,90 @@ namespace matrix
         // size() computes the size and also the offsets of the
         // data. The latter are stored as the 'offset' field in the
         // data_field element type of 'fields'. See above.
-        gb.resize(size());
+        gb.resize(dd.size());
 
         // for each element in 'fields', create the appropriate
         // pointer and store the initial value in the proper place in
         // the buffer.
-        for (std::list<data_field>::iterator i = fields.begin(); i != fields.end(); ++i)
+
+        int k = 0;
+
+        for (std::list<data_description::data_field>::iterator i = dd.fields.begin();
+             i != dd.fields.end(); ++i, ++k)
         {
-            string ft = i->type;
-            string v = i->initial_val;
+            string v = init_vals[k];
+            data_description::types ft = i->type;
             size_t o = i->offset;
 
-            if (ft == "int8_t" || ft == "char")
+            if (ft == data_description::INT8_T || ft == data_description::CHAR)
             {
-                int8_t *p = (int8_t *)(gb.data() + o);
-                *p = (int8_t)convert<int>(v);
+                set_data_buffer_value(gb.data(), o, convert<int8_t>(v));
             }
-            else if (ft == "uint8_t" || ft == "unsigned char")
+            else if (ft == data_description::UINT8_T || ft == data_description::UNSIGNED_CHAR)
             {
-                uint8_t *p = (uint8_t *)(gb.data() + o);
-                *p = (uint8_t)convert<unsigned int>(v);
+                set_data_buffer_value(gb.data(), o, convert<uint8_t>(v));
             }
-            else if (ft == "int16_t" || ft == "short")
+            else if (ft == data_description::INT16_T || ft == data_description::SHORT)
             {
-                int16_t *p = (int16_t *)(gb.data() + o);
-                *p = (int16_t)convert<int>(v);
+                set_data_buffer_value(gb.data(), o, convert<int16_t>(v));
             }
-            else if (ft == "uint16_t" || ft == "unsigned short")
+            else if (ft == data_description::UINT16_T || ft == data_description::UNSIGNED_SHORT)
             {
-                uint16_t *p = (uint16_t *)(gb.data() + o);
-                *p = (uint16_t)convert<unsigned int>(v);
+                set_data_buffer_value(gb.data(), o, convert<uint16_t>(v));
             }
-            else if (ft == "int32_t" || ft == "int")
+            else if (ft == data_description::INT32_T || ft == data_description::INT)
             {
-                int32_t *p = (int32_t *)(gb.data() + o);
-                *p = (int32_t)convert<int>(v);
+                set_data_buffer_value(gb.data(), o, convert<int32_t>(v));
             }
-            else if (ft == "uint32_t" || ft == "unsigned")
+            else if (ft == data_description::UINT32_T || ft == data_description::UNSIGNED_INT)
             {
-                uint32_t *p = (uint32_t *)(gb.data() + o);
-                *p = (uint32_t)convert<unsigned int>(v);
+                set_data_buffer_value(gb.data(), o, convert<uint32_t>(v));
             }
-            else if (ft == "int64_t" || ft == "long")
+            else if (ft == data_description::INT64_T || ft == data_description::LONG)
             {
-                int64_t *p = (int64_t *)(gb.data() + o);
-                *p = convert<long>(v);
+                set_data_buffer_value(gb.data(), o, convert<int64_t>(v));
             }
-            else if (ft == "uint64_t" || ft == "unsigned long")
+            else if (ft == data_description::UINT64_T || ft == data_description::UNSIGNED_LONG)
             {
-                uint64_t *p = (uint64_t *)(gb.data() + o);
-                *p = convert<unsigned long>(v);
+                set_data_buffer_value(gb.data(), o, convert<uint64_t>(v));
             }
-            else if (ft == "bool")
+            else if (ft == data_description::BOOL)
             {
-                bool *p = (bool *)(gb.data() + o);
-                *p = convert<bool>(v);
+                set_data_buffer_value(gb.data(),o,convert<bool>(v));
             }
-            else if (ft == "float")
+            else if (ft == data_description::FLOAT)
             {
-                float *p = (float *)(gb.data() + o);
-                *p = convert<float>(v);
+                set_data_buffer_value(gb.data(), o, convert<float>(v));
             }
-            else if (ft == "double")
+            else if (ft == data_description::DOUBLE)
             {
-                double *p = (double *)(gb.data() + o);
-                *p = convert<double>(v);
+                set_data_buffer_value(gb.data(), o, convert<double>(v));
             }
         }
 
         return gb;
     }
 
+
+/**
+ * Generates GenericBuffer objects for all sources based on the data
+ * description of those sources and stores them in a map. The keys to
+ * that map are the names of the data sources.
+ *
+ */
+
+    void TestDataGenerator::_create_test_data_buffers()
+    {
+        test_data.clear();
+
+        for (std::map<std::string, data_description>::iterator i = data_specs.begin();
+             i != data_specs.end(); ++i)
+        {
+            GenericBuffer gb = _create_generic_buffer(default_vals[i->first], i->second);
+            test_data[i->first] = gb;
+        }
+    }
+    
 /**
  * Clears out the sources, data specs, and test data buffer containers.
  *

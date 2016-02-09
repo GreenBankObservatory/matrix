@@ -31,7 +31,6 @@
 
 #include "Component.h"
 #include "Thread.h"
-#include "DataSource.h"
 #include "DataInterface.h"
 
 #include <string>
@@ -40,7 +39,6 @@
 
 namespace matrix
 {
-
     class TestDataGenerator : public Component
     {
     public:
@@ -61,42 +59,25 @@ namespace matrix
 
         void data_configuration_changed(std::string, YAML::Node);
 
-        struct data_source_info
-        {
-            struct data_field
-            {
-                std::string name;         // field name (needed?)
-                std::string type;         // field type
-                size_t offset;
-                std::string initial_val;  // A value for the field
-            };
-
-            double interval; // in seconds
-            std::list<data_field> fields;
-            std::map<std::string, size_t> type_info;
-
-            data_source_info();
-            void add_field(std::vector<std::string> &f);
-            size_t size();
-            matrix::GenericBuffer compute_generic_buffer();
-        };
-
         void _read_source_information();
         void _create_sources();
         void _clean_up_sources();
         double _parse_interval(std::string);
+        bool _parse_data_description(std::string, YAML::Node);
         void _create_test_data_buffers();
-
+        GenericBuffer _create_generic_buffer(std::vector<std::string> &, data_description);
         // one or more sources, to be configured according to the
         // 'data_specs' for that source name.
         typedef std::map<std::string,
                          std::shared_ptr<matrix::DataSource<matrix::GenericBuffer> > > sources_t;
-        typedef std::map<std::string, data_source_info> data_specs_t;
+        typedef std::map<std::string, data_description> data_specs_t;
+        typedef std::map<std::string, std::vector<std::string> > default_vals_t;
         typedef std::map<std::string, matrix::GenericBuffer> test_data_t;
 
         sources_t sources;
         data_specs_t data_specs;
         test_data_t test_data;
+        default_vals_t default_vals;
 
         Thread<TestDataGenerator> poll_thread;
         TCondition<bool>          poll_thread_started;
