@@ -1,4 +1,4 @@
-# Makefile.am
+# tools/SLogger/Makefile.am
 #===============================================================================
 #
 # Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
@@ -25,18 +25,17 @@
 #
 #===============================================================================
 
+noinst_PROGRAMS = slogger
 
-SUBDIRS = src unit_tests examples keychain slogger
+slogger_SOURCES = \
+	FITSLogger.cc \
+	slogger.cc 
 
-ACLOCAL_AMFLAGS = -I m4
+slogger_CXXFLAGS = -I../src -g
+slogger_LDADD = ../src/.libs/libmatrix.a -lrt -lboost_regex -lcfitsio
 
 distclean-local:
-	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess
-	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache
+	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
 
 dist-hook:
-	$(RM) -f Makefile Makefile.in config.log config.status config.sub config.guess
-	$(RM) -rf missing depcomp install-sh libtool ltmain.sh aclocal.m4 autom4te.cache
-
-docs:
-	doxygen Doxyfile
+	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in

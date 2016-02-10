@@ -205,6 +205,7 @@ AC_CONFIG_FILES([Makefile
                  examples/Makefile
                  examples/Helloworld/Makefile
                  examples/ToyScope/Makefile
-                 keychain/Makefile])
+                 keychain/Makefile
+                 slogger/Makefile])
 
 AC_OUTPUT
