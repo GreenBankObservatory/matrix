@@ -291,6 +291,10 @@ template <class T> unsigned int tsemfifo<T>::flush(int items)
 {
     ThreadLock<Mutex> l(_critical_section);
 
+    // A fastpath for when there is no work to do:
+    if (abs(items) == _objects)
+        return abs(items);
+
     l.lock();
 
     // Check to see if items is negative. If so, the caller intends
@@ -470,13 +474,13 @@ template <class T> bool tsemfifo<T>::try_put(T &obj)
 {
     if (sem_trywait(&_empty_sem) == -1)
     {
-        Exception e;
-        e.what(errno, "tsemfifo<T>::try_put()");
-
-        if (e.error_code() == EAGAIN)
+        if (errno == EAGAIN)
         {
             return false;
         }
+
+        Exception e;
+        e.what(errno, "tsemfifo<T>::try_put()");
 
         throw e;
     }
@@ -511,13 +515,12 @@ template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
 
     if (sem_timedwait(&_empty_sem, &ts) == -1)
     {
-        Exception e;
-        e.what(errno, "tsemfifo<T>::timed_put()");
-
-        if (e.error_code() == ETIMEDOUT)
+        if (errno == ETIMEDOUT)
         {
             return false;
         }
+        Exception e;
+        e.what(errno, "tsemfifo<T>::timed_put()");
 
         throw e;
     }
@@ -648,13 +651,12 @@ template <class T> bool tsemfifo<T>::try_get(T &obj)
 {
     if (sem_trywait(&_full_sem) == -1)
     {
-        Exception e;
-        e.what(errno, "tsemfifo<T>::try_get()");
-
-        if (e.error_code() == EAGAIN)
+        if (errno == EAGAIN)
         {
             return false;
         }
+        Exception e;
+        e.what(errno, "tsemfifo<T>::try_get()");
 
         throw e;
     }
@@ -688,13 +690,12 @@ template <class T> bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
 
     if (sem_timedwait(&_full_sem, &ts) == -1)
     {
-        Exception e;
-        e.what(errno, "tsemfifo<T>::timed_get()");
-
-        if (e.error_code() == ETIMEDOUT)
+        if (errno == ETIMEDOUT)
         {
             return false;
         }
+        Exception e;
+        e.what(errno, "tsemfifo<T>::timed_get()");
 
         throw e;
     }
@@ -775,6 +776,5 @@ template <class T> void tsemfifo<T>::set_notifier(std::shared_ptr<fifo_notifier>
     l.lock();
     _notifier = n;
 }
-
 
 #endif  // _TSEMFIFO_H_
