@@ -730,7 +730,7 @@ namespace matrix
 
     template <typename T, typename U>
     void DataSink<T, U>::connect(std::string component_name,
-                                            std::string data_name, std::string transport)
+                                 std::string data_name, std::string transport)
     {
         U tss(_km_urn, transport);
 
