@@ -188,6 +188,7 @@ namespace matrix
             types type;               // field type
             size_t offset;            // offset into buffer
             size_t elements;          // 1 or more of these
+            bool skip;                // flag to ignore field when logging
         };
 
         data_description();

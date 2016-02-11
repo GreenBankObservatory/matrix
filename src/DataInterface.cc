@@ -474,7 +474,19 @@ namespace matrix
             for (int i = 0; i < vs.size(); ++i)
             {
                 std::string s = std::to_string(i);
-                add_field(vs[s]);
+                auto p = vs.find(s);
+                if (p != vs.end())
+                {
+                    add_field(vs[s]);
+                }
+                else
+                {
+                    ostringstream msg;
+                    msg << "Unable to find entry " << s << " in parsing data description" << endl;
+                    msg << "YAML input was: " << fields << endl;
+                    throw MatrixException("data_description::data_description()",
+                                          msg.str());
+                }
             }
         }
         else
@@ -505,6 +517,15 @@ namespace matrix
         df.name = f[0];
         df.type = typenames_to_types[f[1]];
         df.elements = convert<size_t>(f[2]);
+
+        if (f.size() > 3 && f[3] == "nolog")
+        {
+            df.skip = true;
+        }
+        else
+        {
+            df.skip = false;
+        }
         fields.push_back(df);
     }
     

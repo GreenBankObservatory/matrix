@@ -154,18 +154,21 @@ bool FITSLogger::create_header()
         memset(tform[i], 0, 80);
         memset(tunit[i], 0, 80);
     }
-    int idx = 0;
+    int fits_cols = 0;
     for (auto dd = ddesc.fields.begin(); dd != ddesc.fields.end(); ++dd)
     {
-        strcpy(tnames[idx], dd->name.c_str());
-        strcpy(tform[idx], get_type_code(dd->type).c_str());
-        strcpy(tunit[idx], "none");
-        ++idx;
+        // omit any skipped fields
+        if (dd->skip)
+            continue;
+        strcpy(tnames[fits_cols], dd->name.c_str());
+        strcpy(tform[fits_cols], get_type_code(dd->type).c_str());
+        strcpy(tunit[fits_cols], "none");
+        ++fits_cols;
     }
 
     if (status == 0)
     {
-        fits_create_tbl(fout, BINARY_TBL, nrows, ncols, tnames, tform, tunit, "DATA", &status);
+        fits_create_tbl(fout, BINARY_TBL, nrows, fits_cols, tnames, tform, tunit, "DATA", &status);
     }
     else
     {
@@ -174,7 +177,7 @@ bool FITSLogger::create_header()
     }
     fits_flush_file(fout, &status);
     // clean up - I hate FITS ...
-    for (idx = 0; idx < ncols; ++idx)
+    for (int idx = 0; idx < ncols; ++idx)
     {
         delete[] tnames[idx];
         delete[] tform[idx];
@@ -233,6 +236,12 @@ bool FITSLogger::log_data(GenericBuffer &data)
 
     for (auto z=ddesc.fields.begin(); z!=ddesc.fields.end(); )
     {
+        // skip over unused fields
+        if (z->skip)
+        {
+            ++z;
+            continue;
+        }
         switch (z->type)
         {
             case data_description::DOUBLE:

@@ -120,6 +120,7 @@ int main(int argc, char **argv)
     string stream_dd_path;
     Keymaster keymaster(keymaster_url);
     DataSink<GenericBuffer> sink(keymaster_url);
+    unique_ptr<FITSLogger> log;
 
     try
     {
@@ -154,10 +155,21 @@ int main(int argc, char **argv)
         cout << e.what();
         return -1;
     }
-    FITSLogger log(stream_dd, data_header, debuglevel);
+    try 
+    {
+        log.reset( new FITSLogger(stream_dd, data_header, debuglevel));
+    }
+    catch(MatrixException e)
+    {
+        cout << e.what() << endl;
+        cout << "Exception caught creating FITSLogger" << endl;
+        cout << flush;
+        return -1;
+    }
+    
 
-    log.set_directory(log_dir + "/");
-    if (!log.open_log())
+    log->set_directory(log_dir + "/");
+    if (!log->open_log())
     {
         cout << "Error opening log file: "
              <<  strerror(errno) << endl;
@@ -177,17 +189,17 @@ int main(int argc, char **argv)
 
     GenericBuffer gbuffer;
 
-    gbuffer.resize(log.log_datasize());
+    gbuffer.resize(log->log_datasize());
     while (1)
     {
         sink.get(gbuffer);
-        log.log_data(gbuffer);
+        log->log_data(gbuffer);
 
         if (++nrows > max_rows_per_file)
         {
             printf("opening new file\n");
-            log.close();
-            if (!log.open_log())
+            log->close();
+            if (!log->open_log())
             {
                 return(-1);
             }
