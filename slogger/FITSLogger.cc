@@ -109,6 +109,7 @@ static string get_type_code(data_description::types t, size_t n = 1)
         case data_description::UNSIGNED_CHAR:
         case data_description::UINT8_T:
             tstr = to_string(n) + "B";
+            break;
         default:
             printf("not supported %d\n", t);
         break;
