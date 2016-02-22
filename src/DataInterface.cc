@@ -418,7 +418,8 @@ namespace matrix
         {"bool", data_description::BOOL},
         {"float", data_description::FLOAT},
         {"double", data_description::DOUBLE},
-        {"long double", data_description::LONG_DOUBLE}
+        {"long double", data_description::LONG_DOUBLE},
+        {"Time_t", data_description::TIME_T}
     };
 
     std::vector<size_t> data_description::type_info =
@@ -442,7 +443,8 @@ namespace matrix
         sizeof(bool),
         sizeof(float),
         sizeof(double),
-        sizeof(long double)
+        sizeof(long double),
+        sizeof(long long)   // Time::Time_t
     };
 
 

@@ -34,7 +34,7 @@ components:
             processed_data: B
         Transports:
             B:
-                Specified: [inproc]
+                Specified: [tcp]
         operation: none
 
     accumulator:
@@ -59,3 +59,16 @@ connections:
         - [processor,        processed_data, accumulator, input_data]
     test:
         - [signal_generator]
+
+
+# This section lists short alias for various streams
+# The format is stream_alias: [component, source, description]
+streams:
+    output: [processor, processed_data, p_data]
+
+# Descriptions of the various streams
+stream_descriptions:
+    p_data:
+        fields:
+            #[name, type, count] optional 4th arg: nolog
+            0: [amplitude, double, 1]

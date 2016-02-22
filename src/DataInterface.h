@@ -179,7 +179,8 @@ namespace matrix
             BOOL,
             FLOAT,
             DOUBLE,
-            LONG_DOUBLE
+            LONG_DOUBLE,
+            TIME_T
         };
         
         struct data_field

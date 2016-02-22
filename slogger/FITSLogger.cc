@@ -17,6 +17,12 @@ using namespace matrix;
 static int debug = 0;
 #define dbprintf if(debug) printf
 
+union TimeBits
+{
+    Time::Time_t dmjd_bits;
+    double dmjd;
+};
+
 FITSLogger::FITSLogger(YAML::Node ystr, string hdr, int debuglevel) :
     ddesc(ystr),
     mtx(),
@@ -245,6 +251,19 @@ bool FITSLogger::log_data(GenericBuffer &data)
         }
         switch (z->type)
         {
+            case data_description::TIME_T:
+            {
+                uint32_t mjd;
+                double msec_since_midnight;
+                double dmjd;
+                Time::Time_t t;
+
+                t = get_data_buffer_value<Time::Time_t>(data.data(), z->offset);
+                Time::time2TimeStamp(t, mjd, msec_since_midnight);
+                dmjd = static_cast<double>(mjd) + msec_since_midnight/86400000.0;
+                fits_write_col_dbl(fout, columnNum, (LONGLONG)cur_row, 1LL, 1LL, &dmjd, &status);
+            }
+
             case data_description::DOUBLE:
             {
                 double d = get_data_buffer_value<double>(data.data(), z->offset);
