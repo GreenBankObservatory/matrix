@@ -1,6 +1,9 @@
 #include <qapplication.h>
 #include "mainwindow.h"
 #include "samplingthread.h"
+#include <string>
+#include <iostream>
+using namespace std;
 
 int main(int argc, char **argv)
 {
@@ -22,6 +25,13 @@ int main(int argc, char **argv)
         &samplingThread, SLOT(setInterval(double)));
 
     window.show();
+
+    if (argc < 2)
+    {
+        cerr << "usage: " << argv[0] << " stream_alias"  << endl;
+        exit(-1);
+    }
+    samplingThread.set_stream_alias(std::string(argv[1]));
 
     samplingThread.start();
     window.start();

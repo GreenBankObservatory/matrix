@@ -3,6 +3,8 @@
 #include "Keymaster.h"
 #include "DataInterface.h"
 #include "DataSink.h"
+#include "TCondition.h"
+#include "Thread.h"
 
 class SamplingThread: public QwtSamplingThread
 {
@@ -13,6 +15,8 @@ public:
 
     double frequency() const;
     double amplitude() const;
+    bool set_stream_alias(std::string stream);
+    bool set_display_field(std::string field);
 
 public Q_SLOTS:
     void setAmplitude(double);
@@ -23,10 +27,16 @@ protected:
 
 private:
     virtual double value(double timeStamp) ;
+    void sink_reader_thread();
 
     double d_frequency;
     double d_amplitude;
     Keymaster keymaster;
-    matrix::DataSink<double, matrix::select_only>  input_signal_sink;
+    matrix::DataSink<matrix::GenericBuffer, matrix::select_only>  input_signal_sink;
+    std::unique_ptr<matrix::data_description> ddesc;
+    matrix::GenericBuffer gbuffer;
     FILE *fin;
+    Thread<SamplingThread> sink_thread;
+    TCondition<bool> sink_thread_started;
+    double d_last_value;
 };

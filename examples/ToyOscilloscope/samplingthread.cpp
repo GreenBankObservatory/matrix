@@ -11,23 +11,87 @@
 #define qFastSin(x) ::sin(x)
 #endif
 
+using namespace std;
+using namespace matrix;
+
 SamplingThread::SamplingThread(QObject *parent):
     QwtSamplingThread(parent),
     d_frequency(5.0),
     d_amplitude(20.0),
     keymaster("tcp://localhost:42000"),
-    input_signal_sink("tcp://localhost:42000")
+    input_signal_sink("tcp://localhost:42000", 1000),
+    sink_thread(this, &SamplingThread::sink_reader_thread),
+    sink_thread_started(false),
+    d_last_value(0.0)
 {
-    // fin = fopen("/tmp/data", "r");
-    printf("connect to data\n");
-    input_signal_sink.connect("accumulator","output_signal");
+
+}
+
+/// Takes a string containing the alias name (e.g mydata)
+/// Note this requires a couple of required sections in the keymaster config.
+bool SamplingThread::set_stream_alias(std::string stream)
+{
+    string stream_alias;
+    string component_name;
+    string srcname;
+    string stream_dd_path;
+    YAML::Node dd_node;
+
+    try
+    {
+        stream_alias = string("streams." + stream);
+        dd_node = keymaster.get(string(stream_alias));
+    }
+    catch(KeymasterException e)
+    {
+        cout << "Error getting stream alias key: " << stream_alias << endl;
+        cout << e.what() << endl;
+        return -1;
+    }
+
+    if (dd_node.size() >= 3)
+    {
+        component_name = dd_node[0].as<string>();
+        srcname = dd_node[1].as<string>();
+        stream_dd_path = string("stream_descriptions.") + dd_node[2].as<string>();
+    }
+    else
+    {
+        cout << " Unexpected stream_description format| " << dd_node << endl;
+        return -1;
+    }
+    YAML::Node stream_dd;
+    try
+    {
+        stream_dd = keymaster.get(stream_dd_path + ".fields");
+    }
+    catch(KeymasterException e)
+    {
+        cout << "Error getting key:" << stream_dd_path + ".fields" << endl;
+        cout << e.what();
+        return -1;
+    }
+    ddesc.reset(new matrix::data_description(stream_dd));
+    gbuffer.resize(ddesc->size());
+
+    input_signal_sink.connect(component_name, srcname);
+
+    sink_thread.start();
+    sink_thread_started.wait(true);
+
+    return true;
+}
+
+bool SamplingThread::set_display_field(std::string field)
+{
+    return true;
 }
 
 void SamplingThread::setFrequency(double frequency)
 {
     d_frequency = frequency;
-    printf("setting frequency to %lf\n", frequency);
-    keymaster.put("components.signal_generator.frequency", frequency);
+    // printf("setting frequency to %lf\n", frequency);
+    keymaster.put("components.signal_generator.frequency", frequency, true);
 }
 
 double SamplingThread::frequency() const
@@ -38,8 +102,8 @@ double SamplingThread::frequency() const
 void SamplingThread::setAmplitude(double amplitude)
 {
     d_amplitude = amplitude;
-    printf("setting amplitude to %lf\n", amplitude);
-    keymaster.put("components.signal_generator.amplitude", amplitude);
+    // printf("setting amplitude to %lf\n", amplitude);
+    keymaster.put("components.signal_generator.amplitude", amplitude, true);
 }
 
 double SamplingThread::amplitude() const
@@ -56,16 +120,53 @@ void SamplingThread::sample(double elapsed)
     }
 }
 
-double SamplingThread::value(double timeStamp) 
+double SamplingThread::value(double timeStamp)
 {
-    const double period = 1.0 / d_frequency;
 
-    const double x = ::fmod(timeStamp, period);
-    double v ; // = d_amplitude * qFastSin(x / period * 2 * M_PI);
-    double dd;
-    // fscanf(fin, "%lf\n", &v); 
-    input_signal_sink.get(dd);
-    // printf("%lf\n", dd);
+    return d_last_value;
+}
 
-    return dd;
+void SamplingThread::sink_reader_thread()
+{
+    sink_thread_started.signal(true);
+    while (1)
+    {
+        double dd;
+        bool found;
+        try
+        {
+            input_signal_sink.flush(-1);
+            input_signal_sink.try_get(gbuffer);
+        } catch (MatrixException &e) {  }
+
+        found = false;
+        for (auto z = ddesc->fields.begin(); !found && z != ddesc->fields.end();)
+        {
+            // skip over unused fields
+            if (z->skip)
+            {
+                ++z;
+                continue;
+            }
+            // plot the first floating point non-skipped value
+            switch (z->type)
+            {
+                case data_description::DOUBLE:
+                {
+                    found = true;
+                    dd = matrix::get_data_buffer_value<double>(gbuffer.data(), z->offset);
+                    break;
+                }
+                case data_description::FLOAT:
+                {
+                    found = true;
+                    dd = (double) matrix::get_data_buffer_value<float>(gbuffer.data(), z->offset);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+        d_last_value = dd;
+    }
 }
