@@ -267,14 +267,14 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::DOUBLE:
             {
                 double d = get_data_buffer_value<double>(data.data(), z->offset);
-                dbprintf("DBL:%f", d);
+                dbprintf("%f ", d);
                 fits_write_col_dbl(fout, columnNum, (LONGLONG)cur_row, 1LL, 1LL, &d, &status);
                 break;
             }
             case data_description::FLOAT:
             {
                 float d = get_data_buffer_value<float>(data.data(), z->offset);
-                dbprintf("%f", d);
+                dbprintf("%f ", d);
                 fits_write_col_flt(fout, columnNum, cur_row, 1, 1, &d, &status);
                 break;
             }
@@ -282,7 +282,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::LONG:
             {
                 int64_t d = get_data_buffer_value<int64_t>(data.data(), z->offset);
-                dbprintf("%lld", d);
+                dbprintf("%lld ", d);
                 fits_write_col_lnglng(fout, columnNum, cur_row, 1, 1, (LONGLONG*)&d, &status);
                 break;
             }
@@ -290,7 +290,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::INT:
             {
                 int32_t d = get_data_buffer_value<int32_t>(data.data(), z->offset);
-                dbprintf("%d", d);
+                dbprintf("%d ", d);
                 fits_write_col_int(fout, columnNum, cur_row, 1, 1, &d, &status);
                 break;
             }
@@ -298,7 +298,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::SHORT:
             {
                 int16_t d = get_data_buffer_value<int16_t>(data.data(), z->offset);
-                dbprintf("%d", d);
+                dbprintf("%d ", d);
                 fits_write_col_sht(fout, columnNum, cur_row, 1, 1, (short *)&d, &status);
                 break;
             }
@@ -306,7 +306,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::CHAR:
             {
                 int8_t d = get_data_buffer_value<int8_t>(data.data(), z->offset);
-                dbprintf("%c", d);
+                dbprintf("%c ", d);
                 fits_write_col_byt(fout, columnNum, cur_row, 1, 1, (unsigned char *)&d, &status);
                 break;
             }
@@ -314,7 +314,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::UNSIGNED_LONG:
             {
                 uint64_t d = get_data_buffer_value<uint64_t>(data.data(), z->offset);
-                dbprintf("%llu", d);
+                dbprintf("%llu ", d);
                 fits_write_col_lnglng(fout, columnNum, cur_row, 1, 1, (LONGLONG*)&d, &status);
                 break;
             }
@@ -322,7 +322,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::UNSIGNED_INT:
             {
                 uint32_t d = get_data_buffer_value<uint32_t>(data.data(), z->offset);
-                dbprintf("%u", d);
+                dbprintf("%u ", d);
                 fits_write_col_uint(fout, columnNum, cur_row, 1, 1, (unsigned int *)&d, &status);
                 break;
             }
@@ -330,7 +330,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::UNSIGNED_SHORT:
             {
                 uint16_t d = get_data_buffer_value<uint16_t>(data.data(), z->offset);
-                dbprintf("%u", d);
+                dbprintf("%u ", d);
                 fits_write_col_usht(fout, columnNum, cur_row, 1, 1, (unsigned short *)&d, &status);
                 break;
             }
@@ -338,7 +338,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::UNSIGNED_CHAR:
             {
                 uint8_t d = get_data_buffer_value<uint8_t>(data.data(), z->offset);
-                dbprintf("%u", d);
+                dbprintf("%u ", d);
                 fits_write_col_byt(fout, columnNum, cur_row, 1, 1, (unsigned char *)&d, &status);
                 break;
             }
@@ -367,12 +367,9 @@ bool FITSLogger::log_data(GenericBuffer &data)
             dbprintf(", ");
             ++columnNum;
         }
-        else
-        {
-            dbprintf("\n");
-            fits_flush_file(fout, &status);
-        }
     }
+    dbprintf("\n");
+    fits_flush_file(fout, &status);
 }
 
 
