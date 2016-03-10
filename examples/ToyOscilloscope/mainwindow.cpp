@@ -14,11 +14,11 @@ MainWindow::MainWindow(QWidget *parent):
     d_plot = new Plot(this);
     d_plot->setIntervalLength(intervalLength);
 
-    d_amplitudeKnob = new Knob("Amplitude", 0.0, 200.0, this);
+    d_amplitudeKnob = new Knob("Y-Scale div", 0.0, 200.0, this);
     d_amplitudeKnob->setValue(160.0);
     
-    d_frequencyKnob = new Knob("Frequency [Hz]", 0.1, 20.0, this);
-    d_frequencyKnob->setValue(17.8);
+    d_frequencyKnob = new Knob("Y-Offset", -180.0, 180.0, this);
+    d_frequencyKnob->setValue(0.0);
 
     d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, this);
     d_intervalWheel->setValue(intervalLength);
@@ -46,6 +46,10 @@ MainWindow::MainWindow(QWidget *parent):
 
     connect(d_intervalWheel, SIGNAL(valueChanged(double)),
         d_plot, SLOT(setIntervalLength(double)) );
+    connect(d_frequencyKnob, SIGNAL(valueChanged(double)),
+        d_plot, SLOT(setYOffset(double)) );
+    connect(d_amplitudeKnob, SIGNAL(valueChanged(double)),
+        d_plot, SLOT(setYScale(double)) );	
 }
 
 void MainWindow::start()

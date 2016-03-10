@@ -57,7 +57,12 @@ Plot::Plot(QWidget *parent):
 
     setAxisTitle(QwtPlot::xBottom, "Time [s]");
     setAxisScale(QwtPlot::xBottom, d_interval.minValue(), d_interval.maxValue()); 
-    setAxisScale(QwtPlot::yLeft, -200.0, 200.0);
+    d_scale = 200;
+    d_yoffset = 0.0;
+    double top, bottom;
+    top =    d_yoffset + d_scale;
+    bottom = d_yoffset - d_scale;
+    setAxisScale(QwtPlot::yLeft, bottom, top);
 
     QwtPlotGrid *grid = new QwtPlotGrid();
     grid->setPen(QPen(Qt::gray, 0.0, Qt::DotLine));
@@ -136,6 +141,25 @@ void Plot::setIntervalLength(double interval)
 
         replot();
     }
+}
+
+void Plot::setYScale(double scale)
+{
+    d_scale = scale/10.0;
+    double top =    d_yoffset + d_scale;
+    double bottom = d_yoffset - d_scale;
+    setAxisScale(QwtPlot::yLeft, bottom, top);
+
+    replot();
+}
+void Plot::setYOffset(double offset)
+{
+    d_yoffset = offset;	    
+    double top =    d_yoffset + d_scale;
+    double bottom = d_yoffset - d_scale;
+    setAxisScale(QwtPlot::yLeft, bottom, top);
+
+    replot();
 }
 
 void Plot::updateCurve()

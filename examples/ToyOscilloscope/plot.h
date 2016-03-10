@@ -19,6 +19,8 @@ public:
 
 public Q_SLOTS:
     void setIntervalLength(double);
+    void setYScale(double);
+    void setYOffset(double);
 
 protected:
     virtual void showEvent(QShowEvent *);
@@ -41,4 +43,6 @@ private:
     int d_timerId;
 
     QwtSystemClock d_clock;
+    double d_scale;
+    double d_yoffset;
 };

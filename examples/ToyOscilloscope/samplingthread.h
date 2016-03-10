@@ -16,6 +16,7 @@ public:
     double frequency() const;
     double amplitude() const;
     bool set_stream_alias(std::string stream);
+    bool set_keymaster_url(std::string key);
     bool set_display_field(std::string field);
 
 public Q_SLOTS:
@@ -31,8 +32,9 @@ private:
 
     double d_frequency;
     double d_amplitude;
-    Keymaster keymaster;
-    matrix::DataSink<matrix::GenericBuffer, matrix::select_only>  input_signal_sink;
+
+    std::unique_ptr<Keymaster> keymaster;
+    std::unique_ptr<matrix::DataSink<matrix::GenericBuffer> > input_signal_sink;
     std::unique_ptr<matrix::data_description> ddesc;
     matrix::GenericBuffer gbuffer;
     FILE *fin;

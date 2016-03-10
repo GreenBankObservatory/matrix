@@ -18,13 +18,21 @@ SamplingThread::SamplingThread(QObject *parent):
     QwtSamplingThread(parent),
     d_frequency(5.0),
     d_amplitude(20.0),
-    keymaster("tcp://localhost:42000"),
-    input_signal_sink("tcp://localhost:42000", 1000),
+    keymaster(),
+    input_signal_sink(),
     sink_thread(this, &SamplingThread::sink_reader_thread),
     sink_thread_started(false),
     d_last_value(0.0)
 {
 
+}
+
+/// Takes a string specifying the url of the keymaster
+bool SamplingThread::set_keymaster_url(std::string key)
+{
+    keymaster.reset(new Keymaster(key));
+    input_signal_sink.reset(new DataSink<GenericBuffer>(key, 1000));
+    return true;
 }
 
 /// Takes a string containing the alias name (e.g mydata)
@@ -37,16 +45,22 @@ bool SamplingThread::set_stream_alias(std::string stream)
     string stream_dd_path;
     YAML::Node dd_node;
 
+    if (keymaster == nullptr)
+    {
+        cerr << "Need keymaster url" << endl;
+        exit(-1);
+    }
+
     try
     {
         stream_alias = string("streams." + stream);
-        dd_node = keymaster.get(string(stream_alias));
+        dd_node = keymaster->get(string(stream_alias));
     }
     catch(KeymasterException e)
     {
         cout << "Error getting stream alias key: " << stream_alias << endl;
         cout << e.what() << endl;
-        return -1;
+        return false;
     }
 
     if (dd_node.size() >= 3)
@@ -58,23 +72,23 @@ bool SamplingThread::set_stream_alias(std::string stream)
     else
     {
         cout << " Unexpected stream_description format| " << dd_node << endl;
-        return -1;
+        return false;
     }
     YAML::Node stream_dd;
     try
     {
-        stream_dd = keymaster.get(stream_dd_path + ".fields");
+        stream_dd = keymaster->get(stream_dd_path + ".fields");
     }
     catch(KeymasterException e)
     {
         cout << "Error getting key:" << stream_dd_path + ".fields" << endl;
         cout << e.what();
-        return -1;
+        return false;
     }
     ddesc.reset(new matrix::data_description(stream_dd));
     gbuffer.resize(ddesc->size());
 
-    input_signal_sink.connect(component_name, srcname);
+    input_signal_sink->connect(component_name, srcname);
 
     sink_thread.start();
     sink_thread_started.wait(true);
@@ -82,7 +96,7 @@ bool SamplingThread::set_stream_alias(std::string stream)
     return true;
 }
 
-bool SamplingThread::set_display_field(std::string field)
+bool SamplingThread::set_display_field(std::string)
 {
     return true;
 }
@@ -91,7 +105,7 @@ void SamplingThread::setFrequency(double frequency)
 {
     d_frequency = frequency;
     // printf("setting frequency to %lf\n", frequency);
-    keymaster.put("components.signal_generator.frequency", frequency, true);
+    // keymaster.put("components.signal_generator.frequency", frequency, true);
 }
 
 double SamplingThread::frequency() const
@@ -103,7 +117,7 @@ void SamplingThread::setAmplitude(double amplitude)
 {
     d_amplitude = amplitude;
     // printf("setting amplitude to %lf\n", amplitude);
-    keymaster.put("components.signal_generator.amplitude", amplitude, true);
+    // keymaster.put("components.signal_generator.amplitude", amplitude, true);
 }
 
 double SamplingThread::amplitude() const
@@ -120,7 +134,7 @@ void SamplingThread::sample(double elapsed)
     }
 }
 
-double SamplingThread::value(double timeStamp)
+double SamplingThread::value(double)
 {
 
     return d_last_value;
@@ -135,8 +149,8 @@ void SamplingThread::sink_reader_thread()
         bool found;
         try
         {
-            input_signal_sink.flush(-1);
-            input_signal_sink.try_get(gbuffer);
+            input_signal_sink->flush(-1);
+            input_signal_sink->get(gbuffer);
         } catch (MatrixException &e) {  }
 
         found = false;
@@ -167,6 +181,7 @@ void SamplingThread::sink_reader_thread()
                     break;
             }
         }
+        // printf("%f\n", dd);
         d_last_value = dd;
     }
 }
