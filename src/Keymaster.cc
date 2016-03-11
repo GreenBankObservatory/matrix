@@ -45,6 +45,7 @@
 #include <sstream>
 #include <exception>
 #include <algorithm>
+#include <memory>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -421,7 +422,7 @@ void KeymasterServer::KmImpl::server_task()
     {
         bind_server(data_publisher, _publish_service_urls, true);
     }
-    catch (zmq::error_t e)
+    catch (zmq::error_t &e)
     {
         cerr << "Error in KeymasterServer publisher thread: " << e.what() << endl
              << "Exiting KeymasterServer publishing thread." << endl;
@@ -437,7 +438,7 @@ void KeymasterServer::KmImpl::server_task()
             z_send(data_publisher, dp.key, ZMQ_SNDMORE);
             z_send(data_publisher, dp.val, 0);
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cerr << "ZMQ exception in publisher thread: "
                  << e.what() << endl;
@@ -471,7 +472,7 @@ void KeymasterServer::KmImpl::state_manager_task()
         // control pipe
         pipe.bind(_state_task_url.c_str());
     }
-    catch (zmq::error_t e)
+    catch (zmq::error_t &e)
     {
         cerr << "Error in state manager thread: " << e.what() << endl
              << "Exiting state thread." << endl
@@ -485,7 +486,7 @@ void KeymasterServer::KmImpl::state_manager_task()
         bind_server(state_sock, _state_service_urls, false);
         put_yaml_val(_root_node.front(), "KeymasterServer.URLS", _state_service_urls, true);
     }
-    catch (zmq::error_t e)
+    catch (zmq::error_t &e)
     {
         cerr << "Error in state manager thread: " << e.what() << endl
              << "Exiting state thread." << endl
@@ -673,7 +674,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                 }
 	    }
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cerr << "State manager task, main loop: " << e.what() << endl;
         }
@@ -747,7 +748,7 @@ bool KeymasterServer::KmImpl::publish(std::string key, bool block)
             }
         }
     }
-    catch (YAML::Exception e)
+    catch (YAML::Exception &e)
     {
         cerr << "YAML exception in publish: " << e.what() << endl;
         return false;
@@ -802,7 +803,7 @@ KeymasterServer::KeymasterServer(std::string configfile)
     {
         config = YAML::LoadFile(configfile);
     }
-    catch (YAML::BadFile e)
+    catch (YAML::BadFile &e)
     {
         ostringstream msg;
         msg << "KeymasterServer: Could not open config file "
@@ -983,7 +984,7 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
         _r = yr;
         return yr;
     }
-    catch (YAML::Exception e)
+    catch (YAML::Exception &e)
     {
         msg << e.what();
         yr.err = msg.str();
@@ -991,7 +992,7 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
         _r = yr;
         return yr;
     }
-    catch (MatrixException e)
+    catch (MatrixException &e)
     {
         _handle_keymaster_server_exception();
         msg << e.what();
@@ -1000,7 +1001,7 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
         _r = yr;
         return yr;
     }
-    catch (zmq::error_t e)
+    catch (zmq::error_t &e)
     {
         msg << e.what();
         yr.err = msg.str();
@@ -1008,7 +1009,7 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
         _r = yr;
         return yr;
     }
-    catch (std::exception e)
+    catch (std::exception &e)
     {
         msg << e.what();
         yr.err = msg.str();
@@ -1318,7 +1319,7 @@ void Keymaster::_run()
         {
             _km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl
                  << "Unable to obtain the Keymaster publishing URLs. Ensure a Keymaster is running and try again."
@@ -1457,11 +1458,11 @@ void Keymaster::_subscriber_task()
                 }
             }
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cout << "Keymaster subscriber task: " << e.what() << endl;
         }
-        catch (YAML::Exception e)
+        catch (YAML::Exception &e)
         {
             cout << "Keymaster subscriber task: " << e.what() << endl;
         }
