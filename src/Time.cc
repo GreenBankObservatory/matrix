@@ -213,7 +213,7 @@ namespace Time
         ymdhms.tm_sec = (msec_since_midnight / 1000) % 60;
         int msec = msec_since_midnight % 1000;
         time_t t = timegm(&ymdhms);
-        return (Time_t)t * 1000000000L + msec * 1000000L;
+        return (Time_t)t * NANOSEC_PER_SEC + msec * NANOSEC_PER_SEC / 1000;
     }
 
 #define TIMER_RELATIVETIME (0)
