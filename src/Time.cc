@@ -205,15 +205,15 @@ namespace Time
                      const int msec_since_midnight)
     {
         struct tm ymdhms;
-        ymdhms.tm_year = year;
-        ymdhms.tm_mon = month;
+        ymdhms.tm_year = year - 1900;
+        ymdhms.tm_mon = month - 1;
         ymdhms.tm_mday = dayofmonth;
         ymdhms.tm_hour = (msec_since_midnight / 3600000) % 24;
         ymdhms.tm_min = (msec_since_midnight / 60000) % 60;
         ymdhms.tm_sec = (msec_since_midnight / 1000) % 60;
         int msec = msec_since_midnight % 1000;
         time_t t = timegm(&ymdhms);
-        return t * 1000 + msec;
+        return (Time_t)t * 1000000000L + msec * 1000000L;
     }
 
 #define TIMER_RELATIVETIME (0)
