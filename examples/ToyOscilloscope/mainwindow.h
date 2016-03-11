@@ -23,10 +23,11 @@ Q_SIGNALS:
     void signalIntervalChanged(double);
 
 private:
-    Knob *d_frequencyKnob;
-    Knob *d_amplitudeKnob;
+    Knob *d_yoffsetKnob;
+    Knob *d_yscaleKnob;
     WheelBox *d_timerWheel;
     WheelBox *d_intervalWheel;
+    WheelBox *d_fineoffsetWheel;
 
     Plot *d_plot;
 };

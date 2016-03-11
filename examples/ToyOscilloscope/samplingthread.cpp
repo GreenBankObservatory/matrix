@@ -127,16 +127,12 @@ double SamplingThread::amplitude() const
 
 void SamplingThread::sample(double elapsed)
 {
-    if ( d_frequency > 0.0 )
-    {
-        const QPointF s(elapsed, value(elapsed));
-        SignalData::instance().append(s);
-    }
+    const QPointF s(elapsed, value(elapsed));
+    SignalData::instance().append(s);
 }
 
 double SamplingThread::value(double)
 {
-
     return d_last_value;
 }
 

@@ -59,6 +59,7 @@ Plot::Plot(QWidget *parent):
     setAxisScale(QwtPlot::xBottom, d_interval.minValue(), d_interval.maxValue()); 
     d_scale = 200;
     d_yoffset = 0.0;
+    d_fine_offset = 0.0;
     double top, bottom;
     top =    d_yoffset + d_scale;
     bottom = d_yoffset - d_scale;
@@ -145,18 +146,34 @@ void Plot::setIntervalLength(double interval)
 
 void Plot::setYScale(double scale)
 {
-    d_scale = scale/10.0;
-    double top =    d_yoffset + d_scale;
-    double bottom = d_yoffset - d_scale;
+    d_scale = scale;
+    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    // printf("setYScale %f %f\n", bottom, top);
+    // setAxisAutoScale(QwtPlot::yLeft, true);
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
     replot();
 }
 void Plot::setYOffset(double offset)
 {
-    d_yoffset = offset;	    
-    double top =    d_yoffset + d_scale;
-    double bottom = d_yoffset - d_scale;
+    d_yoffset = offset;
+    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    // printf("setYOffset %f %f\n", bottom, top);
+    // setAxisAutoScale(QwtPlot::yLeft, true);
+    setAxisScale(QwtPlot::yLeft, bottom, top);
+
+    replot();
+}
+
+void Plot::setFineOffset(double foffset)
+{
+    d_fine_offset = foffset;
+    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    // printf("setYOffset %f %f\n", bottom, top);
+    // setAxisAutoScale(QwtPlot::yLeft, true);
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
     replot();
@@ -189,7 +206,6 @@ void Plot::updateCurve()
             const QRect clipRect = QwtScaleMap::transform( xMap, yMap, br ).toRect();
             d_directPainter->setClipRegion( clipRect );
         }
-
         d_directPainter->drawSeries(d_curve, 
             d_paintedPoints - 1, numPoints - 1);
         d_paintedPoints = numPoints;

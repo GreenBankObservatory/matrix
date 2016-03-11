@@ -21,6 +21,7 @@ public Q_SLOTS:
     void setIntervalLength(double);
     void setYScale(double);
     void setYOffset(double);
+    void setFineOffset(double);
 
 protected:
     virtual void showEvent(QShowEvent *);
@@ -45,4 +46,5 @@ private:
     QwtSystemClock d_clock;
     double d_scale;
     double d_yoffset;
+    double d_fine_offset;
 };
