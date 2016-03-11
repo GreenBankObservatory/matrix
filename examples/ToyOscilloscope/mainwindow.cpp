@@ -2,6 +2,7 @@
 #include "plot.h"
 #include "knob.h"
 #include "wheelbox.h"
+
 #include <qwt_scale_engine.h>
 #include <qlabel.h>
 #include <qlayout.h>
@@ -25,6 +26,10 @@ MainWindow::MainWindow(QWidget *parent):
     d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, this);
     d_fineoffsetWheel->setValue(0.0);
 
+    d_infoLabel = new QLabel(tr("<i>CH1</i>"));
+    d_infoLabel->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+    d_infoLabel->setAlignment(Qt::AlignCenter);
+
     d_timerWheel = new WheelBox("Sample Interval [ms]", 0.0, 20.0, 0.1, this);
     d_timerWheel->setValue(10.0);
 
@@ -35,6 +40,7 @@ MainWindow::MainWindow(QWidget *parent):
     vLayout1->addWidget(d_yscaleKnob);
     vLayout1->addWidget(d_yoffsetKnob);
     vLayout1->addWidget(d_fineoffsetWheel);
+    vLayout1->addWidget(d_infoLabel);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(d_plot, 10);

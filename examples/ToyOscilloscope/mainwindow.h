@@ -3,6 +3,7 @@
 class Plot;
 class Knob;
 class WheelBox;
+class QLabel;
 
 class MainWindow : public QWidget
 {
@@ -28,6 +29,8 @@ private:
     WheelBox *d_timerWheel;
     WheelBox *d_intervalWheel;
     WheelBox *d_fineoffsetWheel;
+
+    QLabel *d_infoLabel;
 
     Plot *d_plot;
 };

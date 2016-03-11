@@ -40,5 +40,6 @@ private:
     FILE *fin;
     Thread<SamplingThread> sink_thread;
     TCondition<bool> sink_thread_started;
+    std::string ch1_fieldname;
     double d_last_value;
 };

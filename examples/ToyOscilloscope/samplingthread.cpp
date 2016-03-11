@@ -96,8 +96,9 @@ bool SamplingThread::set_stream_alias(std::string stream)
     return true;
 }
 
-bool SamplingThread::set_display_field(std::string)
+bool SamplingThread::set_display_field(std::string field)
 {
+    ch1_fieldname = field;
     return true;
 }
 
@@ -150,15 +151,19 @@ void SamplingThread::sink_reader_thread()
         } catch (MatrixException &e) {  }
 
         found = false;
-        for (auto z = ddesc->fields.begin(); !found && z != ddesc->fields.end();)
+        for (auto z = ddesc->fields.begin(); !found && z != ddesc->fields.end(); ++z)
         {
             // skip over unused fields
-            if (z->skip)
+//            if (z->skip)
+//            {
+//                ++z;
+//                continue;
+//            }
+            // plot the selected field by name
+            if (z->name != ch1_fieldname)
             {
-                ++z;
                 continue;
             }
-            // plot the first floating point non-skipped value
             switch (z->type)
             {
                 case data_description::DOUBLE:
@@ -177,7 +182,6 @@ void SamplingThread::sink_reader_thread()
                     break;
             }
         }
-        // printf("%f\n", dd);
         d_last_value = dd;
     }
 }

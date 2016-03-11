@@ -34,6 +34,8 @@ int main(int argc, char **argv)
 
     string stream_alias;
     string key_url = "tcp://localhost:42000";
+    string ch1_fieldname;
+
     for (auto i=1; i<argc; ++i)
     {
         string arg = argv[i];
@@ -46,6 +48,11 @@ int main(int argc, char **argv)
         {
             ++i;
             key_url = argv[i];
+        }
+        else if (arg == "-ch1")
+        {
+            ++i;
+            ch1_fieldname = argv[i];
         }
         else
         {
@@ -64,6 +71,11 @@ int main(int argc, char **argv)
     if (!samplingThread.set_stream_alias(stream_alias))
     {
         cerr << "Error getting stream" << endl;
+        exit(-1);
+    }
+    if (!samplingThread.set_display_field(ch1_fieldname))
+    {
+        cerr << "Error finding field " << ch1_fieldname << " in stream" << endl;
         exit(-1);
     }
 
