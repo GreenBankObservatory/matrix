@@ -37,100 +37,132 @@ extern "C" void  __Matrix__Time__(...)
 namespace Time
 {
 #ifdef __XENO__
-     // xenomai's ntp adjusted RT clock
+    // xenomai's ntp adjusted RT clock
     // #define USE_THE_CLOCK 42
-    #define USE_THE_CLOCK CLOCK_REALTIME
+#define USE_THE_CLOCK CLOCK_REALTIME
 #else
     // Use the standard (also ntp tempered) clock
-    #define USE_THE_CLOCK CLOCK_REALTIME
+#define USE_THE_CLOCK CLOCK_REALTIME
 #endif
                   
-Time_t getUTC()
-{
-    timespec ts;
-    clock_gettime(USE_THE_CLOCK, &ts);
-    return (static_cast<Time_t>(ts.tv_sec * NANOSEC_PER_SEC + ts.tv_nsec));
-}
+    Time_t getUTC()
+    {
+        timespec ts;
+        clock_gettime(USE_THE_CLOCK, &ts);
+        return (static_cast<Time_t>(ts.tv_sec * NANOSEC_PER_SEC + ts.tv_nsec));
+    }
                        
-Time_t timespec2Time(const timespec &ts)
-{
-    return (((Time_t)ts.tv_sec) * NANOSEC_PER_SEC + ts.tv_nsec);
-}
+    Time_t timespec2Time(const timespec &ts)
+    {
+        return (((Time_t)ts.tv_sec) * NANOSEC_PER_SEC + ts.tv_nsec);
+    }
 
-void  time2timespec(const Time_t t, timespec &ts_result)
-{
-    Time_t secs;
-    secs = t;
-    ts_result.tv_sec = (time_t)  (t/NANOSEC_PER_SEC);
-    ts_result.tv_nsec= (long int)(t%NANOSEC_PER_SEC);
-}
+    void  time2timespec(const Time_t t, timespec &ts_result)
+    {
+        Time_t secs;
+        secs = t;
+        ts_result.tv_sec = (time_t)  (t/NANOSEC_PER_SEC);
+        ts_result.tv_nsec= (long int)(t%NANOSEC_PER_SEC);
+    }
 
-Time_t timeval2Time(const timeval &ts)
-{
-    return (((Time_t)ts.tv_sec) * NANOSEC_PER_SEC + ts.tv_usec * 1000);
-}
+    Time_t timeval2Time(const timeval &ts)
+    {
+        return (((Time_t)ts.tv_sec) * NANOSEC_PER_SEC + ts.tv_usec * 1000);
+    }
 
-void  time2timeval(const Time_t t, timeval &tv_result)
-{
-    timespec ts;
-    time2timespec(t, ts);
-    tv_result.tv_sec = ts.tv_sec;
-    tv_result.tv_usec= ts.tv_nsec/1000;
-}
+    void  time2timeval(const Time_t t, timeval &tv_result)
+    {
+        timespec ts;
+        time2timespec(t, ts);
+        tv_result.tv_sec = ts.tv_sec;
+        tv_result.tv_usec= ts.tv_nsec/1000;
+    }
 
 
 #define MJD_1970_EPOCH (40587)
 
 // Note: This routine can only calculate MJD's for dates after 1970/1/1
-int MJD(const Time_t t)
-{
-    Time_t days_since_1970 = t/NANOSEC_PER_DAY;
-    return MJD_1970_EPOCH + (int)days_since_1970;
-}
+    int MJD(const Time_t t)
+    {
+        Time_t days_since_1970 = t/NANOSEC_PER_DAY;
+        return MJD_1970_EPOCH + (int)days_since_1970;
+    }
 
 // Note: This routine can only calculate MJD's for dates after 1970/1/1
-Time_t timeStamp2Time(uint32_t mjd, uint32_t msec)
-{
-    Time_t t = ((Time_t)(mjd - MJD_1970_EPOCH)) * NANOSEC_PER_DAY;
-    t += ((Time_t)(msec)) * 1000000LL;
-    return (t);
-}
+    Time_t timeStamp2Time(uint32_t mjd, uint32_t msec)
+    {
+        Time_t t = ((Time_t)(mjd - MJD_1970_EPOCH)) * NANOSEC_PER_DAY;
+        t += ((Time_t)(msec)) * 1000000LL;
+        return (t);
+    }
 
 // Same restriction as above, truncates precision down to millisecond level
-void  time2TimeStamp(const Time_t t, uint32_t &mjd, uint32_t &msec)
-{
-    mjd  = MJD(t);
-    msec = (unsigned int)((t/1000000LL)%86400000LL);
-}
+    void  time2TimeStamp(const Time_t t, uint32_t &mjd, uint32_t &msec)
+    {
+        mjd  = MJD(t);
+        msec = (unsigned int)((t/1000000LL)%86400000LL);
+    }
 
 // Same restriction as above, truncates precision down to millisecond level
-void  time2TimeStamp(const Time_t t, uint32_t &mjd, double &msec)
-{
-    mjd  = MJD(t);
-    msec = static_cast<double>(t%86400000000000LL)*1E-9;
-}
+    void  time2TimeStamp(const Time_t t, uint32_t &mjd, double &msec)
+    {
+        mjd  = MJD(t);
+        msec = static_cast<double>(t%86400000000000LL)*1E-9;
+    }
 
 //                           N/A  J   F   M   A   M   J   J   A   S   O   N   D
-static int month_lengths[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-bool  
-calendarDate(const Time_t t,   int &year,   int &month, int &dayofmonth,
-             int &hour, int &minute, double &sec)
-{
-    int dayofyr;
-    bool is_leap=false;
-    int   days     = (int)(t/(NANOSEC_PER_DAY));
-    Time_t nsec     =       t%(NANOSEC_PER_DAY);
-    year = 1970; // Ah, the good olde days ...
+    static int month_lengths[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    bool
+    calendarDate(const Time_t t,   int &year,   int &month, int &dayofmonth,
+                 int &hour, int &minute, double &sec)
+    {
+        int dayofyr;
+        bool is_leap=false;
+        int   days     = (int)(t/(NANOSEC_PER_DAY));
+        Time_t nsec     =       t%(NANOSEC_PER_DAY);
+        year = 1970; // Ah, the good olde days ...
     
-    // increment days by 1 since calendar is 1 based, not zero based.
-    days++;
+        // increment days by 1 since calendar is 1 based, not zero based.
+        days++;
     
-    while (days > 365)
-    {      
-        // leap year rules:
-        // leap year in years evenly divisible by 4,
-        // no leap in years evenly divisible by 100,
-        // leap in years also evenly divisible by 400
+        while (days > 365)
+        {
+            // leap year rules:
+            // leap year in years evenly divisible by 4,
+            // no leap in years evenly divisible by 100,
+            // leap in years also evenly divisible by 400
+            if (year%400 == 0)
+            {
+                is_leap=true;
+            }
+            else if (year%100 == 0)
+            {
+                is_leap=false;
+            }
+            else if (year%4 == 0)
+            {
+                is_leap=true;
+            }
+            else
+            {
+                is_leap=false;
+            }
+            
+            if (is_leap)
+            {
+                // printf("%d is a leap year\n", year);
+                days -= 366;
+            }
+            else
+            {
+                // printf("%d is NOT leap year\n", year);
+                days -= 365;
+            }
+            year++;
+        }
+    
+        dayofyr = days;
+
         if (year%400 == 0)
         {
             is_leap=true;
@@ -147,76 +179,59 @@ calendarDate(const Time_t t,   int &year,   int &month, int &dayofmonth,
         {
             is_leap=false;
         }
-            
-        if (is_leap)
-        {
-            // printf("%d is a leap year\n", year);
-            days -= 366;
-        }
-        else
-        {
-            // printf("%d is NOT leap year\n", year);
-            days -= 365;
-        }
-        year++;
-    }
     
-    dayofyr = days;
+        for (month=1;  ; ++month)
+        {
+            int extra_day = (month==2 && is_leap) ? 1 : 0;
 
-    if (year%400 == 0)
-    {
-        is_leap=true;
-    }
-    else if (year%100 == 0)
-    {
-        is_leap=false;
-    }
-    else if (year%4 == 0)
-    {
-        is_leap=true;
-    }
-    else
-    {
-        is_leap=false;
-    }
+            if (dayofyr <= (month_lengths[month] + extra_day))
+            {
+                dayofmonth = dayofyr;
+                break;
+            }
+            dayofyr -= (month_lengths[month] + extra_day);
+        }
     
-    for (month=1;  ; ++month)
-    {
-        int extra_day = (month==2 && is_leap) ? 1 : 0;
-
-        if (dayofyr <= (month_lengths[month] + extra_day))
-        {
-            dayofmonth = dayofyr;
-            break;
-        }        
-        dayofyr -= (month_lengths[month] + extra_day);
-    }
-    
-    hour   = (int)(nsec/(3600*NANOSEC_PER_SEC));
-    nsec   = nsec%(3600*NANOSEC_PER_SEC);
-    minute = (int)(nsec/(60*NANOSEC_PER_SEC));
-    nsec   = nsec%(60*NANOSEC_PER_SEC);
-    sec    = (double)nsec/(double)NANOSEC_PER_SEC;
+        hour   = (int)(nsec/(3600*NANOSEC_PER_SEC));
+        nsec   = nsec%(3600*NANOSEC_PER_SEC);
+        minute = (int)(nsec/(60*NANOSEC_PER_SEC));
+        nsec   = nsec%(60*NANOSEC_PER_SEC);
+        sec    = (double)nsec/(double)NANOSEC_PER_SEC;
        
-    return 1;
-}
+        return 1;
+    }
+
+    Time_t date2Time(const int year, const int month, const int dayofmonth,
+                     const int msec_since_midnight)
+    {
+        struct tm ymdhms;
+        ymdhms.tm_year = year;
+        ymdhms.tm_mon = month;
+        ymdhms.tm_mday = dayofmonth;
+        ymdhms.tm_hour = (msec_since_midnight / 3600000) % 24;
+        ymdhms.tm_min = (msec_since_midnight / 60000) % 60;
+        ymdhms.tm_sec = (msec_since_midnight / 1000) % 60;
+        int msec = msec_since_midnight % 1000;
+        time_t t = timegm(&ymdhms);
+        return t * 1000 + msec;
+    }
 
 #define TIMER_RELATIVETIME (0)
 
 /// Delay the calling thread by nsecs nanoseconds.
-void thread_delay(Time::Time_t nsecs)
-{
-    struct timespec rqtp;
-    time2timespec(nsecs, rqtp);
-    clock_nanosleep(CLOCK_REALTIME, TIMER_RELATIVETIME, &rqtp, 0);
-}
+    void thread_delay(Time::Time_t nsecs)
+    {
+        struct timespec rqtp;
+        time2timespec(nsecs, rqtp);
+        clock_nanosleep(CLOCK_REALTIME, TIMER_RELATIVETIME, &rqtp, 0);
+    }
 
 /// Sleep until the time specified
-void thread_sleep_until(Time::Time_t abstime)
-{
-    struct timespec rqtp;
-    time2timespec(abstime, rqtp);
-    clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &rqtp, 0);
-}
+    void thread_sleep_until(Time::Time_t abstime)
+    {
+        struct timespec rqtp;
+        time2timespec(abstime, rqtp);
+        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &rqtp, 0);
+    }
 
 };
