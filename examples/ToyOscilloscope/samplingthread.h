@@ -1,3 +1,6 @@
+#ifndef SamplingThread_h
+#define SamplingThread_h
+
 #include <qwt_sampling_thread.h>
 #include <stdio.h>
 #include "Keymaster.h"
@@ -35,3 +38,4 @@ private:
     std::string ch1_fieldname;
     double d_last_value;
 };
+#endif

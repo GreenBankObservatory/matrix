@@ -5,12 +5,6 @@
 #include <iostream>
 using namespace std;
 
-void usage()
-{
-    cerr << "usage: " << "oscilloscope" << " -str stream_alias -ch1 fieldname [-url keymaster_url] "  << endl;
-    cerr << "\t (keymaster url defaults to tcp://localhost:42000)" << endl;
-}
-
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
@@ -18,74 +12,16 @@ int main(int argc, char **argv)
     MainWindow window;
     window.resize(800,400);
 
-    SamplingThread samplingThread;
-//    samplingThread.setFrequency(window.frequency());
-//    samplingThread.setAmplitude(window.amplitude());
-    samplingThread.setInterval(window.signalInterval());
-
-//    window.connect(&window, SIGNAL(frequencyChanged(double)),
-//        &samplingThread, SLOT(setFrequency(double)));
-//    window.connect(&window, SIGNAL(amplitudeChanged(double)),
-//        &samplingThread, SLOT(setAmplitude(double)));
-    window.connect(&window, SIGNAL(signalIntervalChanged(double)),
-        &samplingThread, SLOT(setInterval(double)));
+    window.initialize(argc, argv);
 
     window.show();
 
-    string stream_alias;
-    string key_url = "tcp://localhost:42000";
-    string ch1_fieldname;
-
-    for (auto i=1; i<argc; ++i)
-    {
-        string arg = argv[i];
-        if (arg == "-str")
-        {
-            ++i;
-            stream_alias = argv[i];
-        }
-        else if (arg == "-url")
-        {
-            ++i;
-            key_url = argv[i];
-        }
-        else if (arg == "-ch1")
-        {
-            ++i;
-            ch1_fieldname = argv[i];
-        }
-        else
-        {
-            cerr << " I don't recognize option: " << arg << endl;
-            usage();
-            exit(-1);
-        }
-    }
-    if (stream_alias.size() < 1)
-    {
-        cerr << "a valid stream must be provided" << endl;
-        usage();
-        exit(-1);
-    }
-    samplingThread.set_keymaster_url(key_url);
-    if (!samplingThread.set_stream_alias(stream_alias))
-    {
-        cerr << "Error getting stream" << endl;
-        exit(-1);
-    }
-    if (!samplingThread.set_display_field(ch1_fieldname))
-    {
-        cerr << "Error finding field " << ch1_fieldname << " in stream" << endl;
-        _exit(-1);
-    }
-
-    samplingThread.start();
     window.start();
 
     bool ok = app.exec(); 
 
-    samplingThread.stop();
-    samplingThread.wait(1000);
+    window.stop();
+    window.wait(1000);
 
     return ok;
 }

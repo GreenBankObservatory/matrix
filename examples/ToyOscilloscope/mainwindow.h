@@ -1,4 +1,5 @@
 #include <qwidget.h>
+#include "samplingthread.h"
 
 class Plot;
 class Knob;
@@ -12,10 +13,14 @@ class MainWindow : public QWidget
 public:
     MainWindow(QWidget * = NULL);
 
-    void start();
+    void initialize(int argc, char **argv);
 
-    double amplitude() const;
-    double frequency() const;
+    void start();
+    void stop();
+    void wait(int t_ms);
+
+    double yscale() const;
+    double yoffset() const;
     double signalInterval() const;
 
 Q_SIGNALS:
@@ -33,4 +38,5 @@ private:
     QLabel *d_infoLabel;
 
     Plot *d_plot;
+    std::unique_ptr<SamplingThread> sampler;
 };
