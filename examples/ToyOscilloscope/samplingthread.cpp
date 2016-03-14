@@ -16,8 +16,6 @@ using namespace matrix;
 
 SamplingThread::SamplingThread(QObject *parent):
     QwtSamplingThread(parent),
-    d_frequency(5.0),
-    d_amplitude(20.0),
     keymaster(),
     input_signal_sink(),
     sink_thread(this, &SamplingThread::sink_reader_thread),
@@ -49,6 +47,17 @@ bool SamplingThread::set_stream_alias(std::string stream)
     {
         cerr << "Need keymaster url" << endl;
         exit(-1);
+    }
+    // list available stream aliases
+    if (stream == "-ls")
+    {
+        cerr << "Listing available streams:" << endl;
+        auto lstream = keymaster->get("streams");
+        for (auto x = lstream.begin(); x!=lstream.end(); ++x)
+        {
+            cerr << "\t" << x->first << endl;
+        }
+        _exit(-1);
     }
 
     try
@@ -99,31 +108,20 @@ bool SamplingThread::set_stream_alias(std::string stream)
 bool SamplingThread::set_display_field(std::string field)
 {
     ch1_fieldname = field;
-    return true;
-}
-
-void SamplingThread::setFrequency(double frequency)
-{
-    d_frequency = frequency;
-    // printf("setting frequency to %lf\n", frequency);
-    // keymaster.put("components.signal_generator.frequency", frequency, true);
-}
-
-double SamplingThread::frequency() const
-{
-    return d_frequency;
-}
-
-void SamplingThread::setAmplitude(double amplitude)
-{
-    d_amplitude = amplitude;
-    // printf("setting amplitude to %lf\n", amplitude);
-    // keymaster.put("components.signal_generator.amplitude", amplitude, true);
-}
-
-double SamplingThread::amplitude() const
-{
-    return d_amplitude;
+    for (auto z=ddesc->fields.begin(); z!=ddesc->fields.end(); ++z)
+    {
+        if (field == z->name)
+        {
+            return true;
+        }
+    }
+    cerr << "Field " << field << " not found in stream" << endl;
+    cerr << "Valid fields are:" << endl;
+    for (auto z=ddesc->fields.begin(); z!=ddesc->fields.end(); ++z)
+    {
+        cerr << z->name << endl;
+    }
+    return false;
 }
 
 void SamplingThread::sample(double elapsed)
@@ -153,13 +151,7 @@ void SamplingThread::sink_reader_thread()
         found = false;
         for (auto z = ddesc->fields.begin(); !found && z != ddesc->fields.end(); ++z)
         {
-            // skip over unused fields
-//            if (z->skip)
-//            {
-//                ++z;
-//                continue;
-//            }
-            // plot the selected field by name
+            // select the selected field by name
             if (z->name != ch1_fieldname)
             {
                 continue;

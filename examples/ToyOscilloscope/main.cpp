@@ -7,7 +7,7 @@ using namespace std;
 
 void usage()
 {
-    cerr << "usage: " << "oscilloscope" << " -str stream_alias [-url keymaster_url] "  << endl;
+    cerr << "usage: " << "oscilloscope" << " -str stream_alias -ch1 fieldname [-url keymaster_url] "  << endl;
     cerr << "\t (keymaster url defaults to tcp://localhost:42000)" << endl;
 }
 
@@ -19,14 +19,14 @@ int main(int argc, char **argv)
     window.resize(800,400);
 
     SamplingThread samplingThread;
-    samplingThread.setFrequency(window.frequency());
-    samplingThread.setAmplitude(window.amplitude());
+//    samplingThread.setFrequency(window.frequency());
+//    samplingThread.setAmplitude(window.amplitude());
     samplingThread.setInterval(window.signalInterval());
 
-    window.connect(&window, SIGNAL(frequencyChanged(double)),
-        &samplingThread, SLOT(setFrequency(double)));
-    window.connect(&window, SIGNAL(amplitudeChanged(double)),
-        &samplingThread, SLOT(setAmplitude(double)));
+//    window.connect(&window, SIGNAL(frequencyChanged(double)),
+//        &samplingThread, SLOT(setFrequency(double)));
+//    window.connect(&window, SIGNAL(amplitudeChanged(double)),
+//        &samplingThread, SLOT(setAmplitude(double)));
     window.connect(&window, SIGNAL(signalIntervalChanged(double)),
         &samplingThread, SLOT(setInterval(double)));
 
@@ -56,14 +56,14 @@ int main(int argc, char **argv)
         }
         else
         {
-            cerr << "don't recognize option: " << arg << endl;
+            cerr << " I don't recognize option: " << arg << endl;
             usage();
             exit(-1);
         }
     }
     if (stream_alias.size() < 1)
     {
-        cerr << "a stream must be provided" << endl;
+        cerr << "a valid stream must be provided" << endl;
         usage();
         exit(-1);
     }
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     if (!samplingThread.set_display_field(ch1_fieldname))
     {
         cerr << "Error finding field " << ch1_fieldname << " in stream" << endl;
-        exit(-1);
+        _exit(-1);
     }
 
     samplingThread.start();
