@@ -11,9 +11,13 @@
 #include <qwt_painter.h>
 #include <qevent.h>
 
+#include <iostream>
+
+using namespace std;
+
 Plot::Plot(QWidget *parent):
     QwtPlot(parent),
-    d_paintedPoints(0),
+    d_painted_ch1(0),
     d_interval(0.0, 10.0),
     d_timerId(-1)
 {
@@ -79,17 +83,29 @@ Plot::Plot(QWidget *parent):
     d_origin->setLinePen(QPen(Qt::gray, 0.0, Qt::DashLine));
     d_origin->attach(this);
 
-    d_curve = new QwtPlotCurve();
-    d_curve->setStyle(QwtPlotCurve::Lines);
-    d_curve->setPen(QPen(Qt::green));
+    d_ch1 = new QwtPlotCurve();
+    d_ch1->setStyle(QwtPlotCurve::Lines);
+    d_ch1->setPen(QPen(Qt::green));
 #if 1
-    d_curve->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+    d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
 #endif
 #if 1
-    d_curve->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+    d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
 #endif
-    d_curve->setData(new CurveData());
-    d_curve->attach(this);
+    d_ch1->setData(new CurveData());
+    d_ch1->attach(this);
+
+    d_ch2 = new QwtPlotCurve();
+    d_ch2->setStyle(QwtPlotCurve::Lines);
+    d_ch2->setPen(QPen(Qt::red));
+#if 1
+    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+#endif
+#if 1
+    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+#endif
+    d_ch2->setData(new CurveData());
+    d_ch2->attach(this);
 }
 
 Plot::~Plot()
@@ -123,11 +139,11 @@ void Plot::start()
 
 void Plot::replot()
 {
-    CurveData *data = (CurveData *)d_curve->data();
+    CurveData *data = (CurveData *) d_ch1->data();
     data->values().lock();
 
     QwtPlot::replot();
-    d_paintedPoints = data->size();
+    d_painted_ch1 = data->size();
 
     data->values().unlock();
 }
@@ -179,13 +195,18 @@ void Plot::setFineOffset(double foffset)
     replot();
 }
 
+void Plot::record_sample(double t)
+{
+    cerr << "sample " << t << endl;
+}
+
 void Plot::updateCurve()
 {
-    CurveData *data = (CurveData *)d_curve->data();
+    CurveData *data = (CurveData *) d_ch1->data();
     data->values().lock();
 
-    const int numPoints = data->size();
-    if ( numPoints > d_paintedPoints )
+    int numPoints = data->size();
+    if (numPoints > d_painted_ch1)
     {
         const bool doClip = !canvas()->testAttribute( Qt::WA_PaintOnScreen );
         if ( doClip )
@@ -197,18 +218,51 @@ void Plot::updateCurve()
                 to an unaccelerated frame buffer device.
             */
 
-            const QwtScaleMap xMap = canvasMap( d_curve->xAxis() );
-            const QwtScaleMap yMap = canvasMap( d_curve->yAxis() );
+            const QwtScaleMap xMap = canvasMap( d_ch1->xAxis() );
+            const QwtScaleMap yMap = canvasMap( d_ch1->yAxis() );
 
-            QRectF br = qwtBoundingRect( *data, 
-                d_paintedPoints - 1, numPoints - 1 );
+            QRectF br = qwtBoundingRect(*data,
+                                        d_painted_ch1 - 1, numPoints - 1 );
 
             const QRect clipRect = QwtScaleMap::transform( xMap, yMap, br ).toRect();
             d_directPainter->setClipRegion( clipRect );
         }
-        d_directPainter->drawSeries(d_curve, 
-            d_paintedPoints - 1, numPoints - 1);
-        d_paintedPoints = numPoints;
+        d_directPainter->drawSeries(d_ch1,
+                                    d_painted_ch1 - 1, numPoints - 1);
+        d_painted_ch1 = numPoints;
+    }
+
+    data->values().unlock();
+
+    data = (CurveData *) d_ch2->data();
+    data->values().lock();
+
+    // numPoints = data->size();
+    numPoints = 0;
+    if (numPoints > d_painted_ch2)
+    {
+        const bool doClip = !canvas()->testAttribute( Qt::WA_PaintOnScreen );
+        if ( doClip )
+        {
+            /*
+                Depending on the platform setting a clip might be an important
+                performance issue. F.e. for Qt Embedded this reduces the
+                part of the backing store that has to be copied out - maybe
+                to an unaccelerated frame buffer device.
+            */
+
+            const QwtScaleMap xMap = canvasMap( d_ch2->xAxis() );
+            const QwtScaleMap yMap = canvasMap( d_ch2->yAxis() );
+
+            QRectF br = qwtBoundingRect(*data,
+                                        d_painted_ch1 - 1, numPoints - 1 );
+
+            const QRect clipRect = QwtScaleMap::transform( xMap, yMap, br ).toRect();
+            d_directPainter->setClipRegion( clipRect );
+        }
+        d_directPainter->drawSeries(d_ch2,
+                                    d_painted_ch2 - 1, numPoints - 1);
+        d_painted_ch2 = numPoints;
     }
 
     data->values().unlock();
@@ -219,7 +273,7 @@ void Plot::incrementInterval()
     d_interval = QwtInterval(d_interval.maxValue(),
         d_interval.maxValue() + d_interval.width());
 
-    CurveData *data = (CurveData *)d_curve->data();
+    CurveData *data = (CurveData *) d_ch1->data();
     data->values().clearStaleValues(d_interval.minValue());
 
     // To avoid, that the grid is jumping, we disable 
@@ -240,7 +294,31 @@ void Plot::incrementInterval()
 
     d_origin->setValue(d_interval.minValue() + d_interval.width() / 2.0, 0.0);
 
-    d_paintedPoints = 0;
+    d_painted_ch1 = 0;
+
+    data = (CurveData *) d_ch2->data();
+    data->values().clearStaleValues(d_interval.minValue());
+    d_painted_ch2 = 0;
+
+    // To avoid, that the grid is jumping, we disable
+    // the autocalculation of the ticks and shift them
+    // manually instead.
+
+//    QwtScaleDiv scaleDiv = *axisScaleDiv(QwtPlot::xBottom);
+//    scaleDiv.setInterval(d_interval);
+
+//    for ( int i = 0; i < QwtScaleDiv::NTickTypes; i++ )
+//    {
+//        QList<double> ticks = scaleDiv.ticks(i);
+//        for ( int j = 0; j < ticks.size(); j++ )
+//            ticks[j] += d_interval.width();
+//        scaleDiv.setTicks(i, ticks);
+//    }
+//    setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+//
+//    d_origin->setValue(d_interval.minValue() + d_interval.width() / 2.0, 0.0);
+
+
     replot();
 }
 
@@ -269,4 +347,9 @@ void Plot::resizeEvent(QResizeEvent *event)
 void Plot::showEvent( QShowEvent * )
 {
     replot();
+}
+
+void Plot::run_stop_click()
+{
+    cerr << "click" << endl;
 }

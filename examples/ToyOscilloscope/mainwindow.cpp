@@ -7,6 +7,7 @@
 #include <qwt_scale_engine.h>
 #include <qlabel.h>
 #include <qlayout.h>
+#include <QPushButton>
 
 using namespace std;
 
@@ -39,17 +40,16 @@ MainWindow::MainWindow(QWidget *parent):
     d_infoLabel->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     d_infoLabel->setAlignment(Qt::AlignCenter);
 
-    d_timerWheel = new WheelBox("Sample Interval [ms]", 0.0, 20.0, 0.1, this);
-    d_timerWheel->setValue(10.0);
+    run_stop_button = new QPushButton("Run/Stop", this);
 
     QVBoxLayout* vLayout1 = new QVBoxLayout();
     vLayout1->addWidget(d_intervalWheel);
-    // vLayout1->addWidget(d_timerWheel);
     vLayout1->addStretch(10);
     vLayout1->addWidget(d_yscaleKnob);
     vLayout1->addWidget(d_yoffsetKnob);
     vLayout1->addWidget(d_fineoffsetWheel);
     vLayout1->addWidget(d_infoLabel);
+    vLayout1->addWidget(run_stop_button);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(d_plot, 10);
@@ -59,17 +59,16 @@ MainWindow::MainWindow(QWidget *parent):
             SIGNAL(amplitudeChanged(double)));
     connect(d_yoffsetKnob, SIGNAL(valueChanged(double)),
             SIGNAL(frequencyChanged(double)));
-    connect(d_timerWheel, SIGNAL(valueChanged(double)),
-        SIGNAL(signalIntervalChanged(double)));
-
     connect(d_intervalWheel, SIGNAL(valueChanged(double)),
-        d_plot, SLOT(setIntervalLength(double)) );
+            d_plot, SLOT(setIntervalLength(double)) );
     connect(d_yoffsetKnob, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setYOffset(double)) );
     connect(d_yscaleKnob, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setYScale(double)) );
     connect(d_fineoffsetWheel, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setFineOffset(double)) );
+    connect(run_stop_button, SIGNAL(clicked(void)),
+            d_plot, SLOT(run_stop_click(void)));
 }
 
 void MainWindow::start()
@@ -100,23 +99,18 @@ double MainWindow::yscale() const
 
 double MainWindow::signalInterval() const
 {
-    return d_timerWheel->value();
+    return 10.0;
 }
 
 void MainWindow::initialize(int argc, char **argv)
 {
-    SamplingThread samplingThread;
-//    samplingThread.setFrequency(window.yoffset());
-//    samplingThread.setAmplitude(window.yscale());
-    sampler.reset( new SamplingThread() );
+    SamplingThread *sampler;
+
+    sampler = new SamplingThread();
     sampler->setInterval(signalInterval());
 
-//    window.connect(&window, SIGNAL(frequencyChanged(double)),
-//        &samplingThread, SLOT(setFrequency(double)));
-//    window.connect(&window, SIGNAL(amplitudeChanged(double)),
-//        &samplingThread, SLOT(setAmplitude(double)));
     connect(this, SIGNAL(signalIntervalChanged(double)),
-             sampler.get(), SLOT(setInterval(double)));
+            sampler, SLOT(setInterval(double)));
 
     string stream_alias;
     string key_url = "tcp://localhost:42000";
@@ -157,7 +151,7 @@ void MainWindow::initialize(int argc, char **argv)
     if (!sampler->set_stream_alias(stream_alias))
     {
         cerr << "Error getting stream" << endl;
-        exit(-1);
+        _exit(-1);
     }
     if (!sampler->set_display_field(ch1_fieldname))
     {
@@ -165,5 +159,15 @@ void MainWindow::initialize(int argc, char **argv)
         _exit(-1);
     }
 
-    sampler->start();
+    d_plot->set_ch1_sampler(sampler_ch1);
+    d_plot->set_ch2_sampler(sampler_ch2);
+
+    if (sampler_ch1)
+    {
+        sampler->start();
+    }
+    if (sampler_ch2)
+    {
+        sampler_ch2->start();
+    }
 }

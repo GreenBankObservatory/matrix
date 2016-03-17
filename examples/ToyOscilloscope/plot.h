@@ -1,6 +1,7 @@
 #include <qwt_plot.h>
 #include <qwt_interval.h>
 #include <qwt_system_clock.h>
+#include "samplingthread.h"
 
 class QwtPlotCurve;
 class QwtPlotMarker;
@@ -22,6 +23,10 @@ public Q_SLOTS:
     void setYScale(double);
     void setYOffset(double);
     void setFineOffset(double);
+    void run_stop_click();
+    void record_sample(double);
+    void set_ch1_sampler(SamplingThread *);
+    void set_ch2_sampler(SamplingThread *);
 
 protected:
     virtual void showEvent(QShowEvent *);
@@ -35,8 +40,12 @@ private:
     void incrementInterval();
 
     QwtPlotMarker *d_origin;
-    QwtPlotCurve *d_curve;
-    int d_paintedPoints;
+    QwtPlotCurve *d_ch1;
+    QwtPlotCurve *d_ch2;
+    int d_painted_ch1;
+    int d_painted_ch2;
+    SamplingThread *ch1_sampler;
+    SamplingThread *ch2_sampler;
 
     QwtPlotDirectPainter *d_directPainter;
 

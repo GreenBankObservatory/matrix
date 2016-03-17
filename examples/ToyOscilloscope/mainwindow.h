@@ -5,6 +5,7 @@ class Plot;
 class Knob;
 class WheelBox;
 class QLabel;
+class QPushButton;
 
 class MainWindow : public QWidget
 {
@@ -31,12 +32,13 @@ Q_SIGNALS:
 private:
     Knob *d_yoffsetKnob;
     Knob *d_yscaleKnob;
-    WheelBox *d_timerWheel;
+    WheelBox *d_sample_interval_wheel;
     WheelBox *d_intervalWheel;
     WheelBox *d_fineoffsetWheel;
 
     QLabel *d_infoLabel;
+    QPushButton *run_stop_button;
 
     Plot *d_plot;
-    std::unique_ptr<SamplingThread> sampler;
+    // std::unique_ptr<SamplingThread> sampler;
 };

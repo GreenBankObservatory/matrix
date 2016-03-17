@@ -32,7 +32,6 @@ private:
     std::unique_ptr<matrix::DataSink<matrix::GenericBuffer> > input_signal_sink;
     std::unique_ptr<matrix::data_description> ddesc;
     matrix::GenericBuffer gbuffer;
-    FILE *fin;
     Thread<SamplingThread> sink_thread;
     TCondition<bool> sink_thread_started;
     std::string ch1_fieldname;
