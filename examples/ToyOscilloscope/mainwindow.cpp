@@ -104,7 +104,6 @@ double MainWindow::signalInterval() const
 
 void MainWindow::initialize(int argc, char **argv)
 {
-    SamplingThread *sampler;
 
     sampler = new SamplingThread();
     sampler->setInterval(signalInterval());
@@ -159,15 +158,15 @@ void MainWindow::initialize(int argc, char **argv)
         _exit(-1);
     }
 
-    d_plot->set_ch1_sampler(sampler_ch1);
-    d_plot->set_ch2_sampler(sampler_ch2);
+    d_plot->set_ch1_sampler(sampler);
+//    d_plot->set_ch2_sampler(sampler_ch2);
 
-    if (sampler_ch1)
+    if (sampler)
     {
         sampler->start();
     }
-    if (sampler_ch2)
-    {
-        sampler_ch2->start();
-    }
+//    if (sampler_ch2)
+//    {
+//        sampler_ch2->start();
+//    }
 }

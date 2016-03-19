@@ -24,9 +24,8 @@ public Q_SLOTS:
     void setYOffset(double);
     void setFineOffset(double);
     void run_stop_click();
-    void record_sample(double);
     void set_ch1_sampler(SamplingThread *);
-    void set_ch2_sampler(SamplingThread *);
+//    void set_ch2_sampler(SamplingThread *);
 
 protected:
     virtual void showEvent(QShowEvent *);
@@ -41,11 +40,11 @@ private:
 
     QwtPlotMarker *d_origin;
     QwtPlotCurve *d_ch1;
-    QwtPlotCurve *d_ch2;
+//    QwtPlotCurve *d_ch2;
     int d_painted_ch1;
     int d_painted_ch2;
-    SamplingThread *ch1_sampler;
-    SamplingThread *ch2_sampler;
+    std::unique_ptr<SamplingThread> ch1_sampler;
+//    std::unique_ptr<SamplingThread> ch2_sampler;
 
     QwtPlotDirectPainter *d_directPainter;
 
@@ -56,4 +55,5 @@ private:
     double d_scale;
     double d_yoffset;
     double d_fine_offset;
+    bool paused;
 };

@@ -40,5 +40,5 @@ private:
     QPushButton *run_stop_button;
 
     Plot *d_plot;
-    // std::unique_ptr<SamplingThread> sampler;
+    SamplingThread *sampler;
 };

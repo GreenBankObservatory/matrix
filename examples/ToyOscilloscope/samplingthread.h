@@ -19,6 +19,7 @@ public:
     bool set_stream_alias(std::string stream);
     bool set_keymaster_url(std::string key);
     bool set_display_field(std::string field);
+    void pause(bool);
 
 
 protected:
@@ -36,5 +37,6 @@ private:
     TCondition<bool> sink_thread_started;
     std::string ch1_fieldname;
     double d_last_value;
+    bool paused;
 };
 #endif

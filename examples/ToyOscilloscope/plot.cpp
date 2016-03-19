@@ -19,7 +19,10 @@ Plot::Plot(QWidget *parent):
     QwtPlot(parent),
     d_painted_ch1(0),
     d_interval(0.0, 10.0),
-    d_timerId(-1)
+    d_timerId(-1),
+    ch1_sampler(),
+    paused(false)
+//    ch2_sampler()
 {
     d_directPainter = new QwtPlotDirectPainter();
 
@@ -83,29 +86,23 @@ Plot::Plot(QWidget *parent):
     d_origin->setLinePen(QPen(Qt::gray, 0.0, Qt::DashLine));
     d_origin->attach(this);
 
-    d_ch1 = new QwtPlotCurve();
-    d_ch1->setStyle(QwtPlotCurve::Lines);
-    d_ch1->setPen(QPen(Qt::green));
-#if 1
-    d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-#endif
-#if 1
-    d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
-#endif
-    d_ch1->setData(new CurveData());
-    d_ch1->attach(this);
-
-    d_ch2 = new QwtPlotCurve();
-    d_ch2->setStyle(QwtPlotCurve::Lines);
-    d_ch2->setPen(QPen(Qt::red));
-#if 1
-    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-#endif
-#if 1
-    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
-#endif
-    d_ch2->setData(new CurveData());
-    d_ch2->attach(this);
+//    d_ch1 = new QwtPlotCurve();
+//    d_ch1->setStyle(QwtPlotCurve::Lines);
+//    d_ch1->setPen(QPen(Qt::green));
+//
+//    d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+//    d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+//    d_ch1->setData(new CurveData());
+//    d_ch1->attach(this);
+//
+//    d_ch2 = new QwtPlotCurve();
+//    d_ch2->setStyle(QwtPlotCurve::Lines);
+//    d_ch2->setPen(QPen(Qt::red));
+//
+//    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+//    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+//    d_ch2->setData(new CurveData());
+//    d_ch2->attach(this);
 }
 
 Plot::~Plot()
@@ -135,6 +132,7 @@ void Plot::start()
 {
     d_clock.start();
     d_timerId = startTimer(10);
+    ch1_sampler->start();
 }
 
 void Plot::replot()
@@ -165,8 +163,7 @@ void Plot::setYScale(double scale)
     d_scale = scale;
     double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
     double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
-    // printf("setYScale %f %f\n", bottom, top);
-    // setAxisAutoScale(QwtPlot::yLeft, true);
+
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
     replot();
@@ -176,8 +173,7 @@ void Plot::setYOffset(double offset)
     d_yoffset = offset;
     double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
     double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
-    // printf("setYOffset %f %f\n", bottom, top);
-    // setAxisAutoScale(QwtPlot::yLeft, true);
+
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
     replot();
@@ -188,16 +184,10 @@ void Plot::setFineOffset(double foffset)
     d_fine_offset = foffset;
     double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
     double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
-    // printf("setYOffset %f %f\n", bottom, top);
-    // setAxisAutoScale(QwtPlot::yLeft, true);
+
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
     replot();
-}
-
-void Plot::record_sample(double t)
-{
-    cerr << "sample " << t << endl;
 }
 
 void Plot::updateCurve()
@@ -234,38 +224,6 @@ void Plot::updateCurve()
 
     data->values().unlock();
 
-    data = (CurveData *) d_ch2->data();
-    data->values().lock();
-
-    // numPoints = data->size();
-    numPoints = 0;
-    if (numPoints > d_painted_ch2)
-    {
-        const bool doClip = !canvas()->testAttribute( Qt::WA_PaintOnScreen );
-        if ( doClip )
-        {
-            /*
-                Depending on the platform setting a clip might be an important
-                performance issue. F.e. for Qt Embedded this reduces the
-                part of the backing store that has to be copied out - maybe
-                to an unaccelerated frame buffer device.
-            */
-
-            const QwtScaleMap xMap = canvasMap( d_ch2->xAxis() );
-            const QwtScaleMap yMap = canvasMap( d_ch2->yAxis() );
-
-            QRectF br = qwtBoundingRect(*data,
-                                        d_painted_ch1 - 1, numPoints - 1 );
-
-            const QRect clipRect = QwtScaleMap::transform( xMap, yMap, br ).toRect();
-            d_directPainter->setClipRegion( clipRect );
-        }
-        d_directPainter->drawSeries(d_ch2,
-                                    d_painted_ch2 - 1, numPoints - 1);
-        d_painted_ch2 = numPoints;
-    }
-
-    data->values().unlock();
 }
 
 void Plot::incrementInterval()
@@ -296,9 +254,9 @@ void Plot::incrementInterval()
 
     d_painted_ch1 = 0;
 
-    data = (CurveData *) d_ch2->data();
-    data->values().clearStaleValues(d_interval.minValue());
-    d_painted_ch2 = 0;
+//    data = (CurveData *) d_ch2->data();
+//    data->values().clearStaleValues(d_interval.minValue());
+//    d_painted_ch2 = 0;
 
     // To avoid, that the grid is jumping, we disable
     // the autocalculation of the ticks and shift them
@@ -329,7 +287,7 @@ void Plot::timerEvent(QTimerEvent *event)
         updateCurve();
 
         const double elapsed = d_clock.elapsed() / 1000.0;
-        if ( elapsed > d_interval.maxValue() )
+        if ( elapsed > d_interval.maxValue() && !paused)
             incrementInterval();
 
         return;
@@ -351,5 +309,43 @@ void Plot::showEvent( QShowEvent * )
 
 void Plot::run_stop_click()
 {
-    cerr << "click" << endl;
+    if (!paused)
+    {
+        cerr << "Stop" << endl;
+        paused = true;
+    }
+    else
+    {
+        paused = false;
+        cerr << "Run" << endl;
+    }
+    ch1_sampler->pause(paused);
 }
+
+// Note Plot takes ownership of SamplingThread
+void Plot::set_ch1_sampler(SamplingThread *s)
+{
+    ch1_sampler.reset(s);
+    d_ch1 = new QwtPlotCurve();
+    d_ch1->setStyle(QwtPlotCurve::Lines);
+    d_ch1->setPen(QPen(Qt::green));
+
+    d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+    d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+    d_ch1->setData(new CurveData());
+    d_ch1->attach(this);
+}
+
+// Note Plot takes ownership of SamplingThread
+//void Plot::set_ch2_sampler(Plot::SamplingThread *s)
+//{
+//    ch2_sampler.reset(s);
+//    d_ch2 = new QwtPlotCurve();
+//    d_ch2->setStyle(QwtPlotCurve::Lines);
+//    d_ch2->setPen(QPen(Qt::red));
+//
+//    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+//    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+//    d_ch2->setData(new CurveData());
+//    d_ch2->attach(this);
+//}

@@ -20,7 +20,8 @@ SamplingThread::SamplingThread(QObject *parent):
     input_signal_sink(),
     sink_thread(this, &SamplingThread::sink_reader_thread),
     sink_thread_started(false),
-    d_last_value(0.0)
+    d_last_value(0.0),
+    paused(false)
 {
 
 }
@@ -126,8 +127,11 @@ bool SamplingThread::set_display_field(std::string field)
 
 void SamplingThread::sample(double elapsed)
 {
-    const QPointF s(elapsed, value(elapsed));
-    SignalData::instance().append(s);
+    if (!paused)
+    {
+        const QPointF s(elapsed, value(elapsed));
+        SignalData::instance().append(s);
+    }
 }
 
 double SamplingThread::value(double)
@@ -176,4 +180,9 @@ void SamplingThread::sink_reader_thread()
         }
         d_last_value = dd;
     }
+}
+
+void SamplingThread::pause(bool x)
+{
+    paused = x;
 }
