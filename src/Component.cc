@@ -100,13 +100,13 @@ bool Component::parse_data_connections()
                     const string & src_name = n[1].as<string>();
                     const string & dst_comp = n[2].as<string>();
                     const string & sink_name = n[3].as<string>();
-                    
+
                     if (dst_comp == my_instance_name)
                     {
                         const string protocol = n.size() == 5 ? n[3].as<string>() : "";
-                    
-                        ConnectionKey ck(mode, 
-                                          dst_comp, 
+
+                        ConnectionKey ck(mode,
+                                          dst_comp,
                                           sink_name);
                         connections[ck] = ConnectionKey(src_comp, src_name, protocol);
                     }
@@ -119,7 +119,7 @@ bool Component::parse_data_connections()
         cerr << __PRETTY_FUNCTION__ << " " << e.what() << endl;
         return false;
     }
-    return true;  
+    return true;
 }
 
 bool Component::find_data_connection(ConnectionKey &c)

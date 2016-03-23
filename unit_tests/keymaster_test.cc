@@ -36,11 +36,13 @@
 #include "zmq_util.h"
 #include "keymaster_test.h"
 #include "TCondition.h"
+#include "Time.h"
 
 using namespace std;
 using namespace mxutils;
 
 std::string keymaster_url = "inproc://matrix.keymaster";
+std::string tcp_keymaster_url = "tcp://ajax:42000";
 
 void KeymasterTest::test_keymaster()
 {
@@ -129,7 +131,12 @@ public:
     Foo(string url) : data(0), my_cb(this, &Foo::bar), km(url)
     {
         km.subscribe("foo.bar", &my_cb);
-        km.put("foo.bar", 5, true);
+        Time::thread_delay(1000000); // 1mS; allow things to sync
+    }
+
+    void put(int x)
+    {
+        km.put("foo.bar", x, true);
     }
 
     void bar(string key, YAML::Node val)
@@ -137,9 +144,9 @@ public:
         data.signal(val.as<int>());
     }
 
-    int get_data()
+    int get_data(int x)
     {
-        data.wait(5, 100000);
+        data.wait(x, 1000000);
         return data.value();
     }
 
@@ -152,39 +159,39 @@ private:
 
 void KeymasterTest::test_keymaster_publisher()
 {
-    // yaml_result r;
-    // boost::shared_ptr<KeymasterServer> km_server;
+    yaml_result r;
+    boost::shared_ptr<KeymasterServer> km_server;
 
-    // CPPUNIT_ASSERT_NO_THROW(
-    //     km_server.reset(new KeymasterServer("test.yaml"));
-    //     km_server->run();
-    //     );
+    CPPUNIT_ASSERT_NO_THROW(
+        km_server.reset(new KeymasterServer("test.yaml"));
+        km_server->run();
+        );
 
-    // Keymaster km(keymaster_url);
+    Keymaster km(keymaster_url);
 
-    // // first kind of callback: a custom callback based on
-    // // KeymasterCallbackBase.
-    // int val = 0;
-    // MyCallback<int> cb(val);
+    // first kind of callback: a custom callback based on
+    // KeymasterCallbackBase.
+    int val = 0;
+    MyCallback<int> cb(val);
 
-    // km.subscribe("components.nettask.source.ID", &cb);
+    km.subscribe("components.nettask.source.ID", &cb);
 
-    // // Put a new value into the keymaster
-    // km.put("components.nettask.source.ID", 1234, true);
+    // Put a new value into the keymaster
+    km.put("components.nettask.source.ID", 1234, true);
 
-    // CPPUNIT_ASSERT(cb.data.wait(1234, 100000));
+    CPPUNIT_ASSERT(cb.data.wait(1234, 100000));
 
-    // // Replace an existing value in the keymaster
-    // km.put("components.nettask.source.ID", 9999);
+    // Replace an existing value in the keymaster
+    km.put("components.nettask.source.ID", 9999);
 
-    // CPPUNIT_ASSERT(cb.data.wait(9999, 100000));
-
-    CPPUNIT_ASSERT(true);
+    CPPUNIT_ASSERT(cb.data.wait(9999, 100000));
 
     // second kind of callback: a class Foo method is used internally as
     // a callback, using the KeymasterMemberCB<T> class to enclose
     // it. Foo creates its own keymaster client, given a keymaster URL,
     // just as a component would do.
-    // Foo foo(keymaster_url);
-    // CPPUNIT_ASSERT(foo.get_data() == 5);
+    Foo foo(keymaster_url);
+    foo.put(5);
+    cout << "Testing publisher" << endl;
+    CPPUNIT_ASSERT(foo.get_data(5) == 5);
 }

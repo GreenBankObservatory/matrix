@@ -30,10 +30,10 @@
 /// Basis:
 /// =====
 /// The basis for the Time type is integral nanoseconds since 1970
-/// This representation is valid until a period which 
+/// This representation is valid until a period which
 /// exceeds our expected lifetimes.
 ///
-/// The implementation is an  64 bit unsigned long long, and Time 
+/// The implementation is an  64 bit unsigned long long, and Time
 /// is on most 64 bit systems a synonym for the time_t type.
 ///
 struct timeval;
@@ -49,7 +49,7 @@ namespace Time
     void   time2timeval(const Time_t, timeval &);
 
     int    MJD(const Time_t);
-    
+
     Time_t timeStamp2Time(uint32_t mjd, uint32_t msec);
     void   time2TimeStamp(const Time_t, uint32_t &mjd, uint32_t &msec_since_midnight);
     void   time2TimeStamp(const Time_t, uint32_t &mjd, double   &msec_since_midnight);

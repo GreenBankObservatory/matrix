@@ -404,7 +404,7 @@ namespace matrix
     bool ZMQTransportClient::Impl::connect(string urn)
     {
         _data_urn = urn;
-        
+
         if (!_connected)
         {
             if (_sub_thread.start() == 0)
@@ -622,7 +622,7 @@ namespace matrix
     ZMQTransportClient::~ZMQTransportClient()
     {
         _impl.reset();
-    } 
+    }
 
     bool ZMQTransportClient::_connect()
     {

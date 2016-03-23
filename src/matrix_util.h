@@ -78,7 +78,7 @@ namespace mxutils
     timeval operator-(timeval lhs, timeval rhs);
     std::ostream & operator<<(std::ostream &os, const timeval &t);
     std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
-    
+
 /**
  * \class fn_string_join is a simple functor that provides a handy way to
  * join strings from a container of strings, using the delimiter
@@ -226,9 +226,9 @@ namespace mxutils
         {
             v = true;
         }
-        
+
         return v;
-    }       
+    }
 
     template <> inline double convert<double>(const std::string &s)
     {

@@ -126,7 +126,7 @@ struct KeymasterServer::KmImpl
 
     void setup_urls();
     bool using_tcp();
-    void bind_server(zmq::socket_t &server_sock, vector<string> &urls, bool transient);
+    void bind_server(zmq::socket_t &server_sock, vector<string> &urls);
 
     Thread<KmImpl> _server_thread;
     Thread<KmImpl> _state_manager_thread;
@@ -225,13 +225,13 @@ void KeymasterServer::KmImpl::run()
     {
         if (_server_thread.start() != 0)
         {
-            throw(runtime_error("KeymasterServer: unable to start publishing thread"));
+            throw(runtime_error(string("KeymasterServer: unable to start publishing thread")));
         }
     }
 
     if (_server_thread_ready.wait(true, 1000000) != true)
     {
-        throw(runtime_error("KeymasterServer: timed out waiting for publishing thread"));
+        throw(runtime_error(string("KeymasterServer: timed out waiting for publishing thread")));
     }
 
     // Make sure this is run AFTER the _server_thread (publisher)
@@ -242,7 +242,7 @@ void KeymasterServer::KmImpl::run()
     {
         if (_state_manager_thread.start() != 0 || !_state_manager_thread_ready.wait(true, 1000000))
         {
-            throw(runtime_error("KeymasterServer: unable to start request thread"));
+            throw(runtime_error(string("KeymasterServer: unable to start request thread")));
         }
     }
 }
@@ -291,18 +291,21 @@ void KeymasterServer::KmImpl::setup_urls()
 
         if (lc.find("tcp") != string::npos)
         {
-            // for now just copy the state service URL. Later, port will
-            // be replaced by an ephemeral port for this.
-            _publish_service_urls.push_back(lc);
+            // We want the publisher to be the port used for the
+            // Keymaster queries, +1.
+            vector<string> parts;
+            boost::split(parts, lc, boost::is_any_of(":"));
+            auto port = convert<int>(parts.back()) + 1;
+            _publish_service_urls.push_back(string("tcp://*:" + to_string(port)));
         }
         else if (lc.find("ipc") != string::npos)
         {
-            string s = lc + ".publisher.";
+            string s = lc + ".publisher";
             _publish_service_urls.push_back(s);
         }
         else if (lc.find("inproc") != string::npos)
         {
-            string s = lc + ".publisher.";
+            string s = lc + ".publisher";
             _publish_service_urls.push_back(s);
         }
         else
@@ -355,7 +358,7 @@ bool KeymasterServer::KmImpl::using_tcp()
  *
  */
 
-void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<string> &urls, bool transient)
+void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<string> &urls)
 {
     vector<string>::iterator cvi;
 
@@ -364,41 +367,20 @@ void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<str
     {
         if (cvi->find("tcp") != string::npos)
         {
-            // it's TCP. Use the URL, but replace the port with an
-            // ephemeral port.
-            if (transient)
-            {
-                int port_used = zmq_ephemeral_bind(server_sock, "tcp://*:*", 1000);
-                ostringstream tcp_url;
-                tcp_url << "tcp://" << _hostname << ":" << port_used;
-                *cvi = tcp_url.str();
-            }
-            else
-            {
-                vector<string> fields;
-                boost::split(fields, *cvi, boost::is_any_of(":"));
-                server_sock.bind(cvi->c_str());
-                ostringstream tcp_url;
-                tcp_url << "tcp://" << _hostname << ":" << fields.back();
-                *cvi = tcp_url.str();
-            }
+            // If it's TCP we bind to tcp://*.<port>, but we also
+            // create here the url which may be used by a client to find
+            // this service. It will later be posted on the Keymaster.
+            vector<string> fields;
+            boost::split(fields, *cvi, boost::is_any_of(":"));
+            server_sock.bind(cvi->c_str());
+            ostringstream tcp_url;
+            tcp_url << "tcp://" << _hostname << ":" << fields.back();
+            *cvi = tcp_url.str();
         }
         else
         {
-            // A temporary name for IPC or inproc is needed for the same
-            // reason the transient port is needed for TCP: to avoid
-            // collisions if more than one keymaster is running on the
-            // same machine.  I (RC) am aware of the man page's
-            // exhortation to "never use mktemp()".  mktemp() does
-            // exactly what is needed here: generate a temporary name
-            // and let 0MQ use it. mkstemp() *opens* the file as well,
-            // which is not wanted. No security issues are anticipated
-            // here. (possible alternative: use mkdtemp())
-            if (transient)
-            {
-                *cvi += gen_random_string(6);
-            }
-
+            // If it's IPC or inprock, use the given URL. It will already have
+            // '.publisher appended if this is the publisher.
             server_sock.bind(cvi->c_str());
         }
     }
@@ -420,7 +402,7 @@ void KeymasterServer::KmImpl::server_task()
 
     try
     {
-        bind_server(data_publisher, _publish_service_urls, true);
+        bind_server(data_publisher, _publish_service_urls);
     }
     catch (zmq::error_t &e)
     {
@@ -483,7 +465,7 @@ void KeymasterServer::KmImpl::state_manager_task()
     try
     {
         // bind to all state server URLs
-        bind_server(state_sock, _state_service_urls, false);
+        bind_server(state_sock, _state_service_urls);
         put_yaml_val(_root_node.front(), "KeymasterServer.URLS", _state_service_urls, true);
     }
     catch (zmq::error_t &e)
@@ -703,7 +685,7 @@ void KeymasterServer::KmImpl::state_manager_task()
 bool KeymasterServer::KmImpl::publish(std::string key, bool block)
 {
     bool rval = true;
-    
+
     // Publish "Root" if there is no key
     try
     {
@@ -742,7 +724,7 @@ bool KeymasterServer::KmImpl::publish(std::string key, bool block)
                     }
                     else
                     {
-                        rval = rval and _data_queue.try_put(dp);                    
+                        rval = rval and _data_queue.try_put(dp);
                     }
                 }
             }
@@ -1339,7 +1321,7 @@ void Keymaster::_run()
     {
         if ((_subscriber_thread.start() != 0) || (!_subscriber_thread_ready.wait(true, 1000000)))
         {
-            throw(runtime_error("Keymaster: unable to start subscriber thread"));
+            throw(runtime_error(string("Keymaster: unable to start subscriber thread")));
         }
     }
 }
@@ -1492,7 +1474,7 @@ void Keymaster::_run_put()
     {
         if ((_put_thread.start() != 0) || (!_put_thread_ready.wait(true, 1000000)))
         {
-            throw(runtime_error("Keymaster: unable to start deferred put thread"));
+            throw(runtime_error(string("Keymaster: unable to start deferred put thread")));
         }
     }
 }
