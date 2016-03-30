@@ -56,6 +56,7 @@ int main(int argc, char **argv)
     int debuglevel = 0;
     size_t max_rows_per_file = 256*1024; // 262144 rows default
     string keymaster_url = "tcp://localhost:42000";
+    string stream_arg;
 
     const char *log_base = getenv("MATRIXLOGDIR");
 
@@ -81,7 +82,7 @@ int main(int argc, char **argv)
             // a path to the ddesc
             ++i;
             arg = argv[i];
-            stream_alias = string("streams.") + arg;
+            stream_arg = arg;
         }
         else if (arg == "-url")
         {
@@ -110,20 +111,33 @@ int main(int argc, char **argv)
         }
     }
 
-    if (log_dir.size() < 1)
-    {
-        cout << "logging path not set - using /tmp" << endl;
-        log_dir = "/tmp";
-    }
-
     YAML::Node dd_node;
     string stream_dd_path;
     Keymaster keymaster(keymaster_url);
     DataSink<GenericBuffer> sink(keymaster_url);
     unique_ptr<FITSLogger> log;
 
+    // list available stream aliases
+    if (stream_arg == "-ls")
+    {
+        cerr << "Listing available streams:" << endl;
+        auto lstream = keymaster.get("streams");
+        for (auto x = lstream.begin(); x!=lstream.end(); ++x)
+        {
+            cerr << "\t" << x->first << endl;
+        }
+        _exit(-1);
+    }
+
+    if (log_dir.size() < 1)
+    {
+        cout << "logging path not set - using /tmp" << endl;
+        log_dir = "/tmp";
+    }
+    log_dir = log_dir + "/" + stream_arg;
     try
     {
+        stream_alias = string("streams.") + stream_arg;
         dd_node = keymaster.get(stream_alias);
     }
     catch(KeymasterException e)
@@ -157,7 +171,7 @@ int main(int argc, char **argv)
     }
     try 
     {
-        log.reset( new FITSLogger(stream_dd, data_header, debuglevel));
+        log.reset( new FITSLogger(stream_dd, stream_arg, debuglevel));
     }
     catch(MatrixException e)
     {

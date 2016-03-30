@@ -27,6 +27,7 @@ FITSLogger::FITSLogger(YAML::Node ystr, string hdr, int debuglevel) :
     ddesc(ystr),
     mtx(),
     status(0),
+    header(hdr),
     last_reported_status(0),
     fout(nullptr)
 {
@@ -128,20 +129,89 @@ bool FITSLogger::create_header()
     char keyname[10];
     char comment[64];
     char value[64];
+    char dateobs[64];
     bool rtn = true;
+    uint32_t mjd;
+    double theTime;
+    int yr, month, day, hour, minute;
+    double sec;
+    long lzero = 0;
+    Time::Time_t t;
 
     // create a primary header
     fits_create_img(fout, 8, 0, 0, &status);
 
-    // Write a few comments. Should probably write an M&C sampler header ...
+    // Write an M&C sampler style primary header.
+
+    t = Time::getUTC();
+    Time::time2TimeStamp(t, mjd, theTime);
+    theTime = theTime/86400000. + static_cast<double>(mjd);
+    Time::calendarDate(t, yr, month, day, hour, minute, sec);
+    sprintf(dateobs, "%d-%02d-%02dT%02d:%02d:%02d",
+            yr, month, day, hour, minute, (int) sec);
+
+    strcpy(keyname, "ORIGIN");
+    strcpy(comment, "");
+    strcpy(value, "Green Bank Observatory");
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
     strcpy(keyname, "INSTRUME");
     strcpy(comment, "device or program of origin");
-    strcpy(value, "GBT");
+    strcpy(value, "slogger");
     fits_update_key_str(fout, keyname, value, comment, &status);
-    strcpy(keyname, "ORIGIN");
-    strcpy(comment, "subsystem");
-    strcpy(value, "GBTCCU");
+
+    strcpy(keyname, "GBTMCVER");
+    strcpy(comment, "telescope software version");
+    strcpy(value, "Matrix");
     fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "FITSVER");
+    strcpy(comment, "FITS software version");
+    strcpy(value, "2.2");
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "DATEBLD");
+    strcpy(comment, "time at start of log file");
+    strcpy(value, dateobs);
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "SIMULATE");
+    strcpy(comment, "Is the instrument in simulate mode?");
+    strcpy(value, "0");
+    fits_update_key_lng(fout, keyname, lzero, comment, &status);
+
+    strcpy(keyname, "DATE-OBS");
+    strcpy(comment, "time at start of log file");
+    strcpy(value, dateobs);
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "TIMESYS");
+    strcpy(comment, "time scale used");
+    strcpy(value, "UTC");
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "DEVICE");
+    strcpy(comment, "not available");
+    strcpy(value, "NA");
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "MANAGER");
+    strcpy(comment, "not available");
+    strcpy(value, "NA");
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "SAMPLER");
+    strcpy(comment, "stream alias");
+    strcpy(value, header.c_str());
+    fits_update_key_str(fout, keyname, value, comment, &status);
+
+    strcpy(keyname, "DELTA");
+    strcpy(comment, "minimum time between writing samples");
+    fits_update_key_flt(fout, keyname, 0.0, -7, comment, &status);
+
+    strcpy(keyname, "UTSTART");
+    strcpy(comment, "DMJD of slogger start");
+    fits_update_key_dbl(fout, keyname, theTime, -15, comment, &status);
 
     // now create the binary table
     int ncols = ddesc.fields.size();
@@ -199,13 +269,13 @@ bool FITSLogger::create_header()
     return rtn;
 }
 
-
 bool FITSLogger::is_log_open()
 {
     ThreadLock<Mutex> lck(mtx);
     lck.lock();
     return fout != nullptr;
 }
+
 bool FITSLogger::open_log()
 {
     string name;
