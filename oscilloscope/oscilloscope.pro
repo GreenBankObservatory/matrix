@@ -11,7 +11,7 @@ include( $${PWD}/examples.pri )
 
 # Extra include paths for the matrix libs and our non-standard
 # YAML and 0MQ installations.
-INCLUDEPATH += /home/sandboxes/jbrandt/mc/matrix/src
+INCLUDEPATH += ../src
 INCLUDEPATH += /home/gbt1/RH664/include
 
 # C++11 required.
