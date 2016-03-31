@@ -40,5 +40,6 @@ private:
     QPushButton *run_stop_button;
 
     Plot *d_plot;
-    SamplingThread *sampler;
+    SamplingThread *ch1_sampler;
+    SamplingThread *ch2_sampler;
 };

@@ -16,6 +16,7 @@ public:
     virtual ~Plot();
 
     void start();
+    void stop();
     virtual void replot();
 
 public Q_SLOTS:

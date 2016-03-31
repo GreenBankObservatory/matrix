@@ -17,12 +17,14 @@ using namespace std;
 
 Plot::Plot(QWidget *parent):
     QwtPlot(parent),
+    d_ch1(nullptr),
+    d_ch2(nullptr),
     d_painted_ch1(0),
     d_painted_ch2(0),
-    d_interval(0.0, 10.0),
-    d_timerId(-1),
     ch1_sampler(),
     ch2_sampler(),
+    d_interval(0.0, 10.0),
+    d_timerId(-1),
     paused(false)
 {
     d_directPainter = new QwtPlotDirectPainter();
@@ -125,15 +127,38 @@ void Plot::start()
     }
 }
 
+void Plot::stop()
+{
+    // we always start ch1
+    ch1_sampler->stop();
+
+    if (ch2_sampler)
+    {
+        ch2_sampler->stop();
+    }
+}
+
 void Plot::replot()
 {
-    CurveData *data = (CurveData *) d_ch1->data();
-    data->values().lock();
+    CurveData *ch1_data = (CurveData *) d_ch1->data();
+    CurveData *ch2_data = nullptr;
 
+    ch1_data->values().lock();
+
+    if (ch2_sampler)
+    {
+        ch2_data = (CurveData *) d_ch2->data();
+        ch2_data->values().lock();
+    }
     QwtPlot::replot();
-    d_painted_ch1 = data->size();
+    d_painted_ch1 = ch1_data->size();
 
-    data->values().unlock();
+    if (ch2_sampler)
+    {
+        d_painted_ch2 = ch2_data->size();
+        ch2_data->values().unlock();
+    }
+    ch1_data->values().unlock();
 }
 
 void Plot::setIntervalLength(double interval)
@@ -183,6 +208,8 @@ void Plot::setFineOffset(double foffset)
 void Plot::updateCurve()
 {
     CurveData *ch1_data = (CurveData *) d_ch1->data();
+    CurveData *ch2_data = nullptr;
+
     ch1_data->values().lock();
 
     int numPoints = ch1_data->size();
@@ -209,8 +236,38 @@ void Plot::updateCurve()
         d_directPainter->drawSeries(d_ch1, d_painted_ch1 - 1, numPoints-1);
         d_painted_ch1 = numPoints;
     }
-    ch1_data->values().unlock();
 
+    if (ch2_sampler)
+    {
+        ch2_data = (CurveData *) d_ch2->data();
+        ch2_data->values().lock();
+        numPoints = ch2_data->size();
+        if (numPoints > d_painted_ch2)
+        {
+            const bool doClip = !canvas()->testAttribute(Qt::WA_PaintOnScreen);
+            if (doClip)
+            {
+                /*
+                    Depending on the platform setting a clip might be an important
+                    performance issue. F.e. for Qt Embedded this reduces the
+                    part of the backing store that has to be copied out - maybe
+                    to an unaccelerated frame buffer device.
+                */
+                const QwtScaleMap xMap = canvasMap(d_ch2->xAxis());
+                const QwtScaleMap yMap = canvasMap(d_ch2->yAxis());
+
+                QRectF br = qwtBoundingRect(*ch2_data, d_painted_ch2 - 1, numPoints - 1);
+
+                const QRect clipRect = QwtScaleMap::transform(xMap, yMap, br).toRect();
+                d_directPainter->setClipRegion(clipRect);
+            }
+            d_directPainter->drawSeries(d_ch2, d_painted_ch2 - 1, numPoints - 1);
+            d_painted_ch2 = numPoints;
+        }
+        ch2_data->values().unlock();
+    }
+
+    ch1_data->values().unlock();
 }
 
 void Plot::incrementInterval()
@@ -241,28 +298,12 @@ void Plot::incrementInterval()
 
     d_painted_ch1 = 0;
 
-//    data = (CurveData *) d_ch2->data();
-//    data->values().clearStaleValues(d_interval.minValue());
-//    d_painted_ch2 = 0;
-
-    // To avoid, that the grid is jumping, we disable
-    // the autocalculation of the ticks and shift them
-    // manually instead.
-
-//    QwtScaleDiv scaleDiv = *axisScaleDiv(QwtPlot::xBottom);
-//    scaleDiv.setInterval(d_interval);
-
-//    for ( int i = 0; i < QwtScaleDiv::NTickTypes; i++ )
-//    {
-//        QList<double> ticks = scaleDiv.ticks(i);
-//        for ( int j = 0; j < ticks.size(); j++ )
-//            ticks[j] += d_interval.width();
-//        scaleDiv.setTicks(i, ticks);
-//    }
-//    setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
-//
-//    d_origin->setValue(d_interval.minValue() + d_interval.width() / 2.0, 0.0);
-
+    if (ch2_sampler)
+    {
+        data = (CurveData *) d_ch2->data();
+        data->values().clearStaleValues(d_interval.minValue());
+        d_painted_ch2 = 0;
+    }
 
     replot();
 }
