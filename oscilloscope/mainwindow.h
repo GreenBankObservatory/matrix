@@ -36,7 +36,7 @@ private:
     WheelBox *d_intervalWheel;
     WheelBox *d_fineoffsetWheel;
 
-    QLabel *d_infoLabel;
+    QPushButton *d_centerY;
     QPushButton *run_stop_button;
 
     Plot *d_plot;

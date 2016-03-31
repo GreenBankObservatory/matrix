@@ -126,8 +126,8 @@ void SignalData::clearStaleValues(double limit)
     d_data->lock.unlock();
 }
 
-SignalData &SignalData::instance()
-{
-    static SignalData valueVector;
-    return valueVector;
-}
+//SignalData &SignalData::instance()
+//{
+//    static SignalData valueVector;
+//    return valueVector;
+//}

@@ -6,6 +6,7 @@
 #include "Keymaster.h"
 #include "DataInterface.h"
 #include "DataSink.h"
+#include "curvedata.h"
 
 #if QT_VERSION < 0x040600
 #define qFastSin(x) ::sin(x)
@@ -24,6 +25,11 @@ SamplingThread::SamplingThread(QObject *parent):
     paused(false)
 {
 
+}
+
+void SamplingThread::setData(CurveData *p)
+{
+    data = p;
 }
 
 /// Takes a string specifying the url of the keymaster
@@ -130,7 +136,7 @@ void SamplingThread::sample(double elapsed)
     if (!paused)
     {
         const QPointF s(elapsed, value(elapsed));
-        SignalData::instance().append(s);
+        data->values().append(s);
     }
 }
 

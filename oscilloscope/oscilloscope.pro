@@ -15,7 +15,7 @@ INCLUDEPATH += ../src
 INCLUDEPATH += /home/gbt1/RH664/include
 
 # C++11 required.
-QMAKE_CXXFLAGS += -std=c++11 -Wno-comment
+QMAKE_CXXFLAGS += -std=c++11 -Wno-comment -Wno-unused-variable -Wno-sign-compare
 # More locally specific stuff edit as required
 LIBS += -L/home/sandboxes/jbrandt/mc/matrix/lib -lmatrix -L/home/gbt1/RH664/lib -lyaml-cpp -lzmq -lboost_regex -lrt
 

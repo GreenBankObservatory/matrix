@@ -18,11 +18,12 @@ using namespace std;
 Plot::Plot(QWidget *parent):
     QwtPlot(parent),
     d_painted_ch1(0),
+    d_painted_ch2(0),
     d_interval(0.0, 10.0),
     d_timerId(-1),
     ch1_sampler(),
+    ch2_sampler(),
     paused(false)
-//    ch2_sampler()
 {
     d_directPainter = new QwtPlotDirectPainter();
 
@@ -86,23 +87,6 @@ Plot::Plot(QWidget *parent):
     d_origin->setLinePen(QPen(Qt::gray, 0.0, Qt::DashLine));
     d_origin->attach(this);
 
-//    d_ch1 = new QwtPlotCurve();
-//    d_ch1->setStyle(QwtPlotCurve::Lines);
-//    d_ch1->setPen(QPen(Qt::green));
-//
-//    d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-//    d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
-//    d_ch1->setData(new CurveData());
-//    d_ch1->attach(this);
-//
-//    d_ch2 = new QwtPlotCurve();
-//    d_ch2->setStyle(QwtPlotCurve::Lines);
-//    d_ch2->setPen(QPen(Qt::red));
-//
-//    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-//    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
-//    d_ch2->setData(new CurveData());
-//    d_ch2->attach(this);
 }
 
 Plot::~Plot()
@@ -132,7 +116,13 @@ void Plot::start()
 {
     d_clock.start();
     d_timerId = startTimer(10);
+    // we always start ch1
     ch1_sampler->start();
+
+    if (ch2_sampler)
+    {
+        ch2_sampler->start();
+    }
 }
 
 void Plot::replot()
@@ -192,10 +182,11 @@ void Plot::setFineOffset(double foffset)
 
 void Plot::updateCurve()
 {
-    CurveData *data = (CurveData *) d_ch1->data();
-    data->values().lock();
+    CurveData *ch1_data = (CurveData *) d_ch1->data();
+    ch1_data->values().lock();
 
-    int numPoints = data->size();
+    int numPoints = ch1_data->size();
+
     if (numPoints > d_painted_ch1)
     {
         const bool doClip = !canvas()->testAttribute( Qt::WA_PaintOnScreen );
@@ -207,22 +198,18 @@ void Plot::updateCurve()
                 part of the backing store that has to be copied out - maybe
                 to an unaccelerated frame buffer device.
             */
-
             const QwtScaleMap xMap = canvasMap( d_ch1->xAxis() );
             const QwtScaleMap yMap = canvasMap( d_ch1->yAxis() );
 
-            QRectF br = qwtBoundingRect(*data,
-                                        d_painted_ch1 - 1, numPoints - 1 );
+            QRectF br = qwtBoundingRect(*ch1_data, d_painted_ch1 - 1, numPoints-1);
 
             const QRect clipRect = QwtScaleMap::transform( xMap, yMap, br ).toRect();
             d_directPainter->setClipRegion( clipRect );
         }
-        d_directPainter->drawSeries(d_ch1,
-                                    d_painted_ch1 - 1, numPoints - 1);
+        d_directPainter->drawSeries(d_ch1, d_painted_ch1 - 1, numPoints-1);
         d_painted_ch1 = numPoints;
     }
-
-    data->values().unlock();
+    ch1_data->values().unlock();
 
 }
 
@@ -320,11 +307,16 @@ void Plot::run_stop_click()
         cerr << "Run" << endl;
     }
     ch1_sampler->pause(paused);
+    if (ch2_sampler)
+    {
+        ch2_sampler->pause(paused);
+    }
 }
 
 // Note Plot takes ownership of SamplingThread
 void Plot::set_ch1_sampler(SamplingThread *s)
 {
+    CurveData *cd = new CurveData();
     ch1_sampler.reset(s);
     d_ch1 = new QwtPlotCurve();
     d_ch1->setStyle(QwtPlotCurve::Lines);
@@ -332,20 +324,23 @@ void Plot::set_ch1_sampler(SamplingThread *s)
 
     d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
     d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
-    d_ch1->setData(new CurveData());
+    d_ch1->setData(cd);
     d_ch1->attach(this);
+    s->setData(cd);
 }
 
 // Note Plot takes ownership of SamplingThread
-//void Plot::set_ch2_sampler(Plot::SamplingThread *s)
-//{
-//    ch2_sampler.reset(s);
-//    d_ch2 = new QwtPlotCurve();
-//    d_ch2->setStyle(QwtPlotCurve::Lines);
-//    d_ch2->setPen(QPen(Qt::red));
-//
-//    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-//    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
-//    d_ch2->setData(new CurveData());
-//    d_ch2->attach(this);
-//}
+void Plot::set_ch2_sampler(SamplingThread *s)
+{
+    CurveData *cd = new CurveData();
+    ch2_sampler.reset(s);
+    d_ch2 = new QwtPlotCurve();
+    d_ch2->setStyle(QwtPlotCurve::Lines);
+    d_ch2->setPen(QPen(Qt::red));
+
+    d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+    d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
+    d_ch2->setData(cd);
+    d_ch2->attach(this);
+    s->setData(cd);
+}

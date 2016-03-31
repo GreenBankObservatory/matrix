@@ -1,27 +1,31 @@
 #include "curvedata.h"
 #include "signaldata.h"
 
-const SignalData &CurveData::values() const
-{
-    return SignalData::instance();
-}
+//const SignalData &CurveData::values() const
+//{
+//    return SignalData::instance();
+//}
 
-SignalData &CurveData::values() 
+//SignalData &CurveData::values()
+//{
+//    return SignalData::instance();
+//}
+CurveData::CurveData()
 {
-    return SignalData::instance();
+
 }
 
 QPointF CurveData::sample(size_t i) const
 {
-    return SignalData::instance().value(i);
+    return myvalues.value(i);
 }
 
 size_t CurveData::size() const
 {
-    return SignalData::instance().size();
+    return myvalues.size();
 }
 
 QRectF CurveData::boundingRect() const
 {
-    return SignalData::instance().boundingRect();
+    return myvalues.boundingRect();
 }

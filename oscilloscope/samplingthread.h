@@ -9,6 +9,8 @@
 #include "TCondition.h"
 #include "Thread.h"
 
+class CurveData;
+
 class SamplingThread: public QwtSamplingThread
 {
     Q_OBJECT
@@ -20,6 +22,7 @@ public:
     bool set_keymaster_url(std::string key);
     bool set_display_field(std::string field);
     void pause(bool);
+    void setData(CurveData *p);
 
 
 protected:
@@ -38,5 +41,6 @@ private:
     std::string ch1_fieldname;
     double d_last_value;
     bool paused;
+    CurveData *data;
 };
 #endif

@@ -8,6 +8,7 @@
 #include <qlabel.h>
 #include <qlayout.h>
 #include <QPushButton>
+#include <QTabWidget>
 
 using namespace std;
 
@@ -25,40 +26,46 @@ MainWindow::MainWindow(QWidget *parent):
     d_plot = new Plot(this);
     d_plot->setIntervalLength(intervalLength);
 
-    d_yscaleKnob = new Knob("Y-Scale div", 0.01, 50.0, this);
+    QTabWidget *tabWidget = new QTabWidget();
+    QWidget *tab1 = new QWidget();
+    QWidget *tab2 = new QWidget();
+
+    tab1->setObjectName("tCH1");
+    tabWidget->addTab(tab1, "CH1");
+
+    tab2->setObjectName("tCH2");
+    tabWidget->addTab(tab2, "CH2");
+
+    d_yscaleKnob = new Knob("Y-Scale div", 0.01, 50.0, tab1);
     d_yscaleKnob->setValue(1.0);
-    
-    d_yoffsetKnob = new Knob("Y-Offset", -90.0, 90.0, this);
+
+    d_yoffsetKnob = new Knob("Y-Offset", -90.0, 90.0, tab1);
     d_yoffsetKnob->setValue(0.0);
 
-    d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, this);
+    d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, tab1);
     d_intervalWheel->setValue(intervalLength);
-    d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, this);
+    d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, tab1);
     d_fineoffsetWheel->setValue(0.0);
 
-    d_infoLabel = new QLabel(tr("<i>CH1</i>"));
-    d_infoLabel->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-    d_infoLabel->setAlignment(Qt::AlignCenter);
+    d_centerY = new QPushButton("Center-Y", tab1);
+    //d_centerY->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+    //d_centerY->setAlignment(Qt::AlignCenter);
 
     run_stop_button = new QPushButton("Run/Stop", this);
-
-    QVBoxLayout* vLayout1 = new QVBoxLayout();
+    QVBoxLayout* vLayout1 = new QVBoxLayout(tab1);
     vLayout1->addWidget(d_intervalWheel);
     vLayout1->addStretch(10);
     vLayout1->addWidget(d_yscaleKnob);
     vLayout1->addWidget(d_yoffsetKnob);
     vLayout1->addWidget(d_fineoffsetWheel);
-    vLayout1->addWidget(d_infoLabel);
+    vLayout1->addWidget(d_centerY);
     vLayout1->addWidget(run_stop_button);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(d_plot, 10);
-    layout->addLayout(vLayout1);
+    layout->addWidget(tabWidget);
+    // layout->addLayout(vLayout1);
 
-    connect(d_yscaleKnob, SIGNAL(valueChanged(double)),
-            SIGNAL(amplitudeChanged(double)));
-    connect(d_yoffsetKnob, SIGNAL(valueChanged(double)),
-            SIGNAL(frequencyChanged(double)));
     connect(d_intervalWheel, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setIntervalLength(double)) );
     connect(d_yoffsetKnob, SIGNAL(valueChanged(double)),

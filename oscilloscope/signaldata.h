@@ -6,8 +6,9 @@
 class SignalData
 {
 public:
-    static SignalData &instance();
-
+    // static SignalData &instance();
+    SignalData();
+    virtual ~SignalData();
     void append(const QPointF &pos);
     void clearStaleValues(double min);
 
@@ -20,11 +21,10 @@ public:
     void unlock();
     
 private:
-    SignalData();
     SignalData(const SignalData &);
     SignalData &operator=( const SignalData & );
 
-    virtual ~SignalData();
+
 
     class PrivateData;
     PrivateData *d_data;
