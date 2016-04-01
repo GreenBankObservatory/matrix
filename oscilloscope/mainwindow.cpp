@@ -3,12 +3,14 @@
 #include "knob.h"
 #include "wheelbox.h"
 #include <iostream>
+#include <string>
 
 #include <qwt_scale_engine.h>
 #include <qlabel.h>
 #include <qlayout.h>
 #include <QPushButton>
 #include <QTabWidget>
+#include "make_path.h"
 
 using namespace std;
 
@@ -29,6 +31,7 @@ MainWindow::MainWindow(QWidget *parent):
     QTabWidget *tabWidget = new QTabWidget();
     ch1.tab = new QWidget();
     ch2.tab = new QWidget();
+    utilsButtons.tab = new QWidget();
 
     ch1.tab->setObjectName("tCH1");
     tabWidget->addTab(ch1.tab, "CH1");
@@ -36,28 +39,28 @@ MainWindow::MainWindow(QWidget *parent):
     ch2.tab->setObjectName("tCH2");
     tabWidget->addTab(ch2.tab, "CH2");
 
+    tabWidget->addTab(utilsButtons.tab, "Utils");
+
     ch1.d_yscaleKnob = new MyKnob("Y-Scale div", 0.0, 50.0, 1.0, ch1.tab);
     ch1.d_yscaleKnob->setValue(1.0);
 
     ch1.d_yoffsetKnob = new MyKnob("Y-Offset", -90.0, 90.0, 1.0, ch1.tab);
     ch1.d_yoffsetKnob->setValue(0.0);
 
-    ch1.d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, ch1.tab);
-    ch1.d_intervalWheel->setValue(intervalLength);
     ch1.d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, ch1.tab);
     ch1.d_fineoffsetWheel->setValue(0.0);
 
     ch1.d_centerY = new QPushButton("Center-Y", ch1.tab);
-    ch1.run_stop_button = new QPushButton("Run/Stop", this);
+    // ch1.run_stop_button = new QPushButton("Run/Stop", this);
 
     ch1.vlayout = new QVBoxLayout(ch1.tab);
-    ch1.vlayout->addWidget(ch1.d_intervalWheel);
+    // ch1.vlayout->addWidget(ch1.d_intervalWheel);
     ch1.vlayout->addStretch(10);
     ch1.vlayout->addWidget(ch1.d_yscaleKnob);
     ch1.vlayout->addWidget(ch1.d_yoffsetKnob);
     ch1.vlayout->addWidget(ch1.d_fineoffsetWheel);
     ch1.vlayout->addWidget(ch1.d_centerY);
-    ch1.vlayout->addWidget(ch1.run_stop_button);
+    // ch1.vlayout->addWidget(ch1.run_stop_button);
 
 
     ch2.d_yscaleKnob = new MyKnob("Y2-Scale div", 0.0, 50.0, 1.0, ch2.tab);
@@ -66,31 +69,43 @@ MainWindow::MainWindow(QWidget *parent):
     ch2.d_yoffsetKnob = new MyKnob("Y2-Offset", -90.0, 90.0, 1.0, ch2.tab);
     ch2.d_yoffsetKnob->setValue(0.0);
 
-    ch2.d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, ch2.tab);
-    ch2.d_intervalWheel->setValue(intervalLength);
     ch2.d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, ch2.tab);
     ch2.d_fineoffsetWheel->setValue(0.0);
 
     ch2.d_centerY = new QPushButton("Center-Y", ch2.tab);
-    ch2.run_stop_button = new QPushButton("Run/Stop", this);
+
+    utilsButtons.vlayout = new QVBoxLayout(utilsButtons.tab);
+    utilsButtons.d_sample_interval_wheel = new WheelBox("Displayed [s]", 10.0, 100.0, 1.0,
+                                                        utilsButtons.tab);
+    utilsButtons.d_sample_interval_wheel->setValue(intervalLength);
+    utilsButtons.run_stop_button = new QPushButton("Run/Stop", utilsButtons.tab);
+    utilsButtons.snapshot_button = new QPushButton("Save Snapshot", utilsButtons.tab);
+
+    utilsButtons.vlayout->addWidget(utilsButtons.run_stop_button);
+    utilsButtons.vlayout->addWidget(utilsButtons.snapshot_button);
+    utilsButtons.vlayout->addWidget(utilsButtons.d_sample_interval_wheel);
 
     ch2.vlayout = new QVBoxLayout(ch2.tab);
-    ch2.vlayout->addWidget(ch2.d_intervalWheel);
     ch2.vlayout->addStretch(10);
     ch2.vlayout->addWidget(ch2.d_yscaleKnob);
     ch2.vlayout->addWidget(ch2.d_yoffsetKnob);
     ch2.vlayout->addWidget(ch2.d_fineoffsetWheel);
     ch2.vlayout->addWidget(ch2.d_centerY);
-    ch2.vlayout->addWidget(ch2.run_stop_button);
-
-
-
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(d_plot, 10);
     layout->addWidget(tabWidget);
-    // layout->addLayout(vLayout1);
+    // layout->addLayout(utilsButtons.vlayout);
 
+    // So far we have the following layout:
+    //  MW----------------------------------------------------MW
+    //    HL------------------------------------------------HL
+    //      PLT-------------------PLT|VL------VL
+    //      ...      QwtPlot            dials
+    //      PLT-------------------PLT|VL------VL
+    //    HL------------------------------------------------HL
+    //  MW----------------------------------------------------MW
+    //
 
     connect(ch1.d_yoffsetKnob, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setYOffset(double)) );
@@ -110,10 +125,25 @@ MainWindow::MainWindow(QWidget *parent):
             d_plot, SLOT(centerY2(void)));
 
     // Should only have one of these
-    connect(ch1.run_stop_button, SIGNAL(clicked(void)),
+    connect(utilsButtons.run_stop_button, SIGNAL(clicked(void)),
             d_plot, SLOT(run_stop_click(void)));
-    connect(ch1.d_intervalWheel, SIGNAL(valueChanged(double)),
+    connect(utilsButtons.snapshot_button, SIGNAL(clicked(void)),
+            this, SLOT(save_snapshot(void)));
+    connect(utilsButtons.d_sample_interval_wheel, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setIntervalLength(double)) );
+}
+
+void MainWindow::save_snapshot()
+{
+    // Note this requires the import command line utility from image magic
+    int id = winId();
+    string filename;
+    string cmd;
+    generate_log_filename(Time::getUTC(), filename);
+
+    cmd = string("import -window ") + to_string(id) + " /tmp/" + filename + ".png &";
+    id=system(cmd.c_str());
+    cerr << "snapshot saved in /tmp/" << filename << ".png" << endl;
 }
 
 void MainWindow::start()

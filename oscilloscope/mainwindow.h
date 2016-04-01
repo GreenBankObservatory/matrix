@@ -31,23 +31,31 @@ Q_SIGNALS:
     void frequencyChanged(double);
     void signalIntervalChanged(double);
 
+public Q_SLOTS:
+    void save_snapshot();
+
 private:
     struct ControlTab
     {
         QWidget *tab;
         MyKnob *d_yoffsetKnob;
         MyKnob *d_yscaleKnob;
-        WheelBox *d_sample_interval_wheel;
-        WheelBox *d_intervalWheel;
         WheelBox *d_fineoffsetWheel;
-
         QPushButton *d_centerY;
-        QPushButton *run_stop_button;
         QVBoxLayout *vlayout;
+    };
+    struct UtilsButtons
+    {
+        QWidget *tab;
+        QVBoxLayout *vlayout;
+        QPushButton *run_stop_button;
+        QPushButton *snapshot_button;
+        WheelBox *d_sample_interval_wheel;
     };
 
     ControlTab ch1;
     ControlTab ch2;
+    UtilsButtons utilsButtons;
 
     Plot *d_plot;
     SamplingThread *ch1_sampler;
