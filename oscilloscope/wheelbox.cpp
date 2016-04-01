@@ -54,15 +54,17 @@ WheelBox::WheelBox(const QString &title,
     
     d_wheel = new Wheel(this);
     d_wheel->setOrientation(Qt::Vertical);
-    d_wheel->setRange(min, max, stepSize);
+    d_wheel->setRange(min, max, stepSize < 1 ? 1.0 : stepSize);
     d_wheel->setFixedSize(qRound(d_number->height() / 2.5), d_number->height());
-    coarse = 1.0;
+    coarse = fmod((min+max)/2.0, 1.0);
+    d_wheel->setValue(coarse);
 
     d_fine = new Wheel(this);
     d_fine->setOrientation(Qt::Vertical);
-    d_fine->setRange(0.0, 1.0, 0.05);
+    d_fine->setRange(-50.0, 50.0, 0.1);
     d_fine->setFixedSize(qRound(d_number->height() / 2.5), d_number->height());
     fine = 0.0;
+    d_fine->setValue(fine);
 
     // d_number->setFocusProxy(d_wheel);
 
@@ -122,6 +124,12 @@ void WheelBox::setValue(double value)
     d_number->display(value);
     valueChanged(value); // send signal to outside observers
 }
+
+//void WheelBox::adjustValue(double value)
+//{
+//    coarse = fmod(value, 1.0);
+//    fine = remainder(value, 1.0);
+//}
 
 double WheelBox::value() const
 {
