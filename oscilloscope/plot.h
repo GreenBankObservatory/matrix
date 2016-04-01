@@ -29,6 +29,8 @@ public Q_SLOTS:
     void run_stop_click();
     void set_ch1_sampler(SamplingThread *);
     void set_ch2_sampler(SamplingThread *);
+    void centerY();
+    void centerY2();
 
 protected:
     virtual void showEvent(QShowEvent *);

@@ -180,8 +180,8 @@ void Plot::setIntervalLength(double interval)
 void Plot::setYScale(double scale)
 {
     d_scale = scale;
-    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
-    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    double top =    d_yoffset + d_scale; // + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale; // + (d_fine_offset * d_scale);
 
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
@@ -190,8 +190,8 @@ void Plot::setYScale(double scale)
 void Plot::setYOffset(double offset)
 {
     d_yoffset = offset;
-    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
-    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    double top =    d_yoffset + d_scale; // + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale; // + (d_fine_offset * d_scale);
 
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
@@ -199,9 +199,9 @@ void Plot::setYOffset(double offset)
 }
 void Plot::setY2Scale(double scale)
 {
-    d_scale = scale;
-    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
-    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    d_y2scale = scale;
+    double top =    d_y2offset + d_y2scale; // + (d_fine_offset * d_scale);
+    double bottom = d_y2offset - d_y2scale; // + (d_fine_offset * d_scale);
 
     setAxisScale(QwtPlot::yRight, bottom, top);
 
@@ -210,8 +210,8 @@ void Plot::setY2Scale(double scale)
 void Plot::setY2Offset(double offset)
 {
     d_y2offset = offset;
-    double top =    d_y2offset + d_y2scale + (d_fine_offset * d_y2scale);
-    double bottom = d_y2offset - d_y2scale + (d_fine_offset * d_y2scale);
+    double top =    d_y2offset + d_y2scale; // + (d_fine_offset * d_y2scale);
+    double bottom = d_y2offset - d_y2scale; // + (d_fine_offset * d_y2scale);
 
     setAxisScale(QwtPlot::yRight, bottom, top);
 
@@ -221,12 +221,40 @@ void Plot::setY2Offset(double offset)
 void Plot::setFineOffset(double foffset)
 {
     d_fine_offset = foffset;
-    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
-    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+    double top =    d_yoffset + d_scale; // + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale; // + (d_fine_offset * d_scale);
 
     setAxisScale(QwtPlot::yLeft, bottom, top);
 
     replot();
+}
+
+void Plot::centerY()
+{
+    CurveData *ch1_data = (CurveData *) d_ch1->data();
+    ch1_data->values().lock();
+    int numPoints = ch1_data->size();
+    QRectF br = qwtBoundingRect(*ch1_data, d_painted_ch1 - 1, numPoints-1);
+    ch1_data->values().unlock();
+
+    double x, y, w, h;
+    br.getRect(&x, &y, &w, &h);
+    setYOffset(y + h/2.);
+
+    printf("center Y: %f %f %f %f\n", x, y, w, h);
+}
+
+void Plot::centerY2()
+{
+    CurveData *ch2_data = (CurveData *) d_ch2->data();
+    ch2_data->values().lock();
+    int numPoints = ch2_data->size();
+    QRectF br = qwtBoundingRect(*ch2_data, d_painted_ch2 - 1, numPoints-1);
+    ch2_data->values().unlock();
+
+    double x, y, w, h;
+    br.getRect(&x, &y, &w, &h);
+    setY2Offset(y + h/2.);
 }
 
 void Plot::updateCurve()

@@ -5,6 +5,10 @@
 #include <qlayout.h>
 #include <qevent.h>
 #include <qapplication.h>
+#include <cmath>
+#include <iostream>
+
+using namespace std;
 
 class Wheel: public QwtWheel
 {
@@ -42,7 +46,7 @@ WheelBox::WheelBox(const QString &title,
     d_number->setSegmentStyle(QLCDNumber::Filled);
     d_number->setAutoFillBackground(true);
     d_number->setFixedHeight(d_number->sizeHint().height() * 2 );
-    d_number->setFocusPolicy(Qt::WheelFocus);
+    // d_number->setFocusPolicy(Qt::WheelFocus);
 
     QPalette pal(Qt::black);
     pal.setColor(QPalette::WindowText, Qt::green);
@@ -51,10 +55,16 @@ WheelBox::WheelBox(const QString &title,
     d_wheel = new Wheel(this);
     d_wheel->setOrientation(Qt::Vertical);
     d_wheel->setRange(min, max, stepSize);
-    d_wheel->setFixedSize(
-        qRound(d_number->height() / 2.5), d_number->height());
+    d_wheel->setFixedSize(qRound(d_number->height() / 2.5), d_number->height());
+    coarse = 1.0;
 
-    d_number->setFocusProxy(d_wheel);
+    d_fine = new Wheel(this);
+    d_fine->setOrientation(Qt::Vertical);
+    d_fine->setRange(0.0, 1.0, 0.05);
+    d_fine->setFixedSize(qRound(d_number->height() / 2.5), d_number->height());
+    fine = 0.0;
+
+    // d_number->setFocusProxy(d_wheel);
 
     QFont font("Helvetica", 10);
     font.setBold(true);
@@ -65,26 +75,55 @@ WheelBox::WheelBox(const QString &title,
     QHBoxLayout *hLayout = new QHBoxLayout;
     hLayout->setContentsMargins(0, 0, 0, 0);
     hLayout->setSpacing(2);
-    hLayout->addWidget(d_number, 10);
     hLayout->addWidget(d_wheel);
+    hLayout->addWidget(d_number, 10);
+    hLayout->addWidget(d_fine);
 
     QVBoxLayout *vLayout = new QVBoxLayout(this);
     vLayout->addLayout(hLayout, 10);
     vLayout->addWidget(d_label, 0, Qt::AlignTop | Qt::AlignHCenter);
 
-    connect(d_wheel, SIGNAL(valueChanged(double)), 
-        d_number, SLOT(display(double)));
-    connect(d_wheel, SIGNAL(valueChanged(double)), 
-        this, SIGNAL(valueChanged(double)));
+//    connect(d_wheel, SIGNAL(valueChanged(double)),
+//        d_number, SLOT(display(double)));
+    connect(d_wheel, SIGNAL(valueChanged(double)),
+           this, SLOT(adjustCourse(double)));
+    connect(d_fine,  SIGNAL(valueChanged(double)),
+            this, SLOT(adjustFine(double)));
+
+//    connect(this, SIGNAL(valueChanged(double)),
+//            this, SIGNAL(valueChanged(double)));
+
+
+}
+
+void WheelBox::adjustCourse(double x)
+{
+    coarse = x;
+    cerr << "setCoarse=" << x << " " << coarse+fine << endl;
+    setValue(coarse + fine);
+}
+
+void WheelBox::adjustFine(double x)
+{
+    fine = x;
+    cerr << "setFine=" << x << " " << coarse+fine << endl;
+    setValue(coarse + fine);
+
 }
 
 void WheelBox::setValue(double value)
 {
-    d_wheel->setValue(value);
+    //double c,f;
+    // coarse = fmod(value, 1.0);
+    // fine = remainder(value, 1.0);
+    cerr << "setValue " << value << " " << coarse << " " << fine << endl;
+    //d_wheel->setValue(c);
+    //d_fine->setValue(f);
     d_number->display(value);
+    valueChanged(value); // send signal to outside observers
 }
 
 double WheelBox::value() const
 {
-    return d_wheel->value();
+    return coarse+fine;
 }

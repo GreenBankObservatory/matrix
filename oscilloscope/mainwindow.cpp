@@ -36,10 +36,10 @@ MainWindow::MainWindow(QWidget *parent):
     ch2.tab->setObjectName("tCH2");
     tabWidget->addTab(ch2.tab, "CH2");
 
-    ch1.d_yscaleKnob = new Knob("Y-Scale div", 0.01, 50.0, ch1.tab);
+    ch1.d_yscaleKnob = new MyKnob("Y-Scale div", 0.0, 50.0, 1.0, ch1.tab);
     ch1.d_yscaleKnob->setValue(1.0);
 
-    ch1.d_yoffsetKnob = new Knob("Y-Offset", -90.0, 90.0, ch1.tab);
+    ch1.d_yoffsetKnob = new MyKnob("Y-Offset", -90.0, 90.0, 1.0, ch1.tab);
     ch1.d_yoffsetKnob->setValue(0.0);
 
     ch1.d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, ch1.tab);
@@ -60,10 +60,10 @@ MainWindow::MainWindow(QWidget *parent):
     ch1.vlayout->addWidget(ch1.run_stop_button);
 
 
-    ch2.d_yscaleKnob = new Knob("Y2-Scale div", 0.01, 50.0, ch2.tab);
+    ch2.d_yscaleKnob = new MyKnob("Y2-Scale div", 0.0, 50.0, 1.0, ch2.tab);
     ch2.d_yscaleKnob->setValue(1.0);
 
-    ch2.d_yoffsetKnob = new Knob("Y2-Offset", -90.0, 90.0, ch2.tab);
+    ch2.d_yoffsetKnob = new MyKnob("Y2-Offset", -90.0, 90.0, 1.0, ch2.tab);
     ch2.d_yoffsetKnob->setValue(0.0);
 
     ch2.d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, ch2.tab);
@@ -103,6 +103,11 @@ MainWindow::MainWindow(QWidget *parent):
             d_plot, SLOT(setY2Offset(double)) );
     connect(ch2.d_yscaleKnob, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setY2Scale(double)) );
+
+    connect(ch1.d_centerY, SIGNAL(clicked(void)),
+            d_plot, SLOT(centerY(void)));
+    connect(ch2.d_centerY, SIGNAL(clicked(void)),
+            d_plot, SLOT(centerY2(void)));
 
     // Should only have one of these
     connect(ch1.run_stop_button, SIGNAL(clicked(void)),

@@ -7,6 +7,7 @@ class Knob;
 class WheelBox;
 class QLabel;
 class QPushButton;
+using MyKnob = WheelBox;
 
 class MainWindow : public QWidget
 {
@@ -34,8 +35,8 @@ private:
     struct ControlTab
     {
         QWidget *tab;
-        Knob *d_yoffsetKnob;
-        Knob *d_yscaleKnob;
+        MyKnob *d_yoffsetKnob;
+        MyKnob *d_yscaleKnob;
         WheelBox *d_sample_interval_wheel;
         WheelBox *d_intervalWheel;
         WheelBox *d_fineoffsetWheel;

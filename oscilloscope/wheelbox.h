@@ -25,10 +25,17 @@ public:
 Q_SIGNALS:
     double valueChanged(double);
 
+public Q_SLOTS:
+    void adjustCourse(double);
+    void adjustFine(double);
+
 private:
     QLCDNumber *d_number;
     QwtWheel *d_wheel;
+    QwtWheel *d_fine;
     QLabel *d_label;
+    double coarse;
+    double fine;
 
     QString d_unit;
 };
