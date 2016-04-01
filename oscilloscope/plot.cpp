@@ -74,6 +74,8 @@ Plot::Plot(QWidget *parent):
     top =    d_yoffset + d_scale;
     bottom = d_yoffset - d_scale;
     setAxisScale(QwtPlot::yLeft, bottom, top);
+    enableAxis(QwtPlot::yRight, true);
+    setAxisScale(QwtPlot::yRight, bottom, top);
 
     QwtPlotGrid *grid = new QwtPlotGrid();
     grid->setPen(QPen(Qt::gray, 0.0, Qt::DotLine));
@@ -88,6 +90,8 @@ Plot::Plot(QWidget *parent):
     d_origin->setValue(d_interval.minValue() + d_interval.width() / 2.0, 0.0);
     d_origin->setLinePen(QPen(Qt::gray, 0.0, Qt::DashLine));
     d_origin->attach(this);
+
+    cerr << "Plot window id = " << QWidget::winId() << endl;
 
 }
 
@@ -190,6 +194,26 @@ void Plot::setYOffset(double offset)
     double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
 
     setAxisScale(QwtPlot::yLeft, bottom, top);
+
+    replot();
+}
+void Plot::setY2Scale(double scale)
+{
+    d_scale = scale;
+    double top =    d_yoffset + d_scale + (d_fine_offset * d_scale);
+    double bottom = d_yoffset - d_scale + (d_fine_offset * d_scale);
+
+    setAxisScale(QwtPlot::yRight, bottom, top);
+
+    replot();
+}
+void Plot::setY2Offset(double offset)
+{
+    d_y2offset = offset;
+    double top =    d_y2offset + d_y2scale + (d_fine_offset * d_y2scale);
+    double bottom = d_y2offset - d_y2scale + (d_fine_offset * d_y2scale);
+
+    setAxisScale(QwtPlot::yRight, bottom, top);
 
     replot();
 }
@@ -382,6 +406,7 @@ void Plot::set_ch2_sampler(SamplingThread *s)
     d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
     d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
     d_ch2->setData(cd);
+    d_ch2->setYAxis(QwtPlot::yRight);
     d_ch2->attach(this);
     s->setData(cd);
 }

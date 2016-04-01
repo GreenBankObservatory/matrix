@@ -27,55 +27,88 @@ MainWindow::MainWindow(QWidget *parent):
     d_plot->setIntervalLength(intervalLength);
 
     QTabWidget *tabWidget = new QTabWidget();
-    QWidget *tab1 = new QWidget();
-    QWidget *tab2 = new QWidget();
+    ch1.tab = new QWidget();
+    ch2.tab = new QWidget();
 
-    tab1->setObjectName("tCH1");
-    tabWidget->addTab(tab1, "CH1");
+    ch1.tab->setObjectName("tCH1");
+    tabWidget->addTab(ch1.tab, "CH1");
 
-    tab2->setObjectName("tCH2");
-    tabWidget->addTab(tab2, "CH2");
+    ch2.tab->setObjectName("tCH2");
+    tabWidget->addTab(ch2.tab, "CH2");
 
-    d_yscaleKnob = new Knob("Y-Scale div", 0.01, 50.0, tab1);
-    d_yscaleKnob->setValue(1.0);
+    ch1.d_yscaleKnob = new Knob("Y-Scale div", 0.01, 50.0, ch1.tab);
+    ch1.d_yscaleKnob->setValue(1.0);
 
-    d_yoffsetKnob = new Knob("Y-Offset", -90.0, 90.0, tab1);
-    d_yoffsetKnob->setValue(0.0);
+    ch1.d_yoffsetKnob = new Knob("Y-Offset", -90.0, 90.0, ch1.tab);
+    ch1.d_yoffsetKnob->setValue(0.0);
 
-    d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, tab1);
-    d_intervalWheel->setValue(intervalLength);
-    d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, tab1);
-    d_fineoffsetWheel->setValue(0.0);
+    ch1.d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, ch1.tab);
+    ch1.d_intervalWheel->setValue(intervalLength);
+    ch1.d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, ch1.tab);
+    ch1.d_fineoffsetWheel->setValue(0.0);
 
-    d_centerY = new QPushButton("Center-Y", tab1);
-    //d_centerY->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-    //d_centerY->setAlignment(Qt::AlignCenter);
+    ch1.d_centerY = new QPushButton("Center-Y", ch1.tab);
+    ch1.run_stop_button = new QPushButton("Run/Stop", this);
 
-    run_stop_button = new QPushButton("Run/Stop", this);
-    QVBoxLayout* vLayout1 = new QVBoxLayout(tab1);
-    vLayout1->addWidget(d_intervalWheel);
-    vLayout1->addStretch(10);
-    vLayout1->addWidget(d_yscaleKnob);
-    vLayout1->addWidget(d_yoffsetKnob);
-    vLayout1->addWidget(d_fineoffsetWheel);
-    vLayout1->addWidget(d_centerY);
-    vLayout1->addWidget(run_stop_button);
+    ch1.vlayout = new QVBoxLayout(ch1.tab);
+    ch1.vlayout->addWidget(ch1.d_intervalWheel);
+    ch1.vlayout->addStretch(10);
+    ch1.vlayout->addWidget(ch1.d_yscaleKnob);
+    ch1.vlayout->addWidget(ch1.d_yoffsetKnob);
+    ch1.vlayout->addWidget(ch1.d_fineoffsetWheel);
+    ch1.vlayout->addWidget(ch1.d_centerY);
+    ch1.vlayout->addWidget(ch1.run_stop_button);
+
+
+    ch2.d_yscaleKnob = new Knob("Y2-Scale div", 0.01, 50.0, ch2.tab);
+    ch2.d_yscaleKnob->setValue(1.0);
+
+    ch2.d_yoffsetKnob = new Knob("Y2-Offset", -90.0, 90.0, ch2.tab);
+    ch2.d_yoffsetKnob->setValue(0.0);
+
+    ch2.d_intervalWheel = new WheelBox("Displayed [s]", 1.0, 100.0, 1.0, ch2.tab);
+    ch2.d_intervalWheel->setValue(intervalLength);
+    ch2.d_fineoffsetWheel = new WheelBox("Fine Offset", -1.0, 1.0, 0.1, ch2.tab);
+    ch2.d_fineoffsetWheel->setValue(0.0);
+
+    ch2.d_centerY = new QPushButton("Center-Y", ch2.tab);
+    ch2.run_stop_button = new QPushButton("Run/Stop", this);
+
+    ch2.vlayout = new QVBoxLayout(ch2.tab);
+    ch2.vlayout->addWidget(ch2.d_intervalWheel);
+    ch2.vlayout->addStretch(10);
+    ch2.vlayout->addWidget(ch2.d_yscaleKnob);
+    ch2.vlayout->addWidget(ch2.d_yoffsetKnob);
+    ch2.vlayout->addWidget(ch2.d_fineoffsetWheel);
+    ch2.vlayout->addWidget(ch2.d_centerY);
+    ch2.vlayout->addWidget(ch2.run_stop_button);
+
+
+
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(d_plot, 10);
     layout->addWidget(tabWidget);
     // layout->addLayout(vLayout1);
 
-    connect(d_intervalWheel, SIGNAL(valueChanged(double)),
-            d_plot, SLOT(setIntervalLength(double)) );
-    connect(d_yoffsetKnob, SIGNAL(valueChanged(double)),
+
+    connect(ch1.d_yoffsetKnob, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setYOffset(double)) );
-    connect(d_yscaleKnob, SIGNAL(valueChanged(double)),
+    connect(ch1.d_yscaleKnob, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setYScale(double)) );
-    connect(d_fineoffsetWheel, SIGNAL(valueChanged(double)),
+    connect(ch1.d_fineoffsetWheel, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setFineOffset(double)) );
-    connect(run_stop_button, SIGNAL(clicked(void)),
+
+    connect(ch2.d_yoffsetKnob, SIGNAL(valueChanged(double)),
+            d_plot, SLOT(setY2Offset(double)) );
+    connect(ch2.d_yscaleKnob, SIGNAL(valueChanged(double)),
+            d_plot, SLOT(setY2Scale(double)) );
+
+    // Should only have one of these
+    connect(ch1.run_stop_button, SIGNAL(clicked(void)),
             d_plot, SLOT(run_stop_click(void)));
+    connect(ch1.d_intervalWheel, SIGNAL(valueChanged(double)),
+            d_plot, SLOT(setIntervalLength(double)) );
 }
 
 void MainWindow::start()
@@ -95,12 +128,12 @@ void MainWindow::wait(int t_ms)
 
 double MainWindow::yoffset() const
 {
-    return d_yoffsetKnob->value();
+    return ch1.d_yoffsetKnob->value();
 }
 
 double MainWindow::yscale() const
 {
-    return d_yscaleKnob->value();
+    return ch1.d_yscaleKnob->value();
 }
 
 double MainWindow::signalInterval() const

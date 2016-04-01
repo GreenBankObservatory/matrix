@@ -1,4 +1,5 @@
 #include <qwidget.h>
+#include <qboxlayout.h>
 #include "samplingthread.h"
 
 class Plot;
@@ -30,14 +31,22 @@ Q_SIGNALS:
     void signalIntervalChanged(double);
 
 private:
-    Knob *d_yoffsetKnob;
-    Knob *d_yscaleKnob;
-    WheelBox *d_sample_interval_wheel;
-    WheelBox *d_intervalWheel;
-    WheelBox *d_fineoffsetWheel;
+    struct ControlTab
+    {
+        QWidget *tab;
+        Knob *d_yoffsetKnob;
+        Knob *d_yscaleKnob;
+        WheelBox *d_sample_interval_wheel;
+        WheelBox *d_intervalWheel;
+        WheelBox *d_fineoffsetWheel;
 
-    QPushButton *d_centerY;
-    QPushButton *run_stop_button;
+        QPushButton *d_centerY;
+        QPushButton *run_stop_button;
+        QVBoxLayout *vlayout;
+    };
+
+    ControlTab ch1;
+    ControlTab ch2;
 
     Plot *d_plot;
     SamplingThread *ch1_sampler;

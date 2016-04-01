@@ -23,6 +23,8 @@ public Q_SLOTS:
     void setIntervalLength(double);
     void setYScale(double);
     void setYOffset(double);
+    void setY2Scale(double);
+    void setY2Offset(double);
     void setFineOffset(double);
     void run_stop_click();
     void set_ch1_sampler(SamplingThread *);
@@ -55,6 +57,8 @@ private:
     QwtSystemClock d_clock;
     double d_scale;
     double d_yoffset;
+    double d_y2scale;
+    double d_y2offset;
     double d_fine_offset;
     bool paused;
 };
