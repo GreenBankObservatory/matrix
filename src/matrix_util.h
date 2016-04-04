@@ -35,6 +35,7 @@
 #include <iterator>
 #include <vector>
 #include <ostream>
+#include <cstring>
 #include <boost/algorithm/string.hpp>
 
 struct timeval;
@@ -42,6 +43,11 @@ struct timeval;
 class MatrixException : public std::runtime_error
 {
 public:
+
+    enum
+    {
+        MSGLEN = 300
+    };
 
     MatrixException(std::string etype, std::string msg)
         : runtime_error(etype),
@@ -54,16 +60,19 @@ public:
     }
 
 
-    virtual const char* what() const throw()
+    virtual char const *what() const noexcept
     {
         std::ostringstream msg;
         msg << std::runtime_error::what() << ": " << _msg;
-        return msg.str().c_str();
+        memset((void *)_what, 0, MSGLEN + 1);
+        strncpy((char *)_what, msg.str().c_str(), MSGLEN);
+        return _what;
     }
 
 private:
 
     std::string _msg;
+    char _what[MSGLEN + 1];
 };
 
 
