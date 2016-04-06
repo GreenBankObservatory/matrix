@@ -49,7 +49,7 @@ class TransportTest : public CppUnit::TestCase
     std::shared_ptr<Keymaster> _km;
 
     void do_the_transaction(std::string transport);
-    
+
 public:
     void setUp();
     void tearDown();

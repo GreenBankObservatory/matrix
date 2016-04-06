@@ -83,8 +83,6 @@ void TransportTest::test_data_source_create()
     CPPUNIT_ASSERT_NO_THROW(dsource.reset(new DataSource<double>(km_urn, "moby_dick", "lines")));
     shared_ptr<DataSource<string> > ssource;
     CPPUNIT_ASSERT_NO_THROW(ssource.reset(new DataSource<string>(km_urn, "moby_dick", "lines")));
-    dsource.reset();
-    ssource.reset();
 }
 
 void TransportTest::test_data_sink_create()
@@ -103,11 +101,6 @@ void TransportTest::test_data_sink_create()
 
     shared_ptr<DataSink<string, select_only> > snksink;
     CPPUNIT_ASSERT_NO_THROW(snksink.reset(new DataSink<string, select_only>(km_urn)));
-
-    dsink.reset();
-    ssink.reset();
-    dnksink.reset();
-    snksink.reset();
 }
 
 void TransportTest::do_the_transaction(string transport)
@@ -138,10 +131,12 @@ void TransportTest::do_the_transaction(string transport)
         }
     }
 
+    CPPUNIT_ASSERT(i < 100);
     CPPUNIT_ASSERT_DOUBLES_EQUAL(d_sent, d_recv, 0.000001);
 
     // this wipes out any '.AsConfigured' entries in the keymaster
     // for the transport used here.
+    dsink->disconnect();
     dsource.reset();
     dsink.reset();
 
@@ -164,10 +159,28 @@ void TransportTest::do_the_transaction(string transport)
     }
 
     CPPUNIT_ASSERT_EQUAL(d_sent, d_recv);
-    dsource.reset();
-    dsink.reset();
+
+    // test reconnecting ability. ssink is still active and
+    // connected. We will reset ssource. ssink should reconnect.
     ssource.reset();
-    ssink.reset();
+    ssource.reset(new DataSource<string>(km_urn, "moby_dick", "lines"));
+    Time::thread_delay(100000000);
+    ssource->publish(s_sent);
+    i = 0;
+
+    while (!ssink->try_get(s_recv))
+    {
+        do_nanosleep(0, 100000);
+
+        if (i++ == 100)
+        {
+            break;
+        }
+    }
+
+    CPPUNIT_ASSERT(i < 100);
+    CPPUNIT_ASSERT_EQUAL(d_sent, d_recv);
+    ssink->disconnect();
 }
 
 void TransportTest::test_inproc_publish()

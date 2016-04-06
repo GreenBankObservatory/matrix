@@ -63,18 +63,18 @@ template <typename T> class TCondition : public Mutex
 
 {
   public:
-  
+
     TCondition(T const &val);
     virtual ~TCondition();
 
     /// Access the current value. Locks are used but the internal value may
     /// change prior to being tested outside the class.
     void get_value(T &v);
-        
+
     /// Access the current value without the use of a lock.
     T &value();
-    
-    /// Set the value atomically. See above, normal usage will use one arg. 
+
+    /// Set the value atomically. See above, normal usage will use one arg.
     /// A read-modify-write may use a false 2nd arg to indicate the lock is
     /// already held, and should not be required. This would be the
     /// case in a read-modify-write situation, as the the example:
@@ -92,26 +92,26 @@ template <typename T> class TCondition : public Mutex
     /// unlocking wait method followed by set_value(T) or signal(T)
     /// because of the race between the unlock in wait and relock in
     /// signal(T) or set_value(T).
-    
+
     void set_value(T v, bool use_lock=true);
 
     /// wait forever for the value to become equal to s.
     /// Upon returning the internal mutex is unlocked.
     void wait(T const &s);
-    
+
     /// wait with a timeout for the value to be equal to s.
     /// Upon returning the internal mutex is unlocked.
     /// Return value is true if the timeout was not reached,
     /// or false if a timeout or error occured.
     bool wait(T const &s, int usecs);
-    
+
     /// wait without a timeout for the value to be equal to s.
     /// Upon returning, the internal mutex is locked, and
     /// the method unlock() must be used to unlock it.
     /// Return value is true if the timeout was not reached,
     /// or false otherwise.
     void wait_with_lock(T const &s);
-    
+
     /// wait with a timeout for the value to be equal to s.
     /// Upon returning, the internal mutex is locked, and
     /// the method unlock() must be used to unlock it.
@@ -125,16 +125,16 @@ template <typename T> class TCondition : public Mutex
     /// and false otherwise.
     /// This is convienent to use when an external condition is checked.
     bool wait_locked_with_timeout(int usecs);
-   
-    /// Singal without changing the internal value    
+
+    /// Singal without changing the internal value
     void signal();
-    
+
     /// Set the value to 's' atomically and signal any waiters.
     void signal(T const &s);
-    
+
     /// Broadcast without changing the internal value
     void broadcast();
-    
+
     /// Set the value to 's' and send a broadcast
     void broadcast(T const &s);
 
@@ -370,9 +370,9 @@ template <typename T> bool TCondition<T>::wait_with_lock(T const &s, int usecs)
     timespec to;
     int status;
     bool rval = true;
-    
+
     Time::Time_t time_to_return;
-    
+
     time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
     Time::time2timespec(time_to_return, to);
 
@@ -405,10 +405,10 @@ template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
     bool rval = true;
 
     Time::Time_t time_to_return;
-    
+
     time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
     Time::time2timespec(time_to_return, to);
-    
+
     status = pthread_cond_timedwait(&_cond, &mutex, &to);
 
     if (status == ETIMEDOUT)

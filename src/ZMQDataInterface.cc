@@ -347,8 +347,6 @@ namespace matrix
         try
         {
             Keymaster km(_km_url);
-            cout << km.get("root") << endl;
-
             km.del(_transport_key + ".AsConfigured");
         }
         catch (KeymasterException e)
@@ -383,7 +381,10 @@ namespace matrix
             _task_ready(false)
         {}
 
-        ~Impl() {disconnect();}
+        ~Impl()
+        {
+            disconnect();
+        }
 
         bool connect(std::string url);
         bool disconnect();
@@ -409,7 +410,7 @@ namespace matrix
         {
             if (_sub_thread.start() == 0)
             {
-                if (_task_ready.wait(true, 1000000) == false)
+                if (_task_ready.wait(true, 100000000) == false)
                 {
                     cerr << "ZMQTransportClient for URN " << urn << ": subscriber thread aborted." << endl;
                     return false;
@@ -484,6 +485,7 @@ namespace matrix
         zmq::socket_t sub_sock(_ctx, ZMQ_SUB);
         zmq::socket_t pipe(_ctx, ZMQ_REP);
         vector<string>::const_iterator cvi;
+        bool invalid_context = false;
 
         sub_sock.connect(_data_urn.c_str());
         pipe.bind(_pipe_urn.c_str());
@@ -599,16 +601,27 @@ namespace matrix
             }
             catch (zmq::error_t e)
             {
-                cout << "ZMQDataInterface subscriber task: " << e.what() << endl;
+                string error = e.what();
+                cerr << "ZMQTransportClient subscriber task: " << error << endl
+                     << "URN for this task: " << _data_urn << endl;
+
+                if (error.find("Context was terminated", 0) != string::npos)
+                {
+                    invalid_context = true;
+                    break;
+                }
             }
         }
 
-        int zero = 0;
-        pipe.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
-        pipe.close();
-        zero = 0;
-        sub_sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
-        sub_sock.close();
+        if (!invalid_context)
+        {
+            int zero = 0;
+            pipe.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+            pipe.close();
+            zero = 0;
+            sub_sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+            sub_sock.close();
+        }
     }
 
 
@@ -621,7 +634,7 @@ namespace matrix
 
     ZMQTransportClient::~ZMQTransportClient()
     {
-        _impl.reset();
+        _impl->disconnect();
     }
 
     bool ZMQTransportClient::_connect()

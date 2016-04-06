@@ -182,7 +182,7 @@ namespace matrix
             LONG_DOUBLE,
             TIME_T
         };
-        
+
         struct data_field
         {
             std::string name;         // field name
@@ -314,9 +314,9 @@ namespace matrix
         {
             _call(dd, buf);
         }
-        
+
     private:
-        virtual void _call(YAML::Node, matrix::GenericBuffer &) 
+        virtual void _call(YAML::Node, matrix::GenericBuffer &)
         {
         }
     };

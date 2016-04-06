@@ -33,8 +33,11 @@
 #include "TransportTest.h"
 #include "TSemfifoTest.h"
 #include "Thread.h"
+#include "ZMQContext.h"
 
 using namespace std;
+
+ZMQContext *ctx = ZMQContext::Instance();
 
 int main(int argc, char **argv)
 {
@@ -47,5 +50,6 @@ int main(int argc, char **argv)
     runner.addTest(TransportTest::suite());
     runner.addTest(TSemfifoTest::suite());
     runner.run();
+
     return 0;
 }

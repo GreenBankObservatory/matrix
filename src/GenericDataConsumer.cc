@@ -46,7 +46,7 @@ using namespace mxutils;
 
 namespace matrix
 {
-    
+
     static void throw_value_error(string key, string msg)
     {
         cerr << msg << " must be provided for the "
@@ -92,7 +92,7 @@ namespace matrix
             cerr << e.what() << endl;
             return;
         }
-    
+
         _thread_started.signal(true);
 
         while (run)
