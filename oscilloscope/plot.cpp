@@ -67,13 +67,18 @@ Plot::Plot(QWidget *parent):
 
     setAxisTitle(QwtPlot::xBottom, "Time [s]");
     setAxisScale(QwtPlot::xBottom, d_interval.minValue(), d_interval.maxValue()); 
-    d_scale = 200;
+    d_scale = 50;
     d_yoffset = 0.0;
     d_fine_offset = 0.0;
     double top, bottom;
     top =    d_yoffset + d_scale;
     bottom = d_yoffset - d_scale;
     setAxisScale(QwtPlot::yLeft, bottom, top);
+
+    d_y2scale = 50.0;
+    d_y2offset = 0.0;
+    top =    d_y2offset + d_y2scale;
+    bottom = d_y2offset - d_y2scale;
     enableAxis(QwtPlot::yRight, true);
     setAxisScale(QwtPlot::yRight, bottom, top);
 
@@ -179,7 +184,7 @@ void Plot::setIntervalLength(double interval)
 
 void Plot::setYScale(double scale)
 {
-    d_scale = scale;
+    d_scale = fabs(scale);
     double top =    d_yoffset + d_scale; // + (d_fine_offset * d_scale);
     double bottom = d_yoffset - d_scale; // + (d_fine_offset * d_scale);
 
@@ -199,7 +204,7 @@ void Plot::setYOffset(double offset)
 }
 void Plot::setY2Scale(double scale)
 {
-    d_y2scale = scale;
+    d_y2scale = fabs(scale);
     double top =    d_y2offset + d_y2scale; // + (d_fine_offset * d_scale);
     double bottom = d_y2offset - d_y2scale; // + (d_fine_offset * d_scale);
 
@@ -240,8 +245,20 @@ void Plot::centerY()
     double x, y, w, h;
     br.getRect(&x, &y, &w, &h);
     setYOffset(y + h/2.);
+    offsetYChanged(d_yoffset);
+    // printf("center Y: %f %f %f %f\n", x, y, w, h);
+}
 
-    printf("center Y: %f %f %f %f\n", x, y, w, h);
+void Plot::zoom_in_Y()
+{
+    setYScale(fabs(d_scale/2.0));
+    scaleYChanged(d_scale);
+}
+
+void Plot::zoom_out_Y()
+{
+    setYScale(fabs(d_scale * 2.0));
+    scaleYChanged(d_scale);
 }
 
 void Plot::centerY2()
@@ -255,6 +272,19 @@ void Plot::centerY2()
     double x, y, w, h;
     br.getRect(&x, &y, &w, &h);
     setY2Offset(y + h/2.);
+    offsetY2Changed(d_y2offset);
+}
+
+void Plot::zoom_in_Y2()
+{
+    setY2Scale(fabs(d_y2scale / 2.0));
+    scaleY2Changed(d_y2scale);
+}
+
+void Plot::zoom_out_Y2()
+{
+    setY2Scale(fabs(d_y2scale * 2.0));
+    scaleY2Changed(d_y2scale);
 }
 
 void Plot::updateCurve()
@@ -413,7 +443,7 @@ void Plot::set_ch1_sampler(SamplingThread *s)
     ch1_sampler.reset(s);
     d_ch1 = new QwtPlotCurve();
     d_ch1->setStyle(QwtPlotCurve::Lines);
-    d_ch1->setPen(QPen(Qt::green));
+    d_ch1->setPen(QPen(Qt::green, 0.0));
 
     d_ch1->setRenderHint(QwtPlotItem::RenderAntialiased, true);
     d_ch1->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);
@@ -429,7 +459,7 @@ void Plot::set_ch2_sampler(SamplingThread *s)
     ch2_sampler.reset(s);
     d_ch2 = new QwtPlotCurve();
     d_ch2->setStyle(QwtPlotCurve::Lines);
-    d_ch2->setPen(QPen(Qt::red));
+    d_ch2->setPen(QPen(Qt::red, 0.0));
 
     d_ch2->setRenderHint(QwtPlotItem::RenderAntialiased, true);
     d_ch2->setPaintAttribute(QwtPlotCurve::ClipPolygons, false);

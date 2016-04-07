@@ -88,7 +88,7 @@ WheelBox::WheelBox(const QString &title,
 //    connect(d_wheel, SIGNAL(valueChanged(double)),
 //        d_number, SLOT(display(double)));
     connect(d_wheel, SIGNAL(valueChanged(double)),
-           this, SLOT(adjustCourse(double)));
+           this, SLOT(adjustPrimary(double)));
     connect(d_fine,  SIGNAL(valueChanged(double)),
             this, SLOT(adjustFine(double)));
 
@@ -98,7 +98,7 @@ WheelBox::WheelBox(const QString &title,
 
 }
 
-void WheelBox::adjustCourse(double x)
+void WheelBox::adjustPrimary(double x)
 {
     coarse = x;
     cerr << "setCoarse=" << x << " " << coarse+fine << endl;
@@ -113,23 +113,29 @@ void WheelBox::adjustFine(double x)
 
 }
 
+void WheelBox::adjustValue(double x)
+{
+    coarse = floor(x);
+    fine   = remainder(x, 1.0);
+    cerr << "adjustValue(" << x << ") coarse=" << coarse << " fine=" << fine << endl;
+    d_number->display(x);
+    d_wheel->setValue(coarse);
+    d_fine->setValue(fine);
+
+    // setValue(x);
+}
+
 void WheelBox::setValue(double value)
 {
     //double c,f;
-    // coarse = fmod(value, 1.0);
-    // fine = remainder(value, 1.0);
+    coarse = floor(value);
+    fine = remainder(value, 1.0);
     cerr << "setValue " << value << " " << coarse << " " << fine << endl;
     //d_wheel->setValue(c);
     //d_fine->setValue(f);
     d_number->display(value);
     valueChanged(value); // send signal to outside observers
 }
-
-//void WheelBox::adjustValue(double value)
-//{
-//    coarse = fmod(value, 1.0);
-//    fine = remainder(value, 1.0);
-//}
 
 double WheelBox::value() const
 {

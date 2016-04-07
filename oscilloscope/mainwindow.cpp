@@ -51,7 +51,8 @@ MainWindow::MainWindow(QWidget *parent):
     ch1.d_fineoffsetWheel->setValue(0.0);
 
     ch1.d_centerY = new QPushButton("Center-Y", ch1.tab);
-    // ch1.run_stop_button = new QPushButton("Run/Stop", this);
+    ch1.d_zoom_in = new QPushButton("Zoom-in", ch1.tab);
+    ch1.d_zoom_out = new QPushButton("Zoom-out", ch1.tab);
 
     ch1.vlayout = new QVBoxLayout(ch1.tab);
     // ch1.vlayout->addWidget(ch1.d_intervalWheel);
@@ -60,7 +61,8 @@ MainWindow::MainWindow(QWidget *parent):
     ch1.vlayout->addWidget(ch1.d_yoffsetKnob);
     ch1.vlayout->addWidget(ch1.d_fineoffsetWheel);
     ch1.vlayout->addWidget(ch1.d_centerY);
-    // ch1.vlayout->addWidget(ch1.run_stop_button);
+    ch1.vlayout->addWidget(ch1.d_zoom_in);
+    ch1.vlayout->addWidget(ch1.d_zoom_out);
 
 
     ch2.d_yscaleKnob = new MyKnob("Y2-Scale div", 0.0, 50.0, 1.0, ch2.tab);
@@ -73,6 +75,8 @@ MainWindow::MainWindow(QWidget *parent):
     ch2.d_fineoffsetWheel->setValue(0.0);
 
     ch2.d_centerY = new QPushButton("Center-Y", ch2.tab);
+    ch2.d_zoom_in = new QPushButton("Zoom-in", ch2.tab);
+    ch2.d_zoom_out = new QPushButton("Zoom-out", ch2.tab);
 
     utilsButtons.vlayout = new QVBoxLayout(utilsButtons.tab);
     utilsButtons.d_sample_interval_wheel = new WheelBox("Displayed [s]", 10.0, 100.0, 1.0,
@@ -91,6 +95,8 @@ MainWindow::MainWindow(QWidget *parent):
     ch2.vlayout->addWidget(ch2.d_yoffsetKnob);
     ch2.vlayout->addWidget(ch2.d_fineoffsetWheel);
     ch2.vlayout->addWidget(ch2.d_centerY);
+    ch2.vlayout->addWidget(ch2.d_zoom_in);
+    ch2.vlayout->addWidget(ch2.d_zoom_out);
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(d_plot, 10);
@@ -107,22 +113,31 @@ MainWindow::MainWindow(QWidget *parent):
     //  MW----------------------------------------------------MW
     //
 
-    connect(ch1.d_yoffsetKnob, SIGNAL(valueChanged(double)),
-            d_plot, SLOT(setYOffset(double)) );
-    connect(ch1.d_yscaleKnob, SIGNAL(valueChanged(double)),
-            d_plot, SLOT(setYScale(double)) );
+    // connect(ch1.d_yoffsetKnob, SIGNAL(valueChanged(double)),
+    //        d_plot, SLOT(setYOffset(double)) );
+    //connect(ch1.d_yscaleKnob, SIGNAL(valueChanged(double)),
+    //        d_plot, SLOT(setYScale(double)) );
     connect(ch1.d_fineoffsetWheel, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setFineOffset(double)) );
 
-    connect(ch2.d_yoffsetKnob, SIGNAL(valueChanged(double)),
-            d_plot, SLOT(setY2Offset(double)) );
-    connect(ch2.d_yscaleKnob, SIGNAL(valueChanged(double)),
-            d_plot, SLOT(setY2Scale(double)) );
+    // connect(ch2.d_yoffsetKnob, SIGNAL(valueChanged(double)),
+    //        d_plot, SLOT(setY2Offset(double)) );
+    //connect(ch2.d_yscaleKnob, SIGNAL(valueChanged(double)),
+    //        d_plot, SLOT(setY2Scale(double)) );
 
     connect(ch1.d_centerY, SIGNAL(clicked(void)),
             d_plot, SLOT(centerY(void)));
+    connect(ch1.d_zoom_in, SIGNAL(clicked(void)),
+            d_plot, SLOT(zoom_in_Y(void)));
+    connect(ch1.d_zoom_out, SIGNAL(clicked(void)),
+            d_plot, SLOT(zoom_out_Y(void)));
+
     connect(ch2.d_centerY, SIGNAL(clicked(void)),
             d_plot, SLOT(centerY2(void)));
+    connect(ch2.d_zoom_in, SIGNAL(clicked(void)),
+            d_plot, SLOT(zoom_in_Y2(void)));
+    connect(ch2.d_zoom_out, SIGNAL(clicked(void)),
+            d_plot, SLOT(zoom_out_Y2(void)));
 
     // Should only have one of these
     connect(utilsButtons.run_stop_button, SIGNAL(clicked(void)),
@@ -131,6 +146,16 @@ MainWindow::MainWindow(QWidget *parent):
             this, SLOT(save_snapshot(void)));
     connect(utilsButtons.d_sample_interval_wheel, SIGNAL(valueChanged(double)),
             d_plot, SLOT(setIntervalLength(double)) );
+
+    connect(d_plot, SIGNAL(scaleYChanged(double)),
+            ch1.d_yscaleKnob, SLOT(adjustValue(double)));
+    connect(d_plot, SIGNAL(offsetYChanged(double)),
+            ch1.d_yoffsetKnob, SLOT(adjustValue(double)));
+
+    connect(d_plot, SIGNAL(scaleY2Changed(double)),
+            ch2.d_yscaleKnob, SLOT(adjustValue(double)));
+    connect(d_plot, SIGNAL(offsetY2Changed(double)),
+            ch2.d_yoffsetKnob, SLOT(adjustValue(double)));
 }
 
 void MainWindow::save_snapshot()

@@ -19,6 +19,12 @@ public:
     void stop();
     virtual void replot();
 
+    Q_SIGNALS:
+    void scaleYChanged(double);
+    void scaleY2Changed(double);
+    void offsetYChanged(double);
+    void offsetY2Changed(double);
+
 public Q_SLOTS:
     void setIntervalLength(double);
     void setYScale(double);
@@ -31,6 +37,10 @@ public Q_SLOTS:
     void set_ch2_sampler(SamplingThread *);
     void centerY();
     void centerY2();
+    void zoom_in_Y();
+    void zoom_in_Y2();
+    void zoom_out_Y();
+    void zoom_out_Y2();
 
 protected:
     virtual void showEvent(QShowEvent *);

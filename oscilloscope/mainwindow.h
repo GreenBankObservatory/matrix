@@ -42,6 +42,8 @@ private:
         MyKnob *d_yscaleKnob;
         WheelBox *d_fineoffsetWheel;
         QPushButton *d_centerY;
+        QPushButton *d_zoom_in;
+        QPushButton *d_zoom_out;
         QVBoxLayout *vlayout;
     };
     struct UtilsButtons
@@ -52,7 +54,7 @@ private:
         QPushButton *snapshot_button;
         WheelBox *d_sample_interval_wheel;
     };
-
+public:
     ControlTab ch1;
     ControlTab ch2;
     UtilsButtons utilsButtons;

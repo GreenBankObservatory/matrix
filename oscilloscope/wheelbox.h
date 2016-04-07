@@ -26,8 +26,9 @@ Q_SIGNALS:
     double valueChanged(double);
 
 public Q_SLOTS:
-    void adjustCourse(double);
+    void adjustPrimary(double);
     void adjustFine(double);
+    void adjustValue(double);
 
 private:
     QLCDNumber *d_number;
