@@ -406,7 +406,8 @@ void KeymasterServer::KmImpl::server_task()
     }
     catch (zmq::error_t &e)
     {
-        cerr << "Error in KeymasterServer publisher thread: " << e.what() << endl
+        cerr << Time::isoDateTime(Time::getUTC())
+             <<  " -- Error in KeymasterServer publisher thread: " << e.what() << endl
              << "Exiting KeymasterServer publishing thread." << endl;
         return;
     }
@@ -422,7 +423,8 @@ void KeymasterServer::KmImpl::server_task()
         }
         catch (zmq::error_t &e)
         {
-            cerr << "ZMQ exception in publisher thread: "
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- ZMQ exception in publisher thread: "
                  << e.what() << endl;
         }
     }
@@ -456,7 +458,8 @@ void KeymasterServer::KmImpl::state_manager_task()
     }
     catch (zmq::error_t &e)
     {
-        cerr << "Error in state manager thread: " << e.what() << endl
+        cerr << Time::isoDateTime(Time::getUTC())
+             << " -- Error in state manager thread: " << e.what() << endl
              << "Exiting state thread." << endl
              << "_state_task_url = " << _state_task_url << endl;
         return;
@@ -470,7 +473,8 @@ void KeymasterServer::KmImpl::state_manager_task()
     }
     catch (zmq::error_t &e)
     {
-        cerr << "Error in state manager thread: " << e.what() << endl
+        cerr << Time::isoDateTime(Time::getUTC())
+             << " -- Error in state manager thread: " << e.what() << endl
              << "Exiting state thread." << endl
              << "_state_service_urls = " << endl;
         output_vector(_state_service_urls, cerr);
@@ -487,7 +491,8 @@ void KeymasterServer::KmImpl::state_manager_task()
 
     if (! (rs.result && rp.result))
     {
-        cerr << "Error storing configured URLs into the root node." << endl
+        cerr << Time::isoDateTime(Time::getUTC())
+             << " -- Error storing configured URLs into the root node." << endl
              << "Exiting state thread." << endl;
         return;
     }
@@ -658,7 +663,8 @@ void KeymasterServer::KmImpl::state_manager_task()
         }
         catch (zmq::error_t &e)
         {
-            cerr << "State manager task, main loop: " << e.what() << endl;
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- State manager task, main loop: " << e.what() << endl;
         }
     }
 
@@ -732,7 +738,8 @@ bool KeymasterServer::KmImpl::publish(std::string key, bool block)
     }
     catch (YAML::Exception &e)
     {
-        cerr << "YAML exception in publish: " << e.what() << endl;
+        cerr << Time::isoDateTime(Time::getUTC())
+             << " -- YAML exception in publish: " << e.what() << endl;
         return false;
     }
 
@@ -1242,7 +1249,8 @@ bool Keymaster::subscribe(string key, KeymasterCallbackBase *f)
     }
     catch (KeymasterException &e)
     {
-        cerr << e.what() << endl
+        cerr << Time::isoDateTime(Time::getUTC())
+             << " -- " << e.what() << endl
              << "Unable to obtain the Keymaster publishing URLs. "
              << "Ensure a Keymaster is running and try again."
              << endl;
@@ -1375,7 +1383,8 @@ void Keymaster::_subscriber_task()
     // TBF: What to do if they don't match? currently just quit.
     if (cvi == _km_pub_urls.end())
     {
-        cerr << "Publisher URL transport mismatch with the keymaster" << endl;
+        cerr << Time::isoDateTime(Time::getUTC())
+             << " -- Publisher URL transport mismatch with the keymaster" << endl;
         return;
     }
 

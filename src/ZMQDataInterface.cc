@@ -201,7 +201,8 @@ namespace matrix
 
                     if (!getCanonicalHostname(_hostname))
                     {
-                        cerr << "ZMQTransportServer: Unable to obtain canonical hostname: "
+                        cerr << Time::isoDateTime(Time::getUTC())
+                             << " -- ZMQTransportServer: Unable to obtain canonical hostname: "
                              << strerror(errno) << endl;
                         return;
                     }
@@ -238,7 +239,8 @@ namespace matrix
         }
         catch (zmq::error_t e)
         {
-            cerr << "Error in publisher thread: " << e.what() << endl
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- Error in publisher thread: " << e.what() << endl
                  << "Exiting publishing thread." << endl;
             return;
         }
@@ -308,7 +310,8 @@ namespace matrix
         }
         catch (zmq::error_t e)
         {
-            cerr << "ZMQ exception in publisher: "
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- ZMQ exception in publisher: "
                  << e.what() << endl;
             rval = false;
         }
@@ -412,7 +415,9 @@ namespace matrix
             {
                 if (_task_ready.wait(true, 100000000) == false)
                 {
-                    cerr << "ZMQTransportClient for URN " << urn << ": subscriber thread aborted." << endl;
+                    cerr << Time::isoDateTime(Time::getUTC())
+                         << " -- ZMQTransportClient for URN " << urn
+                         << ": subscriber thread aborted." << endl;
                     return false;
                 }
 
@@ -421,7 +426,9 @@ namespace matrix
             }
             else
             {
-                cerr << "ZMQTransportClient for URN " << urn << ": failure to start susbcriber thread."
+                cerr << Time::isoDateTime(Time::getUTC())
+                     << " -- ZMQTransportClient for URN " << urn
+                     << ": failure to start susbcriber thread."
                      << endl;
                 return false;
             }
@@ -602,7 +609,8 @@ namespace matrix
             catch (zmq::error_t e)
             {
                 string error = e.what();
-                cerr << "ZMQTransportClient subscriber task: " << error << endl
+                cerr << Time::isoDateTime(Time::getUTC())
+                     << " -- ZMQTransportClient subscriber task: " << error << endl
                      << "URN for this task: " << _data_urn << endl;
 
                 if (error.find("Context was terminated", 0) != string::npos)

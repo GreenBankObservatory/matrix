@@ -25,6 +25,7 @@
 #define Time_h
 #include <cstdint>
 #include <ctime>
+#include <ostream>
 
 /// Time class and definitions
 /// Basis:
@@ -67,6 +68,8 @@ namespace Time
     /// Sleep until the time specified
     void thread_sleep_until(Time::Time_t abstime);
 
+    /// return an ISO 8601 representation string of a Time_t
+    std::string isoDateTime(Time_t);
 };
 
 

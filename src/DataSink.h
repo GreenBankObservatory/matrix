@@ -621,21 +621,23 @@ namespace matrix
     template <typename T, typename U>
     DataSink<T, U>::~DataSink() throw()
     {
+        std::string now = Time::isoDateTime(Time::getUTC()) + " -- ";
+
         try
         {
             disconnect();
         }
         catch (KeymasterException e)
         {
-            std::cerr << e.what() << std::endl;
+            std::cerr << now << e.what() << std::endl;
         }
         catch (zmq::error_t e)
         {
-            std::cerr << e.what() << std::endl;
+            std::cerr << now << e.what() << std::endl;
         }
         catch (std::exception e)
         {
-            std::cerr << e.what() << std::endl;
+            std::cerr << now << e.what() << std::endl;
         }
     }
 
@@ -678,9 +680,8 @@ namespace matrix
         {
             // If 'val' is not right, urn is not in there. Do
             // nothing, 'false' will be returned.
-            // std::cerr << Time::getUTC() << " " << e.what() <<
-            // std::endl;
-            std::cerr << e.what() << std::endl;
+            std::cerr << Time::isoDateTime(Time::getUTC())
+                      << " -- " << e.what() << std::endl;
         }
 
         return rval;

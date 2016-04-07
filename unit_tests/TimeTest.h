@@ -31,12 +31,13 @@ class TimeTest : public CppUnit::TestCase
     CPPUNIT_TEST_SUITE(TimeTest);
     CPPUNIT_TEST(test_getUTC);
     CPPUNIT_TEST(test_conversions);
+    CPPUNIT_TEST(test_output_to_string);
     CPPUNIT_TEST_SUITE_END();
-    
+
     public:
     void test_getUTC();
     void test_conversions();
-
+    void test_output_to_string();
 };
 
 

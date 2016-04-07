@@ -24,6 +24,9 @@
 #include "Time.h"
 #include <time.h>
 #include <sys/time.h>
+#include <sstream>
+#include <iomanip>
+#include <string>
 
 #ifndef NANOSEC_PER_SEC
 #define NANOSEC_PER_SEC (1000000000LL)
@@ -44,14 +47,14 @@ namespace Time
     // Use the standard (also ntp tempered) clock
 #define USE_THE_CLOCK CLOCK_REALTIME
 #endif
-                  
+
     Time_t getUTC()
     {
         timespec ts;
         clock_gettime(USE_THE_CLOCK, &ts);
         return (static_cast<Time_t>(ts.tv_sec * NANOSEC_PER_SEC + ts.tv_nsec));
     }
-                       
+
     Time_t timespec2Time(const timespec &ts)
     {
         return (((Time_t)ts.tv_sec) * NANOSEC_PER_SEC + ts.tv_nsec);
@@ -121,10 +124,10 @@ namespace Time
         int   days     = (int)(t/(NANOSEC_PER_DAY));
         Time_t nsec     =       t%(NANOSEC_PER_DAY);
         year = 1970; // Ah, the good olde days ...
-    
+
         // increment days by 1 since calendar is 1 based, not zero based.
         days++;
-    
+
         while (days > 365)
         {
             // leap year rules:
@@ -147,7 +150,7 @@ namespace Time
             {
                 is_leap=false;
             }
-            
+
             if (is_leap)
             {
                 // printf("%d is a leap year\n", year);
@@ -160,7 +163,7 @@ namespace Time
             }
             year++;
         }
-    
+
         dayofyr = days;
 
         if (year%400 == 0)
@@ -179,7 +182,7 @@ namespace Time
         {
             is_leap=false;
         }
-    
+
         for (month=1;  ; ++month)
         {
             int extra_day = (month==2 && is_leap) ? 1 : 0;
@@ -191,13 +194,13 @@ namespace Time
             }
             dayofyr -= (month_lengths[month] + extra_day);
         }
-    
+
         hour   = (int)(nsec/(3600*NANOSEC_PER_SEC));
         nsec   = nsec%(3600*NANOSEC_PER_SEC);
         minute = (int)(nsec/(60*NANOSEC_PER_SEC));
         nsec   = nsec%(60*NANOSEC_PER_SEC);
         sec    = (double)nsec/(double)NANOSEC_PER_SEC;
-       
+
         return 1;
     }
 
@@ -232,6 +235,23 @@ namespace Time
         struct timespec rqtp;
         time2timespec(abstime, rqtp);
         clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &rqtp, 0);
+    }
+
+// Output a time to ISO 8601 compliant string
+    std::string isoDateTime(Time::Time_t t)
+    {
+        int year, month, day, hour, minute;
+        double second;
+        std::stringstream ss;
+        calendarDate(t, year, month, day, hour, minute, second);
+        ss << year << "-" << std::setw(2) << std::setfill('0') << month << "-"
+           << std::setw(2) << std::setfill('0') << day
+           << "T"
+           << std::setw(2) << std::setfill('0')
+           << hour << ":"
+           << std::setw(2) << std::setfill('0') << minute << ":"
+           << std::fixed << std::setw(6) << std::setfill('0') << std::setprecision(3) << second << "Z";
+        return ss.str();
     }
 
 };
