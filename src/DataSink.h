@@ -668,8 +668,22 @@ namespace matrix
     template <typename T, typename U>
     bool DataSink<T, U>::_urn_in(std::string urn, YAML::Node val)
     {
-        std::vector<std::string> urns = val.as<std::vector<std::string> >();
-        return std::any_of(urns.begin(), urns.end(), [urn](std::string i){return i == urn;});
+        bool rval = false;
+        try
+        {
+            auto urns = val.as<std::vector<std::string> >();
+            rval = std::any_of(urns.begin(), urns.end(), [urn](std::string i){return i == urn;});
+        }
+        catch (YAML::Exception e)
+        {
+            // If 'val' is not right, urn is not in there. Do
+            // nothing, 'false' will be returned.
+            // std::cerr << Time::getUTC() << " " << e.what() <<
+            // std::endl;
+            std::cerr << e.what() << std::endl;
+        }
+
+        return rval;
     }
 
 /**

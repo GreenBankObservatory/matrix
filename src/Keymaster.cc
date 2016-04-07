@@ -1224,13 +1224,30 @@ bool Keymaster::del(std::string key)
  * keymaster. NOTE: The function does not assume ownership of this
  * object! This should be managed by the thread calling this function.
  *
+ * @return: true if all went well. false means that the subscription
+ * failed, which could happen if the keymaster is not running, so the
+ * subscription thread could not be started (the subscription thread
+ * needs to get the subscription urls from the Keymaster).
+ *
  */
 
 bool Keymaster::subscribe(string key, KeymasterCallbackBase *f)
 {
     // first start the subscriber thread. If it's already running this
     // won't do anything.
-    _run();
+
+    try
+    {
+        _run();
+    }
+    catch (KeymasterException &e)
+    {
+        cerr << e.what() << endl
+             << "Unable to obtain the Keymaster publishing URLs. "
+             << "Ensure a Keymaster is running and try again."
+             << endl;
+        return false;
+    }
 
     // Next, request the subscription by posting a request to the
     // subscriber thread.
@@ -1296,16 +1313,26 @@ void Keymaster::_run()
     // KeymasterServer is not running.
     if (!_subscriber_thread.running())
     {
-        // get the keymaster publishing URLs:
-        try
+        for (int i = 0; i < 10; ++i)
         {
-            _km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
-        }
-        catch (KeymasterException &e)
-        {
-            cerr << e.what() << endl
-                 << "Unable to obtain the Keymaster publishing URLs. Ensure a Keymaster is running and try again."
-                 << endl;
+            // get the keymaster publishing URLs:
+            try
+            {
+                _km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
+                break;
+            }
+            catch (KeymasterException &e)
+            {
+                // in case of race condition, give Keymaster time
+                // (100mS) to start up. On the 10th try give up and
+                // re-throw the exception.
+                Time::thread_delay(100000000);
+
+                if (i == 9)
+                {
+                    throw(e);
+                }
+            }
         }
     }
 
@@ -1316,7 +1343,7 @@ void Keymaster::_run()
     // check to see if it is running, then get the URLs, then lock,
     // another thread could have already started doing this. This is
     // why we check twice. The worst that can happen is that the
-    // pulbishing urls are needlesly retrieved.
+    // publishing urls are needlesly retrieved.
     if (!_subscriber_thread.running())
     {
         if ((_subscriber_thread.start() != 0) || (!_subscriber_thread_ready.wait(true, 1000000)))
