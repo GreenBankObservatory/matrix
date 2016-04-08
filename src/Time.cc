@@ -48,10 +48,10 @@ namespace Time
 #define USE_THE_CLOCK CLOCK_REALTIME
 #endif
 
-    Time_t getUTC()
+    Time_t getUTC(clockid_t clk)
     {
         timespec ts;
-        clock_gettime(USE_THE_CLOCK, &ts);
+        clock_gettime(clk, &ts);
         return (static_cast<Time_t>(ts.tv_sec * NANOSEC_PER_SEC + ts.tv_nsec));
     }
 

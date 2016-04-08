@@ -43,7 +43,7 @@ struct timespec;
 namespace Time
 {
     typedef uint64_t Time_t;
-    Time_t getUTC();
+    Time_t getUTC(clockid_t clk = CLOCK_REALTIME);
     Time_t timespec2Time(const timespec &ts);
     Time_t timeval2Time(const timeval &ts);
     void   time2timespec(const Time_t, timespec &);
