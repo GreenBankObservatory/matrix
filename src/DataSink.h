@@ -582,6 +582,7 @@ namespace matrix
         std::string _key;
         std::string _asconf_key;
         std::string _km_urn;
+        std::string _km_asconf_key;
         std::string _pipe_url;
         std::string _urn;
         std::string _component_name;
@@ -593,6 +594,7 @@ namespace matrix
         DataMemberCB<DataSink> _cb;
         KeymasterMemberCB<DataSink> _kmcb;
         Keymaster _km;
+        bool _subscribed;
     };
 
 /**
@@ -606,10 +608,12 @@ namespace matrix
     DataSink<T, U>::DataSink(std::string km_urn, size_t ringbuf_size)
         : _connected(false),
           _km_urn(km_urn),
+          _km_asconf_key("Keymaster"),
           _ringbuf(ringbuf_size),
           _cb(this, &DataSink::_data_handler),
           _kmcb(this, &DataSink::_reconnection_handler),
-          _km(_km_urn)
+          _km(_km_urn),
+          _subscribed(false)
     {
     }
 
@@ -690,13 +694,13 @@ namespace matrix
 /**
  * Handler that reconnects the DataSink to the source. This handler is
  * called if the Keymaster publishes the .AsConfigured key for this
- * connection. If that happens it is probably because the Source went
- * away and came back. If this is the case it will have a new urn, and
- * the DataSink must reconnect. Two conditions are checked in this
- * case: Is the key our .AsConfigured key? and if so, is our old URN
- * not in the value? If these are true we must reconnect.
+ * connection, or if it publishes the Keymaster.URLS.AsConfigured key
+ * (indicating that the Keymaster may have restarted). If either
+ * happens we must check to make sure the source hasn't gone away and
+ * come back. If it did it will have a new urn, and the DataSink must
+ * reconnect.
  *
- * @param key: The .AsConfigured key from the Keymaster
+ * @param key: The .AsConfigured key from the Keymaster or data source.
  * @param val: The YAML::Node from the Keymaster for 'key'.
  *
  */
@@ -704,10 +708,28 @@ namespace matrix
     template <typename T, typename U>
     void DataSink<T, U>::_reconnection_handler(std::string key, YAML::Node val)
     {
-        if (key == _asconf_key && (!_urn_in(_urn, val)))
+        if (_connected) // only care if we are already connected.
         {
-            if (_connected) // Our source changed while we're connected
+            YAML::Node keys;
+
+            // If the keymaster restarted, fetch the source's keys. If
+            // not, the new keys are in 'val'.
+
+            if (key == _km_asconf_key)
             {
+                keys = _km.get(_asconf_key);
+            }
+            else if (key == _asconf_key)
+            {
+                keys = val;
+            }
+
+            if (!_urn_in(_urn, keys))
+            {
+                std::cerr << Time::isoDateTime(Time::getUTC())
+                          << " -- Reconnection handler: source URN " << _urn
+                          << " is no longer valid." << std::endl;
+                std::cerr << "Reconnecting..." << std::endl;
                 _reconnect(_component_name, _data_name, _transport);
             }
         }
@@ -796,6 +818,11 @@ namespace matrix
  * than one are available throws a TransportClient::CreationError
  * exception is thrown.
  *
+ * The DataSink at this point will also subscribe to two Keymaster
+ * keys: The Keymaster.URLS.AsConfigured key, and the data source's
+ * own AsConfigured keys. This will let the subscribers know if 1) the
+ * Keymaster restarted and 2) if their data source restarted.
+ *
  * @param component_name: The name of the component where the data
  * source originates.
  *
@@ -814,7 +841,21 @@ namespace matrix
                                  std::string data_name, std::string transport)
     {
         _reconnect(component_name, data_name, transport);
-        _km.subscribe(_asconf_key, &_kmcb);
+
+        // TBF: for non-rtinproc transports, subscribe for reconnect.
+        // There is no reason this should be a problem with rtinproc,
+        // but for some reason it is. When this problem is fixed, this
+        // test will be removed.
+        if (_urn.find("rtinproc") == std::string::npos)
+        {
+            _subscribed = true;
+            _km.subscribe(_km_asconf_key, &_kmcb);
+            _km.subscribe(_asconf_key, &_kmcb);
+        }
+        else
+        {
+            _subscribed = false;
+        }
     }
 
 /**
@@ -894,7 +935,13 @@ namespace matrix
     void DataSink<T, U>::disconnect()
     {
         _disconnect();
-        _km.unsubscribe(_asconf_key);
+
+        if (_subscribed)
+        {
+            _km.unsubscribe(_asconf_key);
+            _km.unsubscribe(_km_asconf_key);
+            _subscribed = false;
+        }
     }
 
     template <typename T, typename U>

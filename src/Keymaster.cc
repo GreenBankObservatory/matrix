@@ -34,6 +34,7 @@
 #include "zmq_util.h"
 #include "netUtils.h"
 #include "yaml_util.h"
+#include "Time.h"
 
 #include <string>
 #include <cstring>
@@ -245,6 +246,10 @@ void KeymasterServer::KmImpl::run()
             throw(runtime_error(string("KeymasterServer: unable to start request thread")));
         }
     }
+
+    // Now that we're running, publish everything, so that any clients
+    // already subscribed may be updated.
+    publish("Root", true);
 }
 
 /**
@@ -412,7 +417,14 @@ void KeymasterServer::KmImpl::server_task()
         return;
     }
 
-    _server_thread_ready.signal(true); // Allow constructor to move on
+    // Allow constructor to move on
+    _server_thread_ready.signal(true);
+    // TBF: Give clients some time (0.5 sec) to reconnect. As a
+    // publisher, we don't care if there are any clients. But if there
+    // are, and they need to recover from a restart of the keymaster,
+    // this can give them the time to do it. Perhaps a heartbeat will
+    // allow more secure recovery.
+    Time::thread_delay(500000000);
 
     while (_data_queue.get(dp))
     {
@@ -470,6 +482,7 @@ void KeymasterServer::KmImpl::state_manager_task()
         // bind to all state server URLs
         bind_server(state_sock, _state_service_urls);
         put_yaml_val(_root_node.front(), "KeymasterServer.URLS", _state_service_urls, true);
+        publish("KeymasterServer.URLS");
     }
     catch (zmq::error_t &e)
     {
@@ -488,6 +501,8 @@ void KeymasterServer::KmImpl::state_manager_task()
                                   "Keymaster.URLS.AsConfigured.State", _state_service_urls, true);
     yaml_result rp = put_yaml_val(_root_node.front(),
                                   "Keymaster.URLS.AsConfigured.Pub", _publish_service_urls, true);
+    publish("Keymaster.URLS.AsConfigured.State", true);
+    publish("Keymaster.URLS.AsConfigured.Pub", true);
 
     if (! (rs.result && rp.result))
     {
@@ -524,29 +539,29 @@ void KeymasterServer::KmImpl::state_manager_task()
 
             if (items[1].revents & ZMQ_POLLIN)
             {
-		string key;
+                string key;
                 vector<string> frame;
 
-		z_recv(state_sock, key);
+                z_recv(state_sock, key);
 
-		// Determine the request.  Currently requests may
-		// be either a "ping" (just to see if the service
-		// is alive); a "LIST" to get information on all
-		// samplers and parameters published.  If none of
-		// the above, the request is assumed to be a key
-		// to a published item.
+                // Determine the request.  Currently requests may
+                // be either a "ping" (just to see if the service
+                // is alive); a "LIST" to get information on all
+                // samplers and parameters published.  If none of
+                // the above, the request is assumed to be a key
+                // to a published item.
 
-		if (key.size() == 4 && key == "ping")
-		{
+                if (key.size() == 4 && key == "ping")
+                {
                     // read any remaining parts
                     z_recv_multipart(state_sock, frame);
 
-		    // reply with something
-		    z_send(state_sock, "I'm not dead yet!", 0);
-		}
+                    // reply with something
+                    z_send(state_sock, "I'm not dead yet!", 0);
+                }
                 /////////////////// G E T ///////////////////
-		else if (key.size() == 3 && key == "GET")
-		{
+                else if (key.size() == 3 && key == "GET")
+                {
                     z_recv_multipart(state_sock, frame);
 
                     if (!frame.empty())
@@ -568,7 +583,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                         string msg("ERROR: Keychain expected, but not received!");
                         z_send(state_sock, msg, 0);
                     }
-		}
+                }
                 /////////////////// P U T ///////////////////
                 else if (key.size() == 3 && key == "PUT")
                 {
@@ -621,7 +636,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                             _root_node.push_front(YAML::Clone(_root_node.front()));
                             _root_node.pop_back();
                         }
-                   }
+                    }
                     else
                     {
                         string msg("ERROR: Keychain and value expected, but not received!");
@@ -659,7 +674,7 @@ void KeymasterServer::KmImpl::state_manager_task()
                     msg << "Unknown request '" << key;
                     z_send(state_sock, msg.str(), 0);
                 }
-	    }
+            }
         }
         catch (zmq::error_t &e)
         {
@@ -1478,11 +1493,13 @@ void Keymaster::_subscriber_task()
         }
         catch (zmq::error_t &e)
         {
-            cout << "Keymaster subscriber task: " << e.what() << endl;
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- Keymaster subscriber task: " << e.what() << endl;
         }
         catch (YAML::Exception &e)
         {
-            cout << "Keymaster subscriber task: " << e.what() << endl;
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- Keymaster subscriber task: " << e.what() << endl;
         }
     }
 
