@@ -95,6 +95,44 @@ private:
 };
 
 /**
+ * \class KeymasterHeartbeatCB
+ *
+ * This sublcass of the base KeymasterCallbackBase is specifically
+ * meant to resond do Keymaster hearbeat publications. The Keymaster
+ * updates its heartbeat, which is a Time::Time_t containing the
+ * current time of the update, every second. Thus a client may have
+ * one of these handling a heartbeat subscription and thus easily see
+ * whether the KeymasterServer is still running, merely by reading the
+ * current time and comparing it to the heartbeat time.
+ *
+ */
+
+struct KeymasterHeartbeatCB : public KeymasterCallbackBase
+{
+    Time::Time_t last_update()
+    {
+        Time::Time_t t;
+        ThreadLock<Mutex> l(lock);
+        l.lock();
+        t = last_heard;
+        l.unlock();
+        return t;
+    }
+
+private:
+    void _call(std::string key, YAML::Node val)
+    {
+        ThreadLock<Mutex> l(lock);
+        l.lock();
+        last_heard = val.as<Time::Time_t>();
+        l.unlock();
+    }
+
+    Mutex lock;
+    Time::Time_t last_heard;
+};
+
+/**
  * \class KeymasterMemberCB
  *
  * A subclassing of the base KeymasterCallbackBase callback class that allows

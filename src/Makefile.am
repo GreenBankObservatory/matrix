@@ -60,7 +60,8 @@ libmatrix_la_SOURCES = \
     Architect.cc \
     Component.cc \
     DataInterface.cc \
-    GenericDataConsumer.cc \
+	DataSink.cc \
+	GenericDataConsumer.cc \
     Keymaster.cc \
     Mutex.cc  \
     RTDataInterface.cc \

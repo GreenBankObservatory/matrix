@@ -242,7 +242,7 @@ string ToHex(const string &s, bool upper_case, size_t max_len)
         x = modf(rhs, &ipart);
         t.tv_usec = (int64_t)(x * 1e6);
         t.tv_sec = ipart;
-    
+
         return lhs + t;
     }
 
@@ -276,7 +276,7 @@ string ToHex(const string &s, bool upper_case, size_t max_len)
             t.tv_usec = lhs.tv_usec - rhs.tv_usec;
             t.tv_sec = lhs.tv_sec - rhs.tv_sec;
         }
-    
+
         return t;
     }
 

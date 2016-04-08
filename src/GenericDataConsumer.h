@@ -70,7 +70,7 @@ namespace matrix
         TCondition<bool> _run;
         std::unique_ptr<GenericBufferHandler> _handler;
     };
-        
+
 }
 
 #endif

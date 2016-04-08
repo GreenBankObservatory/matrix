@@ -120,6 +120,7 @@ struct KeymasterServer::KmImpl
 
     void server_task();
     void state_manager_task();
+    void heartbeat_task();
     bool load_config_file(string filename);
     bool publish(std::string key, bool block = false);
     void run();
@@ -131,6 +132,7 @@ struct KeymasterServer::KmImpl
 
     Thread<KmImpl> _server_thread;
     Thread<KmImpl> _state_manager_thread;
+    Thread<KmImpl> _heartbeat_thread;
     TCondition<bool> _server_thread_ready;
     TCondition<bool> _state_manager_thread_ready;
 
@@ -142,6 +144,7 @@ struct KeymasterServer::KmImpl
     std::string _state_task_url;
     std::string _hostname;
     bool _state_task_quit;
+    bool _running;
 
     // The service URLs. Each interface (STATE or PUBLISH) may have
     // multiple URLs (tcp, inproc, ipc) for possible future
@@ -174,11 +177,13 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
 :
     _server_thread(this, &KeymasterServer::KmImpl::server_task),
     _state_manager_thread(this, &KeymasterServer::KmImpl::state_manager_task),
+    _heartbeat_thread(this, &KeymasterServer::KmImpl::heartbeat_task),
     _server_thread_ready(false),
     _state_manager_thread_ready(false),
     _data_queue(1000),
     _state_task_url(string("inproc://") + gen_random_string(20)),
-    _state_task_quit(true)
+    _state_task_quit(true),
+    _running(true)
 {
     int i = 0;
 
@@ -247,6 +252,13 @@ void KeymasterServer::KmImpl::run()
         }
     }
 
+    if (!_heartbeat_thread.running())
+    {
+        if (_heartbeat_thread.start() != 0)
+        {
+            throw(runtime_error(string("KeymasterServer: unable to start the heartbeat thread")));
+        }
+    }
     // Now that we're running, publish everything, so that any clients
     // already subscribed may be updated.
     publish("Root", true);
@@ -259,6 +271,8 @@ void KeymasterServer::KmImpl::run()
 
 void KeymasterServer::KmImpl::terminate()
 {
+    _running = false;
+
     if (_state_manager_thread.running())
     {
         zmq::socket_t sock(ZMQContext::Instance()->get_context(), ZMQ_PAIR);
@@ -272,6 +286,11 @@ void KeymasterServer::KmImpl::terminate()
     {
         _data_queue.release();
         _server_thread.stop_without_cancel();
+    }
+
+    if (_heartbeat_thread.running())
+    {
+        _heartbeat_thread.stop_without_cancel();
     }
 }
 
@@ -319,6 +338,14 @@ void KeymasterServer::KmImpl::setup_urls()
             msg << "KeymasterServer: Unrecognized URL: " << *cvi << ends;
             throw(runtime_error(msg.str()));
         }
+    }
+
+    // If an inproc URL is not specified, generate one just for the
+    // state task, so that the heartbeat_task can use it.
+    if (!any_of(_state_service_urls.begin(), _state_service_urls.end(),
+                [](string i){return i.find("inproc") != string::npos;}))
+    {
+        _state_service_urls.push_back(string("inproc://") + gen_random_string(20));
     }
 }
 
@@ -424,7 +451,7 @@ void KeymasterServer::KmImpl::server_task()
     // are, and they need to recover from a restart of the keymaster,
     // this can give them the time to do it. Perhaps a heartbeat will
     // allow more secure recovery.
-    Time::thread_delay(500000000);
+    Time::thread_delay(2000000000);
 
     while (_data_queue.get(dp))
     {
@@ -686,6 +713,47 @@ void KeymasterServer::KmImpl::state_manager_task()
     int zero = 0;
     state_sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
     state_sock.close();
+}
+
+/**
+ * KeymasterServer::KmImpl::heartbeat_task() will increment an uptime
+ * counter that will also serve as the Keymaster's heartbeat for any
+ * client that subscribes to it. This will give clients the means to
+ * detect if the Keymaster server goes away.
+ *
+ */
+
+void KeymasterServer::KmImpl::heartbeat_task()
+{
+    zmq::context_t &ctx = ZMQContext::Instance()->get_context();
+    zmq::socket_t sock(ctx, ZMQ_REQ);
+    string url, response;
+    string cmd("PUT"), key("Keymaster.heartbeat");
+    Time::Time_t one_sec(1000000000L);
+    Time::Time_t wake_time = Time::getUTC() + one_sec;
+
+    auto it = find_if(_state_service_urls.begin(), _state_service_urls.end(),
+                      [](string i){return i.find("inproc") != string::npos;});
+
+    if (it != _state_service_urls.end())
+    {
+        url = *it;
+        sock.connect(url.c_str());
+
+        while (_running)
+        {
+            Time::thread_sleep_until(wake_time);
+            Time::Time_t t = wake_time;
+            wake_time += one_sec;
+            string val = to_string(t);
+            string flag("create");
+            z_send(sock, cmd, ZMQ_SNDMORE, KM_TIMEOUT);
+            z_send(sock, key, ZMQ_SNDMORE, KM_TIMEOUT);
+            z_send(sock, val, ZMQ_SNDMORE, KM_TIMEOUT);
+            z_send(sock, flag, 0, KM_TIMEOUT);
+            z_recv(sock, response, KM_TIMEOUT);
+        }
+    }
 }
 
 /**

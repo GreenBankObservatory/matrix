@@ -160,27 +160,31 @@ void TransportTest::do_the_transaction(string transport)
 
     CPPUNIT_ASSERT_EQUAL(d_sent, d_recv);
 
-    // test reconnecting ability. ssink is still active and
-    // connected. We will reset ssource. ssink should reconnect.
-    ssource.reset();
-    ssource.reset(new DataSource<string>(km_urn, "moby_dick", "lines"));
-    Time::thread_delay(100000000);
-    ssource->publish(s_sent);
-    i = 0;
-
-    while (!ssink->try_get(s_recv))
+    if (transport != "rtinproc")
     {
-        do_nanosleep(0, 100000);
+        // test reconnecting ability. ssink is still active and
+        // connected. We will reset ssource. ssink should reconnect.
+        ssource.reset();
+        ssource.reset(new DataSource<string>(km_urn, "moby_dick", "lines"));
+        Time::thread_delay(100000000);
+        ssource->publish(s_sent);
 
-        if (i++ == 100)
-        {
-            break;
-        }
+        i = 0;
+        ssink->get(s_recv);
+        // while (!ssink->try_get(s_recv))
+        // {
+        //     do_nanosleep(0, 1000000);
+
+        //     if (i++ == 100)
+        //     {
+        //         break;
+        //     }
+        // }
+
+        CPPUNIT_ASSERT(i < 100);
+        CPPUNIT_ASSERT_EQUAL(d_sent, d_recv);
+        ssink->disconnect();
     }
-
-    CPPUNIT_ASSERT(i < 100);
-    CPPUNIT_ASSERT_EQUAL(d_sent, d_recv);
-    ssink->disconnect();
 }
 
 void TransportTest::test_inproc_publish()

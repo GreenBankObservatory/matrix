@@ -40,62 +40,9 @@ const char helpstr[] =
 "                                                                                              \n"
 "\n";
 
-struct HBCB : public KeymasterCallbackBase
-{
-    Time::Time_t last_update()
-    {
-        Time::Time_t t;
-        ThreadLock<Mutex> l(lock);
-        l.lock();
-        t = last_heard;
-        l.unlock();
-        return t;
-    }
-
-private:
-    void _call(std::string key, YAML::Node val)
-    {
-        ThreadLock<Mutex> l(lock);
-        l.lock();
-        last_heard = val.as<Time::Time_t>();
-        l.unlock();
-    }
-
-    Mutex lock;
-    Time::Time_t last_heard;
-};
-
-HBCB kmhb;
+KeymasterHeartbeatCB kmhb;
 string keymaster_url = "tcp://localhost:42000";
 
-void reconnect(DataSink<GenericBuffer> &ds, Keymaster &km,
-               string comp, string src, string transport)
-{
-    Time::Time_t hb = kmhb.last_update();
-    Time::Time_t now = Time::getUTC();
-
-    // assume Keymaster is gone if hearbeat is older than 5 seconds.
-    if (now - hb < 5000000000L)
-    {
-        try
-        {
-            auto urns = km.get_as<vector<string> >(ds.current_source_key());
-            string urn = ds.current_source_urn();
-
-            if (!any_of(urns.begin(), urns.end(), [urn](string i){return i == urn;}))
-            {
-                // changed, reconnect
-                ds.disconnect();
-                ds.connect(comp, src, transport);
-            }
-        }
-        catch (KeymasterException &e)
-        {
-            cerr << Time::isoDateTime(Time::getUTC())
-                 << " -- " << e.what() << endl;
-        }
-    }
-}
 
 
 int main(int argc, char **argv)
@@ -281,7 +228,7 @@ int main(int argc, char **argv)
         }
         else
         {
-            reconnect(sink, keymaster, compname, srcname, "");
+            reconnectDataSink(&sink, keymaster, kmhb, compname, srcname, "");
         }
     }
 
