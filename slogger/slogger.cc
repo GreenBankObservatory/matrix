@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include "FITSLogger.h"
+#include "ThreadLock.h"
 
 using namespace std;
 using namespace matrix;
@@ -39,11 +40,68 @@ const char helpstr[] =
 "                                                                                              \n"
 "\n";
 
+struct HBCB : public KeymasterCallbackBase
+{
+    Time::Time_t last_update()
+    {
+        Time::Time_t t;
+        ThreadLock<Mutex> l(lock);
+        l.lock();
+        t = last_heard;
+        l.unlock();
+        return t;
+    }
+
+private:
+    void _call(std::string key, YAML::Node val)
+    {
+        ThreadLock<Mutex> l(lock);
+        l.lock();
+        last_heard = val.as<Time::Time_t>();
+        l.unlock();
+    }
+
+    Mutex lock;
+    Time::Time_t last_heard;
+};
+
+HBCB kmhb;
+string keymaster_url = "tcp://localhost:42000";
+
+void reconnect(DataSink<GenericBuffer> &ds, Keymaster &km,
+               string comp, string src, string transport)
+{
+    Time::Time_t hb = kmhb.last_update();
+    Time::Time_t now = Time::getUTC();
+
+    // assume Keymaster is gone if hearbeat is older than 5 seconds.
+    if (now - hb < 5000000000L)
+    {
+        try
+        {
+            auto urns = km.get_as<vector<string> >(ds.current_source_key());
+            string urn = ds.current_source_urn();
+
+            if (!any_of(urns.begin(), urns.end(), [urn](string i){return i == urn;}))
+            {
+                // changed, reconnect
+                ds.disconnect();
+                ds.connect(comp, src, transport);
+            }
+        }
+        catch (KeymasterException &e)
+        {
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- " << e.what() << endl;
+        }
+    }
+}
+
 
 int main(int argc, char **argv)
 {
 
-
+    Time::Time_t time_out(2000000000L);
     string log_dir;
     string compname;
     string srcname;
@@ -55,7 +113,6 @@ int main(int argc, char **argv)
     // defaults
     int debuglevel = 0;
     size_t max_rows_per_file = 256*1024; // 262144 rows default
-    string keymaster_url = "tcp://localhost:42000";
     string stream_arg;
 
     const char *log_base = getenv("MATRIXLOGDIR");
@@ -169,7 +226,7 @@ int main(int argc, char **argv)
         cout << e.what();
         return -1;
     }
-    try 
+    try
     {
         log.reset( new FITSLogger(stream_dd, stream_arg, debuglevel));
     }
@@ -180,9 +237,10 @@ int main(int argc, char **argv)
         cout << flush;
         return -1;
     }
-    
 
+    keymaster.subscribe("Keymaster.heartbeat", &kmhb);
     log->set_directory(log_dir + "/");
+
     if (!log->open_log())
     {
         cout << "Error opening log file: "
@@ -206,18 +264,24 @@ int main(int argc, char **argv)
     gbuffer.resize(log->log_datasize());
     while (1)
     {
-        sink.get(gbuffer);
-        log->log_data(gbuffer);
-
-        if (++nrows > max_rows_per_file)
+        if (sink.timed_get(gbuffer, time_out))
         {
-            printf("opening new file\n");
-            log->close();
-            if (!log->open_log())
+            log->log_data(gbuffer);
+
+            if (++nrows > max_rows_per_file)
             {
-                return(-1);
+                printf("opening new file\n");
+                log->close();
+                if (!log->open_log())
+                {
+                    return(-1);
+                }
+                nrows=0;
             }
-            nrows=0;
+        }
+        else
+        {
+            reconnect(sink, keymaster, compname, srcname, "");
         }
     }
 
