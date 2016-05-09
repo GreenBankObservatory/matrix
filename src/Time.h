@@ -49,7 +49,10 @@ namespace Time
     void   time2timespec(const Time_t, timespec &);
     void   time2timeval(const Time_t, timeval &);
 
+    /// @return the integral number of days since MJD epoch
     int    MJD(const Time_t);
+    /// @return the floating point number of days since MJD epoch.
+    double DMJD(const Time_t);
 
     Time_t timeStamp2Time(uint32_t mjd, uint32_t msec);
     void   time2TimeStamp(const Time_t, uint32_t &mjd, uint32_t &msec_since_midnight);

@@ -92,6 +92,13 @@ namespace Time
     }
 
 // Note: This routine can only calculate MJD's for dates after 1970/1/1
+    double DMJD(const Time_t t)
+    {
+        int days = MJD(t);
+        double nsec = static_cast<double>(t%86400000000000LL);
+        return static_cast<double>(days) + nsec/86400000000000.0;
+    }
+// Note: This routine can only calculate MJD's for dates after 1970/1/1
     Time_t timeStamp2Time(uint32_t mjd, uint32_t msec)
     {
         Time_t t = ((Time_t)(mjd - MJD_1970_EPOCH)) * NANOSEC_PER_DAY;
@@ -110,7 +117,7 @@ namespace Time
     void  time2TimeStamp(const Time_t t, uint32_t &mjd, double &msec)
     {
         mjd  = MJD(t);
-        msec = static_cast<double>(t%86400000000000LL)*1E-9;
+        msec = static_cast<double>(t%86400000000000LL)*1E-6;
     }
 
 //                           N/A  J   F   M   A   M   J   J   A   S   O   N   D

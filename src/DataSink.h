@@ -237,6 +237,7 @@ namespace matrix
         virtual std::string current_source_key() = 0;
         virtual void disconnect() = 0;
         virtual void connect(std::string, std::string, std::string) = 0;
+        virtual bool connected() = 0;
     };
 
 /**

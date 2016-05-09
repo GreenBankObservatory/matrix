@@ -29,7 +29,7 @@ SUBDIRS = .
 
 lib_LTLIBRARIES = libmatrix.la
 
-headersdir = $(includedir)
+headersdir = $(includedir)/matrix
 headers_HEADERS = \
     Architect.h \
     Component.h \

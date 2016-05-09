@@ -79,6 +79,7 @@ static string get_type_code(data_description::types t, size_t n = 1)
     switch (t)
     {
         case data_description::DOUBLE:
+        case data_description::TIME_T:
             tstr = to_string(n) + "D";
             break;
         case data_description::FLOAT:
@@ -323,15 +324,14 @@ bool FITSLogger::log_data(GenericBuffer &data)
         {
             case data_description::TIME_T:
             {
-                uint32_t mjd;
-                double msec_since_midnight;
                 double dmjd;
                 Time::Time_t t;
 
                 t = get_data_buffer_value<Time::Time_t>(data.data(), z->offset);
-                Time::time2TimeStamp(t, mjd, msec_since_midnight);
-                dmjd = static_cast<double>(mjd) + msec_since_midnight/86400000.0;
+                dmjd = Time::DMJD(t);
+                dbprintf("%lld %.15f ", t, dmjd);
                 fits_write_col_dbl(fout, columnNum, (LONGLONG)cur_row, 1LL, 1LL, &dmjd, &status);
+                break;
             }
 
             case data_description::DOUBLE:
