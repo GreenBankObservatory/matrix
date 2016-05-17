@@ -98,6 +98,7 @@ namespace Time
         double nsec = static_cast<double>(t%86400000000000LL);
         return static_cast<double>(days) + nsec/86400000000000.0;
     }
+
 // Note: This routine can only calculate MJD's for dates after 1970/1/1
     Time_t timeStamp2Time(uint32_t mjd, uint32_t msec)
     {

@@ -119,7 +119,7 @@ static string get_type_code(data_description::types t, size_t n = 1)
             tstr = to_string(n) + "B";
             break;
         default:
-            printf("not supported %d\n", t);
+            printf("%s datatype not supported %d\n", __PRETTY_FUNCTION__, t);
         break;
     }
     return tstr;
@@ -329,8 +329,8 @@ bool FITSLogger::log_data(GenericBuffer &data)
 
                 t = get_data_buffer_value<Time::Time_t>(data.data(), z->offset);
                 dmjd = Time::DMJD(t);
-                dbprintf("%lld %.15f ", t, dmjd);
                 fits_write_col_dbl(fout, columnNum, (LONGLONG)cur_row, 1LL, 1LL, &dmjd, &status);
+                dbprintf("%lld %.15f ", t, dmjd);
                 break;
             }
 
@@ -415,12 +415,12 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::LONG_DOUBLE:
             {
                 // I'm not sure FITS knows this type?
-                printf("long double not supported\n");
+                printf("%s long double not supported\n", __PRETTY_FUNCTION__);
                 break;
             }
 
             default:
-                printf("type %d not supported\n", z->type);
+                printf("%s type %d not supported\n", __PRETTY_FUNCTION__, z->type);
                 break;
         }
 
