@@ -32,9 +32,9 @@ keychain_SOURCES = \
 	cmdparam.h \
 	main.cc
 
-keychain_CXXFLAGS = -std=c++0x -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src -O0 -g
+keychain_CXXFLAGS = -std=c++11 -I../src -O0 -g
 
-keychain_LDADD = -L../src/.libs -lmatrix -lyaml-cpp -lzmq -lboost_regex -lreadline -ltermcap
+keychain_LDADD = -L../src/.libs -lmatrix -lyaml-cpp -lzmq -lboost_regex -lreadline -ltermcap -lrt
 
 distclean-local:
 	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in

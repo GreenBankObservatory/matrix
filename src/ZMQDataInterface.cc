@@ -501,8 +501,13 @@ namespace matrix
         // (via 'pipe'), and for subscription data (via 'sub_sock').
         zmq::pollitem_t items [] =
             {
+#if ZMQ_VERSION_MAJOR > 3
+                { (void *)pipe, 0, ZMQ_POLLIN, 0 },
+                { (void *)sub_sock, 0, ZMQ_POLLIN, 0 }
+#else
                 { pipe, 0, ZMQ_POLLIN, 0 },
                 { sub_sock, 0, ZMQ_POLLIN, 0 }
+#endif
             };
 
         _task_ready.signal(true);

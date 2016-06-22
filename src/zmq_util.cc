@@ -37,6 +37,9 @@
 #include <boost/regex.hpp>
 #include <stdlib.h>
 
+#if ZMQ_VERSION_MAJOR < 4
+#warning "Using an older version of zero-mq. Consider upgrading"
+#endif
 using namespace std;
 using namespace std::placeholders;
 
@@ -517,7 +520,11 @@ std::string process_zmq_urn(const std::string input)
     void z_recv_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int to)
     {
         // Poll socket for a reply, with timeout
+#if ZMQ_VERSION_MAJOR > 3
+        zmq::pollitem_t items[] = { { (void *)sock, 0, ZMQ_POLLIN, 0 } };
+#else
         zmq::pollitem_t items[] = { { sock, 0, ZMQ_POLLIN, 0 } };
+#endif
         zmq::poll (&items[0], 1, to);
 
         // If we got a reply, process it
@@ -535,7 +542,11 @@ std::string process_zmq_urn(const std::string input)
 
     void z_send_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int flags, int to)
     {
+#if ZMQ_VERSION_MAJOR > 3
+        zmq::pollitem_t items[] = {{(void *)sock, 0, ZMQ_POLLOUT, 0}};
+#else
         zmq::pollitem_t items[] = {{sock, 0, ZMQ_POLLOUT, 0}};
+#endif
         zmq::poll(&items[0], 1, to);
 
         if (items[0].revents & ZMQ_POLLOUT)

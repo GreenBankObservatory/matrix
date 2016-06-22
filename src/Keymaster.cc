@@ -541,8 +541,13 @@ void KeymasterServer::KmImpl::state_manager_task()
 
     zmq::pollitem_t items [] =
         {
+#if ZMQ_VERSION_MAJOR > 3
+            { (void *)pipe, 0, ZMQ_POLLIN, 0 },
+            { (void *)state_sock, 0, ZMQ_POLLIN, 0 }
+#else
             { pipe, 0, ZMQ_POLLIN, 0 },
             { state_sock, 0, ZMQ_POLLIN, 0 }
+#endif
         };
 
     _state_manager_thread_ready.signal(true); // allow 'run()' to move
@@ -1479,8 +1484,14 @@ void Keymaster::_subscriber_task()
     // (via 'pipe'), and for subscription data (via 'sub_sock').
     zmq::pollitem_t items [] =
         {
+
+#if ZMQ_VERSION_MAJOR > 3
+            { (void *)pipe, 0, ZMQ_POLLIN, 0 },
+            { (void *)sub_sock, 0, ZMQ_POLLIN, 0 }
+#else
             { pipe, 0, ZMQ_POLLIN, 0 },
             { sub_sock, 0, ZMQ_POLLIN, 0 }
+#endif
         };
 
     while (1)

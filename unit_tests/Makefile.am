@@ -37,9 +37,8 @@ matrix_unittest_SOURCES = \
 	TSemfifoTest.cc \
 	utility_test.cc
 
-matrix_unittest_CXXFLAGS = -I/home/gbt1/RH564/cppunit-1.12.1/include -I../src -O0 -g
-#matrix_unittest_LDADD = -L../src/.libs -lmatrix /home/gbt1/RH564//cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt
-matrix_unittest_LDADD = ../src/.libs/libmatrix.a /home/gbt1/RH564/cppunit-1.12.1/i64-linux/lib/libcppunit.a -lrt -lboost_regex
+matrix_unittest_CXXFLAGS = -I../src -O0 -g
+matrix_unittest_LDADD = ../src/.libs/libmatrix.a -lcppunit -lrt -lboost_regex
 
 distclean-local:
 	$(RM) -rf *.o *.a *.lo .deps .libs Makefile Makefile.in
