@@ -77,6 +77,8 @@ namespace Time
 
     /// return an ISO 8601 representation string of a Time_t
     std::string isoDateTime(Time_t);
+
+    const Time_t TM_ONE_SEC = 1000000000LL;
 };
 
 

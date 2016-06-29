@@ -13,8 +13,18 @@ using namespace matrix;
 const char helpstr[] =
 "Slogger, a DataSink to fits logger program.                                                   \n"
 "usage: slogger -str stream_alias [ -debug ]  [ -url keymaster_url ] [ -ldir path ]            \n"
+"       [ -data_timeout seconds ] [ -maxrows nrows ] [ -ls ]                                   \n"
 "The environment variable MATRIXLOGDIR can be used to specify where log files                  \n"
-"will be written. Alternatively this can be specifies using the -ldir option.                  \n"
+"will be written. Alternatively this can be specified using the -ldir option.                  \n"
+"                                                                                              \n"
+"If the -ls option is given, slogger will list the available streams and exit                  \n"
+"                                                                                              \n"
+"Option defaults are:                                                                          \n"
+"    -url tcp://localhost:42000                                                                \n"
+"    -data_timeout 2                                                                           \n"
+"    -maxrows 262144                                                                           \n"
+"    -ldir $MATRIXLOGDIR or /tmp if not set                                                    \n"
+"                                                                                              \n"
 "                                                                                              \n"
 "slogger relies upon a two sections in the keymaster which ties additional                     \n"
 "data stream information to an user-friendly alias.                                            \n"
@@ -40,7 +50,7 @@ const char helpstr[] =
 "                                                                                              \n"
 "\n";
 
-KeymasterHeartbeatCB kmhb;
+
 string keymaster_url = "tcp://localhost:42000";
 
 
@@ -48,7 +58,7 @@ string keymaster_url = "tcp://localhost:42000";
 int main(int argc, char **argv)
 {
 
-    Time::Time_t time_out(2000000000L);
+    Time::Time_t time_out(2 * Time::TM_ONE_SEC); // default
     string log_dir;
     string compname;
     string srcname;
@@ -72,7 +82,8 @@ int main(int argc, char **argv)
     // usage print
     if (argc < 2)
     {
-        cout << "usage: slogger -str stream_alias [-ldir path] [-maxrows nrows] [-debug] [-help]" << endl;
+        cout << "usage: slogger -str stream_alias [-ldir path] [-url url ] [-help] ..." << endl;
+        cout << "See slogger -help for additional options" << endl;
         exit(-1);
     }
 
@@ -98,6 +109,10 @@ int main(int argc, char **argv)
             ++i;
             log_dir = argv[i];
         }
+        else if (arg == "-ls")
+        {
+            stream_arg = "-ls";
+        }
         else if (arg == "-debug")
         {
             debuglevel = 1;
@@ -105,6 +120,21 @@ int main(int argc, char **argv)
         else if (arg == "-help")
         {
             cout << helpstr << endl;
+            return -1;
+        }
+        else if (arg == "-data_timeout")
+        {
+            ++i;
+            arg = argv[i];
+            double tmo = std::strtod(arg.c_str(), nullptr);
+            time_out = static_cast<Time::Time_t>(tmo * Time::TM_ONE_SEC);
+            return -1;
+        }
+        else if (arg == "-maxrows")
+        {
+            ++i;
+            arg = argv[i];
+            max_rows_per_file = std::strtol(arg.c_str(), nullptr, 0);
             return -1;
         }
         else
@@ -185,7 +215,6 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    keymaster.subscribe("Keymaster.heartbeat", &kmhb);
     log->set_directory(log_dir + "/");
 
     if (!log->open_log())
@@ -207,28 +236,69 @@ int main(int argc, char **argv)
     int nrows = 0;
 
     GenericBuffer gbuffer;
-
     gbuffer.resize(log->log_datasize());
+
+    Time::Time_t last_stamp = Time::getUTC();
+
     while (1)
     {
-        if (sink.timed_get(gbuffer, time_out))
-        {
-            log->log_data(gbuffer);
+        // process data, recording when we get some new data.
+        // Note: For slow data, (i.e less than one per 10 sec)
+        // the timeout may need to be adjusted via the data_timeout
+        // command line option.
 
-            if (++nrows > max_rows_per_file)
+        Time::Time_t now = Time::getUTC();
+
+        if (now - last_stamp < time_out * 5)
+        {
+            if (sink.timed_get(gbuffer, time_out))
             {
-                printf("opening new file\n");
-                log->close();
-                if (!log->open_log())
+                // cout << "got data" << endl;
+                last_stamp = Time::getUTC();
+                log->log_data(gbuffer);
+
+                if (++nrows > max_rows_per_file)
                 {
-                    return(-1);
+                    cout << stream_alias << " opening new file" << endl;
+                    log->close();
+                    if (!log->open_log())
+                    {
+                        return (-1);
+                    }
+                    nrows = 0;
                 }
-                nrows=0;
+            }
+            else
+            {
+                cout << "data time out" << endl;
             }
         }
         else
         {
-            reconnectDataSink(&sink, keymaster, kmhb, compname, srcname, "");
+            cout << "Reconnecting " << stream_arg << endl;
+            try
+            {
+                sink.disconnect();
+                sink.connect(compname, srcname, "");
+            }
+            catch (KeymasterException &e)
+            {
+                cerr << " -- " << e.what() << endl;
+            }
+            catch (YAML::Exception &e)
+            {
+                cerr << "YAML exception" << e.what() << endl;
+            }
+            if (sink.connected())
+            {
+                cout << "reconnected data sink" << endl;
+                last_stamp = Time::getUTC();
+            }
+            else
+            {
+                cout << "reconnect failed" << endl;
+            }
+            Time::thread_delay(2 * Time::TM_ONE_SEC); // 2 second delay
         }
     }
 
