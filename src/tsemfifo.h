@@ -511,7 +511,7 @@ template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
 {
     timespec ts;
 
-    Time::time2timespec(Time::getUTC() + time_out, ts);
+    Time::time2timespec(Time::getUTC(CLOCK_REALTIME) + time_out, ts);
 
     if (sem_timedwait(&_empty_sem, &ts) == -1)
     {
@@ -686,7 +686,7 @@ template <class T> bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
 {
     timespec ts;
 
-    Time::time2timespec(Time::getUTC() + time_out, ts);
+    Time::time2timespec(Time::getUTC(CLOCK_REALTIME) + time_out, ts);
 
     if (sem_timedwait(&_full_sem, &ts) == -1)
     {

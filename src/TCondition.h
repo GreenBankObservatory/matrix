@@ -373,7 +373,7 @@ template <typename T> bool TCondition<T>::wait_with_lock(T const &s, int usecs)
 
     Time::Time_t time_to_return;
 
-    time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
+    time_to_return = Time::getUTC(CLOCK_REALTIME) + (usecs * (Time::Time_t)1000);
     Time::time2timespec(time_to_return, to);
 
     lock();
@@ -406,7 +406,7 @@ template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
 
     Time::Time_t time_to_return;
 
-    time_to_return = Time::getUTC() + (usecs * (Time::Time_t)1000);
+    time_to_return = Time::getUTC(CLOCK_REALTIME) + (usecs * (Time::Time_t)1000);
     Time::time2timespec(time_to_return, to);
 
     status = pthread_cond_timedwait(&_cond, &mutex, &to);

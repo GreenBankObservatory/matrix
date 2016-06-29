@@ -43,7 +43,11 @@ struct timespec;
 namespace Time
 {
     typedef uint64_t Time_t;
-    Time_t getUTC(clockid_t clk = CLOCK_REALTIME);
+
+    extern clockid_t default_clock;
+    void set_default_clock(clockid_t clkid);
+
+    Time_t getUTC(clockid_t clk = Time::default_clock);
     Time_t timespec2Time(const timespec &ts);
     Time_t timeval2Time(const timeval &ts);
     void   time2timespec(const Time_t, timespec &);
@@ -69,7 +73,7 @@ namespace Time
     void thread_delay(Time::Time_t nsecs);
 
     /// Sleep until the time specified
-    void thread_sleep_until(Time::Time_t abstime);
+    void thread_sleep_until(Time::Time_t abstime, clockid_t clk=Time::default_clock);
 
     /// return an ISO 8601 representation string of a Time_t
     std::string isoDateTime(Time_t);

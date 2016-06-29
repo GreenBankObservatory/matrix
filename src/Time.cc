@@ -39,14 +39,13 @@ extern "C" void  __Matrix__Time__(...)
 
 namespace Time
 {
-#ifdef __XENO__
-    // xenomai's ntp adjusted RT clock
-    // #define USE_THE_CLOCK 42
-#define USE_THE_CLOCK CLOCK_REALTIME
-#else
-    // Use the standard (also ntp tempered) clock
-#define USE_THE_CLOCK CLOCK_REALTIME
-#endif
+
+    clockid_t default_clock = CLOCK_REALTIME; // The 'normal' ntp clock
+
+    void set_default_clock(clockid_t clkid)
+    {
+        default_clock = clkid;
+    }
 
     Time_t getUTC(clockid_t clk)
     {
@@ -238,11 +237,11 @@ namespace Time
     }
 
 /// Sleep until the time specified
-    void thread_sleep_until(Time::Time_t abstime)
+    void thread_sleep_until(Time::Time_t abstime, clockid_t clock)
     {
         struct timespec rqtp;
         time2timespec(abstime, rqtp);
-        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &rqtp, 0);
+        clock_nanosleep(clock, TIMER_ABSTIME, &rqtp, 0);
     }
 
 // Output a time to ISO 8601 compliant string
