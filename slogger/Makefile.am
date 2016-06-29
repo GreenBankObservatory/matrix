@@ -31,7 +31,7 @@ slogger_SOURCES = \
 	FITSLogger.cc \
 	slogger.cc 
 
-slogger_CXXFLAGS = -I../src -g
+slogger_CXXFLAGS = -I../src -g -pthread
 slogger_LDADD = ../src/.libs/libmatrix.a -lrt -lboost_regex -lcfitsio
 
 distclean-local:

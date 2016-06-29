@@ -37,7 +37,7 @@ matrix_unittest_SOURCES = \
 	TSemfifoTest.cc \
 	utility_test.cc
 
-matrix_unittest_CXXFLAGS = -I../src -O0 -g
+matrix_unittest_CXXFLAGS = -I../src -O0 -g -pthread
 matrix_unittest_LDADD = ../src/.libs/libmatrix.a -lcppunit -lrt -lboost_regex
 
 distclean-local:
