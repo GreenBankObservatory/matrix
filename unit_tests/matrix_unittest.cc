@@ -37,10 +37,11 @@
 
 using namespace std;
 
-ZMQContext *ctx = ZMQContext::Instance();
+shared_ptr<ZMQContext> ctx; // = ZMQContext::Instance();
 
 int main(int argc, char **argv)
 {
+    ctx = ZMQContext::Instance();
     CppUnit::TextTestRunner runner;
     runner.addTest(StateTransitionTest::suite());
     runner.addTest(TimeTest::suite());

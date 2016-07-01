@@ -33,7 +33,7 @@
 #include "zmq.hpp"
 #include "Mutex.h"
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 class ZMQContext
 
@@ -43,7 +43,7 @@ class ZMQContext
 
     zmq::context_t &get_context();
 
-    static ZMQContext *Instance();
+    static std::shared_ptr<ZMQContext> Instance();
     static void RemoveInstance();
 
   private:
@@ -52,7 +52,7 @@ class ZMQContext
 
     ZMQContext();
 
-    static boost::shared_ptr<ZMQContext> _instance;
+    static std::shared_ptr<ZMQContext> _instance;
     static Mutex _instance_lock;
 };
 
