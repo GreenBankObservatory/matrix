@@ -25,7 +25,7 @@
  *
  *******************************************************************/
 
-#include "matrix_util.h"
+#include "matrix/matrix_util.h"
 #include <set>
 #include <iostream>
 #include <iomanip>

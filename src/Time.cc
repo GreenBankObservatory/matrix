@@ -21,7 +21,7 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#include "Time.h"
+#include "matrix/Time.h"
 #include <time.h>
 #include <sys/time.h>
 #include <sstream>

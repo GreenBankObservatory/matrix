@@ -29,8 +29,8 @@
  *
  *******************************************************************/
 
-#include "ZMQContext.h"
-#include "ThreadLock.h"
+#include "matrix/ZMQContext.h"
+#include "matrix/ThreadLock.h"
 
 std::shared_ptr<ZMQContext> ZMQContext::_instance;
 Mutex ZMQContext::_instance_lock;

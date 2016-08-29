@@ -29,9 +29,9 @@
 #if !defined(_TESTDATAGENERATOR_H_)
 #define _TESTDATAGENERATOR_H_
 
-#include "Component.h"
-#include "Thread.h"
-#include "DataInterface.h"
+#include "matrix/Component.h"
+#include "matrix/Thread.h"
+#include "matrix/DataInterface.h"
 
 #include <string>
 #include <list>

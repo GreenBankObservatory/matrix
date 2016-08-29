@@ -31,7 +31,7 @@
 #define _ZMQCONTEXT_H_
 
 #include "zmq.hpp"
-#include "Mutex.h"
+#include "matrix/Mutex.h"
 
 #include <memory>
 

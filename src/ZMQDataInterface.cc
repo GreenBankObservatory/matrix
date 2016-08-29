@@ -21,15 +21,15 @@
 //#     Green Bank, WV 24944-0002 USA
 
 
-#include "ZMQDataInterface.h"
-#include "RTDataInterface.h"
-#include "tsemfifo.h"
-#include "Thread.h"
-#include "ZMQContext.h"
-#include "zmq_util.h"
-#include "matrix_util.h"
-#include "netUtils.h"
-#include "Keymaster.h"
+#include "matrix/ZMQDataInterface.h"
+#include "matrix/RTDataInterface.h"
+#include "matrix/tsemfifo.h"
+#include "matrix/Thread.h"
+#include "matrix/ZMQContext.h"
+#include "matrix/zmq_util.h"
+#include "matrix/matrix_util.h"
+#include "matrix/netUtils.h"
+#include "matrix/Keymaster.h"
 
 #include <iostream>
 #include <algorithm>

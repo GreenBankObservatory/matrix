@@ -28,11 +28,11 @@
 #if !defined(_KEYMASTER_H_)
 #define _KEYMASTER_H_
 
-#include "yaml_util.h"
-#include "matrix_util.h"
-#include "Thread.h"
-#include "TCondition.h"
-#include "tsemfifo.h"
+#include "matrix/yaml_util.h"
+#include "matrix/matrix_util.h"
+#include "matrix/Thread.h"
+#include "matrix/TCondition.h"
+#include "matrix/tsemfifo.h"
 
 #include <string>
 #include <vector>

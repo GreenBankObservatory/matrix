@@ -29,10 +29,10 @@
  *
  *******************************************************************/
 
-#include "GenericDataConsumer.h"
-#include "yaml_util.h"
-#include "Keymaster.h"
-#include "Component.h"
+#include "matrix/GenericDataConsumer.h"
+#include "matrix/yaml_util.h"
+#include "matrix/Keymaster.h"
+#include "matrix/Component.h"
 
 // #include <stdio.h>
 // #include <stdlib.h>

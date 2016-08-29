@@ -21,10 +21,10 @@
 //#     Green Bank, WV 24944-0002 USA
 
 
-#include "DataInterface.h"
-#include "Keymaster.h"
-#include "ThreadLock.h"
-#include "matrix_util.h"
+#include "matrix/DataInterface.h"
+#include "matrix/Keymaster.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/matrix_util.h"
 #include <iostream>
 
 using namespace std;

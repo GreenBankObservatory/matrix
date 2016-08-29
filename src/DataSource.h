@@ -29,8 +29,8 @@
 #if !defined(_DATA_SOURCE_H_)
 #define _DATA_SOURCE_H_
 
-#include "Keymaster.h"
-#include "DataInterface.h"
+#include "matrix/Keymaster.h"
+#include "matrix/DataInterface.h"
 
 #include <vector>
 

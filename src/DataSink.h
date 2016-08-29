@@ -28,9 +28,9 @@
 #if !defined (_DATA_SINK_H_)
 #define _DATA_SINK_H_
 
-#include "Time.h"
-#include "tsemfifo.h"
-#include "DataInterface.h"
+#include "matrix/Time.h"
+#include "matrix/tsemfifo.h"
+#include "matrix/DataInterface.h"
 
 #include <sstream>
 

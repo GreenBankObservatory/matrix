@@ -25,16 +25,16 @@
  *
  *******************************************************************/
 
-#include "Keymaster.h"
-#include "ZMQContext.h"
-#include "ThreadLock.h"
-#include "tsemfifo.h"
-#include "Thread.h"
-#include "ThreadLock.h"
-#include "zmq_util.h"
-#include "netUtils.h"
-#include "yaml_util.h"
-#include "Time.h"
+#include "matrix/Keymaster.h"
+#include "matrix/ZMQContext.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/tsemfifo.h"
+#include "matrix/Thread.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/zmq_util.h"
+#include "matrix/netUtils.h"
+#include "matrix/yaml_util.h"
+#include "matrix/Time.h"
 
 #include <string>
 #include <cstring>

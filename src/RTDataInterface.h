@@ -29,7 +29,7 @@
 #if !defined(_RTDATAINTERFACE_H_)
 #define _RTDATAINTERFACE_H_
 
-#include "DataInterface.h"
+#include "matrix/DataInterface.h"
 #include <string>
 
 namespace matrix

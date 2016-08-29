@@ -25,12 +25,12 @@
 #include <map>
 #include <iostream>
 #include <algorithm>
-#include "Architect.h"
+#include "matrix/Architect.h"
 #include <yaml-cpp/yaml.h>
-#include "ThreadLock.h"
-#include "Keymaster.h"
-#include "yaml_util.h"
-#include "Time.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/Keymaster.h"
+#include "matrix/yaml_util.h"
+#include "matrix/Time.h"
 
 using namespace std;
 using namespace Time;

@@ -35,10 +35,10 @@
 #include <stdio.h>
 #include <vector>
 #include <memory>
-#include "TCondition.h"
-#include "Mutex.h"
-#include "ThreadLock.h"
-#include "Time.h"
+#include "matrix/TCondition.h"
+#include "matrix/Mutex.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/Time.h"
 
 struct fifo_notifier
 {

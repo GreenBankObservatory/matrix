@@ -25,11 +25,11 @@
  *
  *******************************************************************/
 
-#include "RTDataInterface.h"
-#include "zmq_util.h"
-#include "Keymaster.h"
-#include "Mutex.h"
-#include "ThreadLock.h"
+#include "matrix/RTDataInterface.h"
+#include "matrix/zmq_util.h"
+#include "matrix/Keymaster.h"
+#include "matrix/Mutex.h"
+#include "matrix/ThreadLock.h"
 
 #include <string>
 

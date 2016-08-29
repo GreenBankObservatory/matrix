@@ -21,51 +21,9 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#include "NANutils.h"
+#include "matrix/NANutils.h"
 
 #include<math.h>
-
-#ifdef TESTMAIN
-
-#include<stdio.h>
-
-#ifdef VXWORKS
-#include<private/mathP.h>
-int
-testNan()
-#else
-#if !defined(_WIN32)
-extern "C" int isnand(double);
-#endif
-int main(int argc, char **argv)
-#endif
-{
-double d;
-float f;
-
-    d = NANDvalue();
-    f = NANFvalue();
-
-#if 0
-#ifdef VXWORKS
-    if(isNan(d)) {
-#else
-    if(isnand(d)) {
-#endif
-        printf("d is NAN!\n");
-    }
-#endif
-    if(isNAND(d)) {
-        printf("isNAND() indicates NAN\n");
-    }
-    if(isNANF(f)) {
-        printf("isNANF() indicates NAN\n");
-    }
-
-    printf("%lf %f \n", d, f);
-    return(0);
-}
-#endif
 
 /* This is straight from the IEEE-754 (1985) standard, 
    section 3.2.2 (Double format), page 9.

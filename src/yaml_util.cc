@@ -25,7 +25,7 @@
  *
  *******************************************************************/
 
-#include "yaml_util.h"
+#include "matrix/yaml_util.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim.hpp>

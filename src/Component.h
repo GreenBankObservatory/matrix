@@ -26,11 +26,11 @@
 #include <string>
 #include <tuple>
 #include <yaml-cpp/yaml.h>
-#include "FiniteStateMachine.h"
-#include <tsemfifo.h>
-#include <Thread.h>
-#include "matrix_util.h"
-#include "Keymaster.h"
+#include "matrix/FiniteStateMachine.h"
+#include <matrix/tsemfifo.h>
+#include <matrix/Thread.h>
+#include "matrix/matrix_util.h"
+#include "matrix/Keymaster.h"
 
 class ComponentException : public MatrixException
 {

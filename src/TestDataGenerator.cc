@@ -29,9 +29,9 @@
  *
  *******************************************************************/
 
-#include "TestDataGenerator.h"
-#include "matrix_util.h"
-#include "DataInterface.h"
+#include "matrix/TestDataGenerator.h"
+#include "matrix/matrix_util.h"
+#include "matrix/DataInterface.h"
 
 #include <string>
 #include <map>

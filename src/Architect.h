@@ -26,18 +26,18 @@
 
 #include <string>
 #include <memory>
-#include "FiniteStateMachine.h"
-#include "Component.h"
+#include "matrix/FiniteStateMachine.h"
+#include "matrix/Component.h"
 #include <map>
 #include <string>
 #include <memory>
 #include <vector>
 #include <tuple>
 #include <yaml-cpp/yaml.h>
-#include "TCondition.h"
-#include "Mutex.h"
-#include "ThreadLock.h"
-#include "tsemfifo.h"
+#include "matrix/TCondition.h"
+#include "matrix/Mutex.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/tsemfifo.h"
 
 class Keymaster;
 class KeymasterServer;

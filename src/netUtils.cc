@@ -26,7 +26,7 @@
  *
  *******************************************************************/
 
-#include "netUtils.h"
+#include "matrix/netUtils.h"
 
 #include <netdb.h>
 #include <iostream>

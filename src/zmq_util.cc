@@ -26,8 +26,8 @@
  *
  *******************************************************************/
 
-#include "zmq_util.h"
-#include "matrix_util.h"
+#include "matrix/zmq_util.h"
+#include "matrix/matrix_util.h"
 
 #include <algorithm>
 #include <functional>

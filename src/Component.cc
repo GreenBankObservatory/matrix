@@ -21,11 +21,11 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#include "Component.h"
+#include "matrix/Component.h"
 #include <yaml-cpp/yaml.h>
 #include <iostream>
 #include <cstdio>
-#include "Keymaster.h"
+#include "matrix/Keymaster.h"
 
 using namespace std;
 using namespace YAML;

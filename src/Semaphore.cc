@@ -20,7 +20,7 @@
 //#     P. O. Box 2
 //#     Green Bank, WV 24944-0002 USA
 
-#include "Semaphore.h"
+#include "matrix/Semaphore.h"
 
 Semaphore::~Semaphore()
 {

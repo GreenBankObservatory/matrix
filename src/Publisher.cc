@@ -29,14 +29,14 @@
  *
  *******************************************************************/
 
-#include "Publisher.h"
-#include "ZMQContext.h"
-#include "ThreadLock.h"
-#include "tsemfifo.h"
-#include "Thread.h"
-#include "zmq_util.h"
-#include "matrix_util.h"
-#include "netUtils.h"
+#include "matrix/Publisher.h"
+#include "matrix/ZMQContext.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/tsemfifo.h"
+#include "matrix/Thread.h"
+#include "matrix/zmq_util.h"
+#include "matrix/matrix_util.h"
+#include "matrix/netUtils.h"
 
 #include <string>
 #include <cstring>

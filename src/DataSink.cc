@@ -25,7 +25,7 @@
  *
  *******************************************************************/
 
-#include "DataSink.h"
+#include "matrix/DataSink.h"
 
 using namespace std;
 

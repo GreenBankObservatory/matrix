@@ -44,8 +44,8 @@
 #ifndef DataInterface_h
 #define DataInterface_h
 
-#include "Mutex.h"
-#include "ThreadLock.h"
+#include "matrix/Mutex.h"
+#include "matrix/ThreadLock.h"
 
 #include <string>
 #include <memory>

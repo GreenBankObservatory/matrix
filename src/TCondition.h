@@ -33,8 +33,8 @@
 #include <pthread.h>
 #include <errno.h>
 
-#include "Mutex.h"
-#include "Time.h"
+#include "matrix/Mutex.h"
+#include "matrix/Time.h"
 
 /****************************************************************//**
  * \class TCondition
