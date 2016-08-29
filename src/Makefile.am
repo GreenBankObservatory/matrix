@@ -31,30 +31,30 @@ lib_LTLIBRARIES = libmatrix.la
 
 headersdir = $(includedir)/matrix
 headers_HEADERS = \
-    Architect.h \
-    Component.h \
-    DataInterface.h \
-    DataSink.h \
-    DataSource.h \
-    FiniteStateMachine.h \
-    GenericDataConsumer.h \
-    Keymaster.h \
-    Mutex.h \
-    RTDataInterface.h \
-    Semaphore.h \
-    TCondition.h \
-    TestDataGenerator.h \
-    Thread.h \
-    ThreadLock.h \
-    Time.h \
-    ZMQContext.h \
-    ZMQDataInterface.h \
-    matrix_util.h \
-    make_path.h \
-    netUtils.h \
-    tsemfifo.h \
-    yaml_util.h \
-    zmq_util.h
+    matrix/Architect.h \
+    matrix/Component.h \
+    matrix/DataInterface.h \
+    matrix/DataSink.h \
+    matrix/DataSource.h \
+    matrix/FiniteStateMachine.h \
+    matrix/GenericDataConsumer.h \
+    matrix/Keymaster.h \
+    matrix/Mutex.h \
+    matrix/RTDataInterface.h \
+    matrix/Semaphore.h \
+    matrix/TCondition.h \
+    matrix/TestDataGenerator.h \
+    matrix/Thread.h \
+    matrix/ThreadLock.h \
+    matrix/Time.h \
+    matrix/ZMQContext.h \
+    matrix/ZMQDataInterface.h \
+    matrix/matrix_util.h \
+    matrix/make_path.h \
+    matrix/netUtils.h \
+    matrix/tsemfifo.h \
+    matrix/yaml_util.h \
+    matrix/zmq_util.h
 
 libmatrix_la_SOURCES = \
     Architect.cc \
