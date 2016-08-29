@@ -26,9 +26,9 @@
  *******************************************************************/
 
 #include "publisher_test.h"
-#include "Publisher.h"
-#include "zmq_util.h"
-#include "ZMQContext.h"
+#include "matrix/Publisher.h"
+#include "matrix/zmq_util.h"
+#include "matrix/ZMQContext.h"
 
 #include <boost/shared_ptr.hpp>
 #include <cstdio>

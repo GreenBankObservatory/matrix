@@ -29,7 +29,7 @@
 #include <cstdio>
 #include <exception>
 #include <cmath>
-#include "yaml_util.h"
+#include "matrix/yaml_util.h"
 
 using namespace std;
 using namespace Time;

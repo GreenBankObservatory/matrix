@@ -1,11 +1,11 @@
 #include <iostream>
-#include "DataInterface.h"
-#include "DataSink.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSink.h"
 #include <string>
 #include <vector>
 #include <memory>
 #include "FITSLogger.h"
-#include "ThreadLock.h"
+#include "matrix/ThreadLock.h"
 
 using namespace std;
 using namespace matrix;

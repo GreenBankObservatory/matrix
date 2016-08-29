@@ -27,11 +27,11 @@
 #ifndef ExSignalGenerator_h
 #define ExSignalGenerator_h
 
-#include "Time.h"
-#include "Component.h"
-#include "DataInterface.h"
-#include "DataSource.h"
-#include "DataSink.h"
+#include "matrix/Time.h"
+#include "matrix/Component.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSource.h"
+#include "matrix/DataSink.h"
 
 /// An example of a really silly signal generator which can generate
 /// a tone (sine wave), noise, or a constant amplitude signal.

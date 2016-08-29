@@ -5,11 +5,11 @@
 #include <sstream>
 #include <iostream>
 #include <sys/stat.h>
-#include "make_path.h"
+#include "matrix/make_path.h"
 #include <string.h>
-#include "Time.h"
-#include "DataInterface.h"
-#include "DataSink.h"
+#include "matrix/Time.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSink.h"
 
 using namespace std;
 using namespace matrix;

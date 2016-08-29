@@ -3,9 +3,9 @@
 #include <qwt_math.h>
 #include <math.h>
 #include <stdio.h>
-#include "Keymaster.h"
-#include "DataInterface.h"
-#include "DataSink.h"
+#include "matrix/Keymaster.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSink.h"
 #include "curvedata.h"
 
 #if QT_VERSION < 0x040600

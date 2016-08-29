@@ -23,7 +23,7 @@
 
 #include <cstdio>
 #include "TimeTest.h"
-#include "Time.h"
+#include "matrix/Time.h"
 #include <sys/time.h>
 #include <math.h>
 

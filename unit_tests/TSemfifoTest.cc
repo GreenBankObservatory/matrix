@@ -26,7 +26,7 @@
  *******************************************************************/
 
 #include "TSemfifoTest.h"
-#include "tsemfifo.h"
+#include "matrix/tsemfifo.h"
 
 using namespace std;
 using namespace Time;

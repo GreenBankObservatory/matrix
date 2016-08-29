@@ -10,7 +10,7 @@
 #include <qlayout.h>
 #include <QPushButton>
 #include <QTabWidget>
-#include "make_path.h"
+#include "matrix/make_path.h"
 
 using namespace std;
 

@@ -26,11 +26,11 @@
 #ifndef ExAccumulator_h
 #define ExAccumulator_h
 
-#include "Time.h"
-#include "Component.h"
-#include "DataInterface.h"
-#include "DataSource.h"
-#include "DataSink.h"
+#include "matrix/Time.h"
+#include "matrix/Component.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSource.h"
+#include "matrix/DataSink.h"
 
 // An example of a really silly accumulator which down samples data
 // by a moving window average. Data is output to a source, which

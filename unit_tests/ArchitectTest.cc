@@ -25,8 +25,8 @@
 #include <yaml-cpp/yaml.h>
 
 #include "ArchitectTest.h"
-#include "Architect.h"
-#include "Component.h"
+#include "matrix/Architect.h"
+#include "matrix/Component.h"
 
 using namespace std;
 using namespace YAML;

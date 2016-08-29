@@ -31,12 +31,12 @@
 #include <yaml-cpp/yaml.h>
 #include <boost/shared_ptr.hpp>
 
-#include "Keymaster.h"
-#include "yaml_util.h"
-#include "matrix_util.h"
+#include "matrix/Keymaster.h"
+#include "matrix/yaml_util.h"
+#include "matrix/matrix_util.h"
 #include "TransportTest.h"
-#include "TCondition.h"
-#include "DataInterface.h"
+#include "matrix/TCondition.h"
+#include "matrix/DataInterface.h"
 
 using namespace std;
 using namespace mxutils;

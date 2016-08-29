@@ -42,7 +42,7 @@
  *******************************************************************/
 
 #include "cmdparam.h"
-#include "matrix_util.h"
+#include "matrix/matrix_util.h"
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>

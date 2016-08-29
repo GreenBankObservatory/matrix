@@ -6,9 +6,9 @@
 #include <vector>
 #include <cstdio>
 #include <stdarg.h>
-#include "Mutex.h"
-#include "ThreadLock.h"
-#include "DataInterface.h"
+#include "matrix/Mutex.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/DataInterface.h"
 #include <cfitsio/fitsio.h>
 
 /// A general log data writer which works with the matrix GenericBuffer.

@@ -11,13 +11,14 @@ include( $${PWD}/examples.pri )
 
 # Extra include paths for the matrix libs and our non-standard
 # YAML and 0MQ installations.
+THIRDPARTYLIBS=/home/gbt1/lib_devel
 INCLUDEPATH += ../src
-INCLUDEPATH += /home/gbt1/RH664/include
+INCLUDEPATH += /home/gbt1/lib_devel/include
 
 # C++11 required.
 QMAKE_CXXFLAGS += -std=c++11 -Wno-comment -Wno-unused-variable -Wno-sign-compare
 # More locally specific stuff edit as required
-LIBS += -L/home/sandboxes/jbrandt/mc/matrix/lib -lmatrix -L/home/gbt1/RH664/lib -lyaml-cpp -lzmq -lboost_regex -lrt
+LIBS += -L/home/gbt1/lib_devel/lib -lmatrix -lyaml-cpp -lzmq -lboost_regex -lrt
 
 TARGET   = oscilloscope
 

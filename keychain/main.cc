@@ -26,11 +26,11 @@
  *******************************************************************/
 
 #include "cmdparam.h"
-#include "Mutex.h"
-#include "ThreadLock.h"
-#include "Keymaster.h"
-#include "zmq_util.h"
-#include "matrix_util.h"
+#include "matrix/Mutex.h"
+#include "matrix/ThreadLock.h"
+#include "matrix/Keymaster.h"
+#include "matrix/zmq_util.h"
+#include "matrix/matrix_util.h"
 
 #include <sys/select.h>
 #include <signal.h>

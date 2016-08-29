@@ -25,9 +25,9 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
-#include "Architect.h"
-#include "Component.h"
-#include "Keymaster.h"
+#include "matrix/Architect.h"
+#include "matrix/Component.h"
+#include "matrix/Keymaster.h"
 #include "ExSignalGenerator.h"
 #include "ExAccumulator.h"
 #include "ExProcessor.h"

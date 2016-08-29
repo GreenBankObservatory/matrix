@@ -32,8 +32,8 @@
 #include "keymaster_test.h"
 #include "TransportTest.h"
 #include "TSemfifoTest.h"
-#include "Thread.h"
-#include "ZMQContext.h"
+#include "matrix/Thread.h"
+#include "matrix/ZMQContext.h"
 
 using namespace std;
 

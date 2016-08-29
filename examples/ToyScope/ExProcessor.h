@@ -26,11 +26,11 @@
 #ifndef ExProcessor_h
 #define ExProcessor_h
 
-#include "Time.h"
-#include "Component.h"
-#include "DataInterface.h"
-#include "DataSource.h"
-#include "DataSink.h"
+#include "matrix/Time.h"
+#include "matrix/Component.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSource.h"
+#include "matrix/DataSink.h"
 
 /// A simple 'processor' component which has one sink input and one source
 /// output. Two types of operations can be specified: 

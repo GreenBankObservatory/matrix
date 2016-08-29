@@ -23,7 +23,7 @@
 
 #include <cstdio>
 #include "StateTransitionTest.h"
-#include "FiniteStateMachine.h"
+#include "matrix/FiniteStateMachine.h"
 
 using namespace std;
 using namespace FSM;

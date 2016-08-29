@@ -25,10 +25,10 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
-#include "Architect.h"
-#include "Component.h"
-#include "Keymaster.h"
-#include "ZMQContext.h"
+#include "matrix/Architect.h"
+#include "matrix/Component.h"
+#include "matrix/Keymaster.h"
+#include "matrix/ZMQContext.h"
 
 using namespace std;
 using namespace YAML;

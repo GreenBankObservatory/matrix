@@ -31,12 +31,12 @@
 #include <yaml-cpp/yaml.h>
 #include <boost/shared_ptr.hpp>
 
-#include "Keymaster.h"
-#include "yaml_util.h"
-#include "zmq_util.h"
+#include "matrix/Keymaster.h"
+#include "matrix/yaml_util.h"
+#include "matrix/zmq_util.h"
 #include "keymaster_test.h"
-#include "TCondition.h"
-#include "Time.h"
+#include "matrix/TCondition.h"
+#include "matrix/Time.h"
 
 using namespace std;
 using namespace mxutils;

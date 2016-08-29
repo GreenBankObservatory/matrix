@@ -26,7 +26,7 @@
  *******************************************************************/
 
 #include "utility_test.h"
-#include "yaml_util.h"
+#include "matrix/yaml_util.h"
 
 #include <iostream>
 

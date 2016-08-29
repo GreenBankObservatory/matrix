@@ -3,11 +3,11 @@
 
 #include <qwt_sampling_thread.h>
 #include <stdio.h>
-#include "Keymaster.h"
-#include "DataInterface.h"
-#include "DataSink.h"
-#include "TCondition.h"
-#include "Thread.h"
+#include "matrix/Keymaster.h"
+#include "matrix/DataInterface.h"
+#include "matrix/DataSink.h"
+#include "matrix/TCondition.h"
+#include "matrix/Thread.h"
 
 class CurveData;
 
