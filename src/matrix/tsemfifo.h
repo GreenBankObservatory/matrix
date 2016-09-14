@@ -292,8 +292,10 @@ template <class T> unsigned int tsemfifo<T>::flush(int items)
     ThreadLock<Mutex> l(_critical_section);
 
     // A fastpath for when there is no work to do:
-    if (abs(items) == _objects)
-        return abs(items);
+    if ((-1*items) == _objects)
+    {
+        return _objects;
+    }
 
     l.lock();
 
