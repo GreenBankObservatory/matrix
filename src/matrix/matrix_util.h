@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <iterator>
 #include <vector>
+#include <set>
 #include <ostream>
 #include <cstring>
 #include <boost/algorithm/string.hpp>
@@ -78,8 +79,6 @@ private:
 
 namespace mxutils
 {
-    bool is_non_numeric_p(char c);
-    std::string strip_non_numeric(const std::string &s);
     void do_nanosleep(int seconds, int nanoseconds);
     bool operator<(timeval &lhs, timeval &rhs);
     timeval operator+(timeval lhs, timeval rhs);
@@ -87,6 +86,46 @@ namespace mxutils
     timeval operator-(timeval lhs, timeval rhs);
     std::ostream & operator<<(std::ostream &os, const timeval &t);
     std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
+
+/**
+ * This is a predicate function, intended to return true if a particular
+ * char 'c' should be stripped out of the string. Here we are stripping
+ * out non-numeric characters. The characters needed by the conversion
+ * routines below are [0-9], [A-Fa-f], '.+-', (and 'e' for exponent,
+ * already covered.) And 'x' in 0x hex designation.
+ *
+ * @param c: the character
+ *
+ * @return true if the character should be stripped out.
+ *
+ */
+
+    inline bool is_non_numeric_p(char c)
+    {
+        static char cs[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                            'A', 'B', 'C', 'D', 'E', 'F',
+                            'a', 'b', 'c', 'd', 'e', 'f',
+                            '.', '+', '-', 'x'};
+        static std::set<char> syms(cs, cs + sizeof cs);
+        return syms.find(c) == syms.end();
+    }
+
+/**
+ * This helper will strip out whatever characters the predicate
+ * 'strip_p' returns 'true' for (see above).
+ *
+ * @param s: the string to be stripped
+ *
+ * @return a new string, which is 's' minus the non-numeric characters.
+ *
+ */
+
+    inline std::string strip_non_numeric(const std::string &s)
+    {
+        std::string stripped = s;
+        remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
+        return stripped;
+    }
 
 /**
  * \class fn_string_join is a simple functor that provides a handy way to
@@ -139,9 +178,6 @@ namespace mxutils
         std::string _subs;
     };
 
-    bool is_non_numeric_p(char c);
-    std::string strip_non_numeric(const std::string &s);
-
 /**
  * Outputs a vector to an ostream
  *
@@ -189,42 +225,42 @@ namespace mxutils
 
     template <> inline int8_t convert<int8_t>(const std::string &s)
     {
-        return (int8_t)stoi(s);
+        return (int8_t)stoi(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline uint8_t convert<uint8_t>(const std::string &s)
     {
-        return (uint8_t)stoul(s);
+        return (uint8_t)stoul(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline int16_t convert<int16_t>(const std::string &s)
     {
-        return (int16_t)stoi(s);
+        return (int16_t)stoi(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline uint16_t convert<uint16_t>(const std::string &s)
     {
-        return (uint16_t)stoul(s);
+        return (uint16_t)stoul(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline int32_t convert<int32_t>(const std::string &s)
     {
-        return (int32_t)stoi(strip_non_numeric(s));
+        return (int32_t)stoi(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline uint32_t convert<uint32_t>(const std::string &s)
     {
-        return (uint32_t)stoul(strip_non_numeric(s));
+        return (uint32_t)stoul(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline int64_t convert<int64_t>(const std::string &s)
     {
-        return (int64_t)stol(strip_non_numeric(s));
+        return (int64_t)stol(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline uint64_t convert<uint64_t>(const std::string &s)
     {
-        return (uint64_t)stoul(strip_non_numeric(s));
+        return (uint64_t)stoul(strip_non_numeric(s), 0, 0);
     }
 
     template <> inline bool convert<bool>(const std::string &s)
