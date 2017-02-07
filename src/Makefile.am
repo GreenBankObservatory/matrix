@@ -41,6 +41,7 @@ headers_HEADERS = \
     matrix/Keymaster.h \
     matrix/Mutex.h \
     matrix/RTDataInterface.h \
+    matrix/ResourceManager.h \
     matrix/Semaphore.h \
     matrix/TCondition.h \
     matrix/TestDataGenerator.h \

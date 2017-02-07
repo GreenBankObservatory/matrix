@@ -50,7 +50,7 @@ void TimeTest::test_conversions()
     tm gmt;
     timespec ts;
     timeval tv;
-    unsigned int mjd,msec;
+    unsigned int mjd;
     double secs;
     Time_t T1, T2;
 
@@ -92,10 +92,12 @@ void TimeTest::test_conversions()
     CPPUNIT_ASSERT((int)secs == result.tm_sec);
 
     T1 = timeStamp2Time(50000, 20000);
-    time2TimeStamp(T1, mjd, msec);
-    time2TimeStamp(T1, mjd, secs);
+    uint32_t i_msec;
+    double   f_msec;
+    time2TimeStamp(T1, mjd, i_msec);
+    time2TimeStamp(T1, mjd, f_msec);
     CPPUNIT_ASSERT(mjd == 50000);
-    CPPUNIT_ASSERT( fabs((secs*1E3) - msec) < 1 );
+    CPPUNIT_ASSERT( (fabs(f_msec) - i_msec) < 1 );
 }
 
 void TimeTest::test_output_to_string()
