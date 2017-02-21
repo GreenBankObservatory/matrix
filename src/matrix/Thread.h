@@ -104,6 +104,11 @@ public:
     bool running();
     void stop();
     void stop_without_cancel();
+    void detach();
+    void cancel();
+    void join();
+    bool joinable() { return false == _is_detached; }
+
     pthread_t get_id() { return id; }
 
 private:
@@ -118,6 +123,7 @@ private:
     T         *object;          ///< thread data
     THREADPROC proc;            ///< thread procedure
     size_t stacksize;           ///< user specified thread stack size
+    bool _is_detached;          ///< has the thread been detached
 };
 
 
@@ -138,6 +144,7 @@ template<typename T> Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, 
     , object(object_)
     , proc(proc_)
     , stacksize(stacksize_)
+    , _is_detached(false)
 {
 }
 
@@ -159,6 +166,8 @@ template<typename T> Thread<T>::~Thread()
  *
  * @return 0 on success, an error code on failure. (see man
  * `pthread_create()` for the error codes returned.)
+ * The thread will be created in the default cancellation mode and state
+ * (cancellation deferred and enabled).
  *
  */
 
@@ -220,6 +229,42 @@ template<typename T> bool Thread<T>::running()
 }
 
 /**
+ * Sends a cancel to the thread. Does not perform a join.
+ */
+template<typename T> void Thread<T>::cancel()
+{
+    if (running())
+    {
+        pthread_cancel(id);
+    }
+}
+
+/**
+ * Perform a thread join. Same as stop_without_cancel()
+ */
+template<typename T> void Thread<T>::join()
+{
+    if (running() && joinable())
+    {
+        pthread_join(id, 0);
+        id = 0;
+    }
+}
+
+/**
+ * Detach the thread. This is non-refundable -- you can't undo the detach.
+ * Once detached, the thread can still be cancelled, but not joined.
+ */
+template<typename T> void Thread<T>::detach()
+{
+    if (running())
+    {
+        pthread_detach(id);
+        _is_detached = true;
+    }
+}
+
+/**
  * Stops the thread by cancelling it and joining on it. This is a severe
  * way to stop the thread as a cancel ends the thread immediately and
  * thus does not allow it to clean up. Use with caution.
@@ -230,9 +275,8 @@ template<typename T> void Thread<T>::stop()
 {
     if (running())
     {
-        pthread_cancel(id);
-        pthread_join(id, 0);
-        id = 0;
+        cancel();
+        join();
     }
 }
 
@@ -248,8 +292,7 @@ template<typename T> void Thread<T>::stop_without_cancel()
 {
     if (running())
     {
-        pthread_join(id, 0);
-        id = 0;
+        join();
     }
 }
 

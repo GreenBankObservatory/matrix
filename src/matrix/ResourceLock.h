@@ -1,5 +1,5 @@
 /*******************************************************************
- ** ResourceManager.h - Implements Resource management class which
+ ** ResourceLock.h - Implements Resource management class which
  * can be used in place of the pthread_cleanup_push/pop mechanism.
  *
  *  Copyright (C) 2017 Associated Universities, Inc. Washington DC, USA.
@@ -26,8 +26,8 @@
  *
  *******************************************************************/
 
-#ifndef ResourceManager_h
-#define ResourceManager_h
+#ifndef ResourceLock_h
+#define ResourceLock_h
 
 #include <functional>
 
@@ -35,17 +35,17 @@
 /// the pthread_cleanup_push/pop mechanism.
 ///
 
-class ResourceManager
+class ResourceLock
 {
 public:
     /// Construct a resource management object. The parameter should
     /// be a lambda with a signature of void(). See example below.
-    ResourceManager(std::function<void()> _capture) :
+    ResourceLock(std::function<void()> _capture) :
     _the_release(_capture), _do_cleanup(true)
     {}
 
     /// Destruct and release resource by invoking the lambda and closure.
-    ~ResourceManager() { release(); }
+    ~ResourceLock() { release(); }
 
     /// Calls the resource releasing lambda
     void release()
@@ -55,13 +55,20 @@ public:
             _the_release();
             _do_cleanup = false;
         }
-
     }
 
     // prevent ResourceManagement objects from being copied.
-    ResourceManager(const ResourceManager &) = delete;
-    ResourceManager() = delete;
-    ResourceManager & operator=(const ResourceManager &) = delete;
+    ResourceLock(const ResourceLock &) = delete;
+    ResourceLock() = delete;
+    ResourceLock & operator=(const ResourceLock &) = delete;
+    // Allow std::move() to work
+    ResourceLock(ResourceLock &&p)
+    {
+        _the_release = p._the_release;
+        p._the_release = nullptr;
+        _do_cleanup = p._do_cleanup;
+        p._do_cleanup = false;
+    }
 
     /// If somehow the resource gets cleaned up before the destructor
     /// is called, we can cancel out the calling of the lambda.
@@ -78,12 +85,28 @@ private:
  *
  * {
  *     int fd = open(...);
- *     ResourceManager fdmgr([&fd]() { if (fd>=0) close(fd); fd=-1; } );
+ *     ResourceLock fdmgr([&fd]() { if (fd>=0) close(fd); fd=-1; } );
  *     ...
  * }
  *
  * As the fdmgr object goes out of scope, its destructor will call close on
  * the captured fd.
+ *
+ * Example 2 - an order stack of resources
+ *
+ *      std::deque< ResourceLock> locks;
+        cout << "allocate resource 1" << endl;
+        ResourceLock lock1([]() { cout << "releasing resource1 " << endl; });
+
+        cout << "allocate resource 2"  << endl;
+        ResourceLock lock2([]() { cout << "releasing resource2 " << endl; });
+
+        locks.push_front(std::move(lock1));
+        locks.push_front(std::move(lock2));
+
+        when locks goes out of scope, the ResourceLock members will be called
+        from back to front (i.e. in a LIFO order). If FIFO ordering is
+        intended, then use push_back().
  */
 
 

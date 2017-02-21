@@ -35,6 +35,7 @@
 #include "matrix/netUtils.h"
 #include "matrix/yaml_util.h"
 #include "matrix/Time.h"
+#include "matrix/ResourceLock.h"
 
 #include <string>
 #include <cstring>
@@ -1030,7 +1031,10 @@ yaml_result Keymaster::_call_keymaster(string cmd, string key, string val, strin
 {
     string response;
     yaml_result yr;
+    int pre_cancel_state;
     ThreadLock<Mutex> lck(_shared_lock);
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &pre_cancel_state);
+    ResourceLock canceler([pre_cancel_state]() { pthread_setcancelstate(pre_cancel_state, nullptr); });
     ostringstream msg;
 
     try

@@ -34,6 +34,7 @@
 #include "TSemfifoTest.h"
 #include "matrix/Thread.h"
 #include "matrix/ZMQContext.h"
+#include "ResourceLockTest.h"
 
 using namespace std;
 
@@ -43,6 +44,7 @@ int main(int argc, char **argv)
 {
     ctx = ZMQContext::Instance();
     CppUnit::TextTestRunner runner;
+    runner.addTest(ResourceLockTest::suite());
     runner.addTest(StateTransitionTest::suite());
     runner.addTest(TimeTest::suite());
     runner.addTest(ArchitectTest::suite());
