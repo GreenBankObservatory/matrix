@@ -330,7 +330,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
                 t = get_data_buffer_value<Time::Time_t>(data.data(), z->offset);
                 dmjd = Time::DMJD(t);
                 fits_write_col_dbl(fout, columnNum, (LONGLONG)cur_row, 1LL, 1LL, &dmjd, &status);
-                dbprintf("%lld %.15f ", t, dmjd);
+                dbprintf("%lu %.15f ", t, dmjd);
                 break;
             }
 
@@ -352,7 +352,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::LONG:
             {
                 int64_t d = get_data_buffer_value<int64_t>(data.data(), z->offset);
-                dbprintf("%lld ", d);
+                dbprintf("%ld ", d);
                 fits_write_col_lnglng(fout, columnNum, cur_row, 1, 1, (LONGLONG*)&d, &status);
                 break;
             }
@@ -384,7 +384,7 @@ bool FITSLogger::log_data(GenericBuffer &data)
             case data_description::UNSIGNED_LONG:
             {
                 uint64_t d = get_data_buffer_value<uint64_t>(data.data(), z->offset);
-                dbprintf("%llu ", d);
+                dbprintf("%lu ", d);
                 fits_write_col_lnglng(fout, columnNum, cur_row, 1, 1, (LONGLONG*)&d, &status);
                 break;
             }
