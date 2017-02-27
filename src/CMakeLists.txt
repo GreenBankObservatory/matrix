@@ -19,6 +19,7 @@ set(INCLUDE_FILES
     matrix/Mutex.h
     matrix/NANutils.h
     matrix/netUtils.h
+    matrix/ResourceLock.h
     matrix/RTDataInterface.h
     matrix/Semaphore.h
     matrix/TCondition.h
@@ -56,8 +57,10 @@ set(SOURCE_FILES
     ZMQDataInterface.cc
 )
 
+add_library(matrix ${SOURCE_FILES})
+
 # To install the .h files, try this recipie
 # install(TARGETS matrix DESTINATION lib)
 install(FILES ${INCLUDE_FILES} DESTINATION include/matrix)
+install(TARGETS matrix DESTINATION lib)
 
-add_library(matrix ${SOURCE_FILES})
