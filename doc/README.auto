@@ -1,5 +1,9 @@
 How to build:
 =============
+
+The preferred method is using cmake. See README.INSTALL for instructions.
+If you insist on autotools, then continue reading.
+
 If autoconf/automake/autogen .... are installed on your system, installing
 should be straightforward.
 

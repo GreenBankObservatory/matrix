@@ -1,0 +1,42 @@
+Installation of Matrix
+======================
+
+The preferred method of installation is using cmake. The steps are simple.
+At the toplevel run these commands (note .. refers to the parent directory '../')
+
+* mkdir build; cd build
+* cmake ..
+
+This should complete without errors. Next compile everything:
+
+* make
+
+# Variations for builds
+By default, a 'make install' command will install files into directories only root
+can write. To instead install into a custom directory, provide the install directory
+when running the cmake step, e.g:
+
+* cmake .. -DCMAKE_INSTALL_PREFIX=/users/myhome/matrix_install
+
+This will create and install into directory under the specified directory.
+
+# A Note about Building the Oscilloscope Application
+The oscilloscope application is not included in the normal cmake build
+(nor the autotools one either). This is due to qt's requirement of using
+qmake. I'm sorry to say compiling this one is an exercise left to the student.
+In Green Bank, the oscilloscope .pro (and examples.pri) files should already
+be configured to use the correct directories. So try at the top level:
+
+* cd oscillscope
+* qmake-qt4
+* make
+
+# Runtime Environment
+On Redhat we have several libraries which are non-standard versions, and thus
+require some environment variables to locate runtime libraries. The simple and
+fastest way to get this is to source /home/sim/gbt.bash
+
+On Ubuntu, most libraries are either in /usr/lib or /usr/local/lib, so this
+step *may* not be necessary.
+
+
