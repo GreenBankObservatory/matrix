@@ -469,7 +469,7 @@ namespace matrix
      */
 
     template <typename T>
-    int _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf)
+    int _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf, bool blocking)
     {
         if (sizeof(T) != sze)
         {
@@ -478,8 +478,14 @@ namespace matrix
                 << " and given data buffer size is " << sze;
             throw MatrixException("DataSink::_data_handler()", msg.str());
         }
-
-        return ringbuf.put_no_block(*(T *)data);
+        if (blocking)
+        {
+            return ringbuf.put(*(T*)data);
+        }
+        else
+        {
+            return ringbuf.put_no_block(*(T *) data);
+        }
     }
 
     /**
@@ -502,11 +508,18 @@ namespace matrix
      */
 
     template <>
-    inline int _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf)
+    inline int _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf, bool blocking)
     {
         std::string val(sze, 0);
         std::memmove((char *)val.data(), data, sze);
-        return ringbuf.put_no_block(val);
+        if (blocking)
+        {
+            return ringbuf.put(val);
+        }
+        else
+        {
+            return ringbuf.put_no_block(val);
+        }
     }
 
     /**
@@ -534,7 +547,7 @@ namespace matrix
 
     template <>
     inline int _data_handler<matrix::GenericBuffer>(void *data, size_t sze,
-            tsemfifo<matrix::GenericBuffer> &ringbuf)
+            tsemfifo<matrix::GenericBuffer> &ringbuf, bool blocking)
     {
         matrix::GenericBuffer buf;
 
@@ -548,14 +561,21 @@ namespace matrix
         // wich would handle the semaphores properly to mark it as put,
         // to get the next available slot and copy it directly to this.
         std::memmove((unsigned char *)buf.data(), data, sze);
-        return ringbuf.put_no_block(buf);
+        if (blocking)
+        {
+            return ringbuf.put(buf);
+        }
+        else
+        {
+            return ringbuf.put_no_block(buf);
+        }
     }
 
     template <typename T, typename U = select_specified>
     class DataSink : public DataSinkBase
     {
     public:
-        DataSink(std::string km_urn, size_t ringbuf_size = 10);
+        DataSink(std::string km_urn, size_t ringbuf_size = 10, bool blocking=false);
         ~DataSink() throw();
 
         void get(T &);
@@ -596,6 +616,7 @@ namespace matrix
         std::shared_ptr<TransportClient> _tc;
         tsemfifo<T> _ringbuf;
         DataMemberCB<DataSink> _cb;
+        bool _blocking;
     };
 
 /**
@@ -606,11 +627,12 @@ namespace matrix
  */
 
     template <typename T, typename U>
-    DataSink<T, U>::DataSink(std::string km_urn, size_t ringbuf_size)
+    DataSink<T, U>::DataSink(std::string km_urn, size_t ringbuf_size, bool blocking)
         : _connected(false),
           _km_urn(km_urn),
           _ringbuf(ringbuf_size),
-          _cb(this, &DataSink::_data_handler)
+          _cb(this, &DataSink::_data_handler),
+          _blocking(blocking)
     {
     }
 
@@ -671,7 +693,7 @@ namespace matrix
     {
         if (key == _key)
         {
-            _lost_data += matrix::_data_handler<T>(data, sze, _ringbuf);
+            _lost_data += matrix::_data_handler<T>(data, sze, _ringbuf, _blocking);
         }
     }
 
