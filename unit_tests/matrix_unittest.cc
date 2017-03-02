@@ -47,10 +47,10 @@ int main(int argc, char **argv)
     runner.addTest(ResourceLockTest::suite());
     runner.addTest(StateTransitionTest::suite());
     runner.addTest(TimeTest::suite());
-    runner.addTest(ArchitectTest::suite());
+//    runner.addTest(ArchitectTest::suite());
     runner.addTest(UtilityTest::suite());
-    runner.addTest(KeymasterTest::suite());
-    runner.addTest(TransportTest::suite());
+//    runner.addTest(KeymasterTest::suite());
+//    runner.addTest(TransportTest::suite());
     runner.addTest(TSemfifoTest::suite());
     runner.run();
 

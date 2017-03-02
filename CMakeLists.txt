@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(matrix)
 
 add_subdirectory(src)
+add_subdirectory(contrib)
 add_subdirectory(slogger)
 add_subdirectory(keychain)
 add_subdirectory(unit_tests)
