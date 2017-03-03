@@ -5,12 +5,14 @@ include_directories( "." "../src" "/home/gbt1/lib_devel/include")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 set(INCLUDE_FILES
     FileDataSource.h
-    FileDataSink.h)
+    FileDataSink.h
+    GRTestComponent.h)
 
 
 set(SOURCE_FILES
     FileDataSource.cc
     FileDataSink.cc
+    GRTestComponent.cc
 )
 
 add_library(matrix_extra ${SOURCE_FILES})

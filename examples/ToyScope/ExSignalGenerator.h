@@ -32,6 +32,7 @@
 #include "matrix/DataInterface.h"
 #include "matrix/DataSource.h"
 #include "matrix/DataSink.h"
+#include "matrix/GnuradioDataSource.h"
 
 /// An example of a really silly signal generator which can generate
 /// a tone (sine wave), noise, or a constant amplitude signal.
@@ -70,7 +71,8 @@ protected:
     void amplitude_changed(std::string, YAML::Node new_amplitude);
     void frequency_changed(std::string, YAML::Node new_frequency);
 protected:
-    matrix::DataSource<double>     output_signal_source;    
+    matrix::DataSource<double>     output_signal_source;
+    matrix::GnuradioDataSource<float> grc_src;
   
     Thread<ExSignalGenerator>       poll_thread;
     TCondition<bool>                poll_thread_started;

@@ -12,6 +12,7 @@ set(INCLUDE_FILES
     matrix/FiniteStateMachine.h
     matrix/fixed_buffer.h
     matrix/GenericDataConsumer.h
+    matrix/GnuradioDataSource.h
     matrix/Keymaster.h
     matrix/make_path.h
     matrix/masterdoc.h

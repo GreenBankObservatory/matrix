@@ -54,6 +54,7 @@ ExSignalGenerator::factory(string name, string km_url)
 ExSignalGenerator::ExSignalGenerator(string name, string km_url) :
     Component(name, km_url),
     output_signal_source(km_url, my_instance_name,  "wavedata"),
+    grc_src(km_url, my_instance_name, "grc_data"),
     poll_thread(this, &ExSignalGenerator::poll),
     poll_thread_started(false),
     amplitude(10.0),
@@ -121,31 +122,37 @@ void ExSignalGenerator::poll()
     int i;
     double n;
     double s_per_c;
-    n=0;
-        while (1)
+    float grc_sample;
+    n = 0;
+    while (1)
     {
-        Time_t delay = 1000000000/static_cast<Time_t>(rate_factor);
+        Time_t delay = 1000000000 / static_cast<Time_t>(rate_factor);
         Time::thread_delay(delay);
-        s_per_c = rate_factor/frequency;
+        s_per_c = rate_factor / frequency;
         switch (waveform_type)
         {
             case TONE:
-                sample = amplitude * cos(n/s_per_c * M_PI);
-                n = n+1.0;
-            break;
+                sample = amplitude * cos(n / s_per_c * M_PI);
+                n = n + 1.0;
+                break;
             case NOISE:
-                sample = amplitude * static_cast<double>(rand())/RAND_MAX;
-            break;
+                sample = amplitude * static_cast<double>(rand()) / RAND_MAX;
+                break;
             case DC:
                 sample = amplitude;
-            break;
+                break;
             default:
                 printf("unknown waveform?\n");
-            break;
+                break;
         }
-        output_signal_source.publish(sample); 
-        if (ctr++%512 == 0)       
-            printf("SG: %f\n", sample);  
+
+        output_signal_source.publish(sample);
+
+        grc_sample = (float)sample;
+        grc_src.publish(grc_sample);
+
+        if (ctr++ % 512 == 0)
+            printf("SG: %f\n", sample);
     }
 }
 

@@ -22,6 +22,8 @@ components:
         waveform: tone
         amplitude: 100.0
         frequency: 20.0
+        grc_url:
+            grc_data: tcp://*:5556
         Sources:
             wavedata: A
         Transports:
