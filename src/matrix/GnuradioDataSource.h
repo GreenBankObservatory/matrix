@@ -140,7 +140,7 @@ namespace matrix
     template<typename T>
     void GnuradioDataSource<T>::disconnect()
     {
-        _sock->unbind(_zmq_address);
+        _sock->unbind(_zmq_address.c_str());
     }
 
 /**
@@ -179,7 +179,7 @@ namespace matrix
     {
         try
         {
-            _sock->bind(_zmq_address);
+            _sock->bind(_zmq_address.c_str());
             std::cout << __PRETTY_FUNCTION__ << " bind to " << _zmq_address << " ok!" << std::endl;
             return true;
         }
