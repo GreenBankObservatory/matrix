@@ -33,14 +33,14 @@ Correspondence concerning GBT software should be addressed as follows:
 namespace matrix
 {
     template<typename ... Args>
-    string string_format( const std::string& format, Args ... args )
+    std::string string_format( const std::string& format, Args ... args )
     {
         // query the length we need by providing a zero sized buffer, 
         // and adding extra space for the terminating \0
         size_t size = snprintf( nullptr, 0, format.c_str(), args ... ) + 1; 
-        unique_ptr<char[]> buf( new char[ size ] ); 
+        std::unique_ptr<char[]> buf( new char[ size ] ); 
         snprintf( buf.get(), size, format.c_str(), args ... );
-        return string( buf.get(), buf.get() + size - 1 ); 
+        return std::string( buf.get(), buf.get() + size - 1 ); 
     }
 };
 
