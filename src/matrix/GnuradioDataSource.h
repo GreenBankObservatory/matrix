@@ -84,6 +84,7 @@ namespace matrix
         ~GnuradioDataSource() throw();
 
         bool publish(T &);
+        bool publish(T *val, size_t nelements);
         bool connect();
         void disconnect();
 
@@ -151,10 +152,6 @@ namespace matrix
  *     float
  *     complex [float real, float imag]
  *
- * I've also observed that grc seems to block data into 32kb chunks
- * before passing it on to another block. I'm not sure if this is due to
- * grc or some mistake in my zmq use.
- *
  * @param data: The data to send.
  *
  * @return true if the put succeeds, false otherwise.
@@ -167,12 +164,11 @@ namespace matrix
         return _sock->send((void *)&val, sizeof(val), 0);
     }
 
-//    template <>
-//    bool GnuradioDataSource<std::vector<float>>::publish(std::vector<float> val)
-//    {
-//        return sock.send((void *)val.data(), val.size() * sizeof(float));
-//    }
-
+    template <typename T>
+    bool GnuradioDataSource<T>::publish(T *val, size_t nelements)
+    {
+        return _sock->send((void *)val, nelements * sizeof(T), 0);
+    }
 
     template <typename T>
     bool GnuradioDataSource<T>::connect()

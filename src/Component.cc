@@ -335,7 +335,8 @@ void Component::_command_loop()
             throw e;
         }
 
-        dbprintf("%s: processing command %s\n", __PRETTY_FUNCTION__, command.c_str());
+        dbprintf("%s: %s processing command %s\n", __PRETTY_FUNCTION__,
+               my_instance_name.c_str(), command.c_str());
         process_command(command);
     }
 }

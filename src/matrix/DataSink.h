@@ -339,7 +339,6 @@ namespace matrix
         bool any_of(int usecs)
         {
             ThreadLock<decltype(_item_placed)> l(_item_placed);
-            timespec curtime, to;
             Time::Time_t time_to_quit = Time::getUTC() + ((Time::Time_t)usecs) * 1000L;
             l.lock();
 
@@ -370,7 +369,6 @@ namespace matrix
         bool all_of(int usecs)
         {
             ThreadLock<decltype(_item_placed)> l(_item_placed);
-            timespec curtime, to;
             Time::Time_t time_to_quit = Time::getUTC() + ((Time::Time_t)usecs) * 1000L;
             l.lock();
 
