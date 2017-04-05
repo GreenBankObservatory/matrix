@@ -23,6 +23,7 @@ set(INCLUDE_FILES
     matrix/ResourceLock.h
     matrix/RTDataInterface.h
     matrix/Semaphore.h
+    matrix/string_format.h
     matrix/TCondition.h
     matrix/TestDataGenerator.h
     matrix/Thread.h
@@ -52,6 +53,7 @@ set(SOURCE_FILES
     TestDataGenerator.cc
     Thread.cc
     Time.cc
+    string_format.cc
     yaml_util.cc
     zmq_util.cc
     ZMQContext.cc

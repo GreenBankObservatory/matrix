@@ -21,8 +21,11 @@ Correspondence concerning GBT software should be addressed as follows:
       P. O. Box 2
       Green Bank, WV 24944-0002 USA
 */
-#ifndef string_printf_h
-#define string_printf_h
+#ifndef matrix_string_printf_h
+#define matrix_string_printf_h
+
+#include <string>
+#include <memory>
 
 /// string_format - a template to format args into a std::string using
 /// a modern C++ varargs template. The routine guards against overflow
@@ -42,6 +45,13 @@ namespace matrix
         snprintf( buf.get(), size, format.c_str(), args ... );
         return std::string( buf.get(), buf.get() + size - 1 ); 
     }
+
+    /// Something things that should be in the STL ...
+    bool str_strcasecmp(const std::string a, const std::string b);
+    bool str_strncasecmp(const std::string a, const std::string b);
+    size_t substring_in(const std::string needle, 
+                        const std::string haystack,
+                        bool case_insensitive=false);
 };
 
 #endif
