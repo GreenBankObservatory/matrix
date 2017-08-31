@@ -1578,6 +1578,7 @@ void Keymaster::_subscriber_task()
         {
             cerr << Time::isoDateTime(Time::getUTC())
                  << " -- Keymaster subscriber task: " << e.what() << endl;
+            break;
         }
         catch (YAML::Exception &e)
         {
