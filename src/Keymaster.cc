@@ -146,6 +146,7 @@ struct KeymasterServer::KmImpl
     std::string _hostname;
     bool _state_task_quit;
     bool _running;
+    int _clone_interval;
 
     // The service URLs. Each interface (STATE or PUBLISH) may have
     // multiple URLs (tcp, inproc, ipc) for possible future
@@ -184,7 +185,8 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
     _data_queue(1000),
     _state_task_url(string("inproc://") + gen_random_string(20)),
     _state_task_quit(true),
-    _running(true)
+    _running(true),
+    _clone_interval(0)
 {
     int i = 0;
 
@@ -307,6 +309,8 @@ void KeymasterServer::KmImpl::setup_urls()
 {
     vector<string>::const_iterator cvi;
     vector<string> urls = _root_node.front()["Keymaster"]["URLS"]["Initial"].as<vector<string> >();
+    // TODO: make key optional
+    _clone_interval = _root_node.front()["Keymaster"]["clone_interval"].as<int>();
 
     for (cvi = urls.begin(); cvi != urls.end(); ++cvi)
     {
@@ -553,6 +557,11 @@ void KeymasterServer::KmImpl::state_manager_task()
 
     _state_manager_thread_ready.signal(true); // allow 'run()' to move
                                               // on.
+
+    if (_clone_interval != 0)
+    {
+        clone_interval = _clone_interval;
+    }
     while (1)
     {
         try

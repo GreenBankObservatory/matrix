@@ -23,6 +23,7 @@ set(INCLUDE_FILES
     matrix/ResourceLock.h
     matrix/RTDataInterface.h
     matrix/Semaphore.h
+    matrix/SharedObjectRegistry.h
     matrix/string_format.h
     matrix/TCondition.h
     matrix/TestDataGenerator.h
@@ -50,6 +51,7 @@ set(SOURCE_FILES
     netUtils.cc
     RTDataInterface.cc
     Semaphore.cc
+    SharedObjectRegistry.cc
     TestDataGenerator.cc
     Thread.cc
     Time.cc
