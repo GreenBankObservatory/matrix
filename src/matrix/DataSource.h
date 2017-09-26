@@ -33,6 +33,7 @@
 #include "matrix/DataInterface.h"
 
 #include <vector>
+#include <msgpack.hpp>
 
 namespace matrix
 {
@@ -79,11 +80,12 @@ namespace matrix
  *
  */
 
-    template <typename T>
+    template<typename T>
     class DataSource
     {
     public:
         DataSource(std::string km_urn, std::string component_name, std::string data_name);
+
         ~DataSource() throw();
 
         bool publish(T &);
@@ -109,13 +111,13 @@ namespace matrix
  *
  */
 
-    template <typename T>
+    template<typename T>
     DataSource<T>::DataSource(std::string km_urn, std::string component_name, std::string data_name)
-        :
-          _km_urn(km_urn),
-          _component_name(component_name),
-          _data_name(data_name),
-          _key(component_name + "." + data_name)
+            :
+            _km_urn(km_urn),
+            _component_name(component_name),
+            _data_name(data_name),
+            _key(component_name + "." + data_name)
     {
         Keymaster km(km_urn);
         // obtain the transport name associated with this data source and
@@ -127,7 +129,7 @@ namespace matrix
         _ts = TransportServer::get_transport(km_urn, _component_name, _transport_name);
     }
 
-    template <typename T>
+    template<typename T>
     DataSource<T>::~DataSource() throw()
     {
         _ts.reset();
@@ -144,7 +146,7 @@ namespace matrix
  *
  */
 
-    template <typename T>
+    template<typename T>
     bool DataSource<T>::publish(T &val)
     {
         return _ts->publish(_key, &val, sizeof val);
@@ -159,7 +161,7 @@ namespace matrix
  *
  */
 
-    template <>
+    template<>
     inline bool DataSource<std::string>::publish(std::string &val)
     {
         return _ts->publish(_key, val);
@@ -175,8 +177,25 @@ namespace matrix
  *
  */
 
-    template <>
+    template<>
     inline bool DataSource<matrix::GenericBuffer>::publish(matrix::GenericBuffer &val)
+    {
+        return _ts->publish(_key, val.data(), val.size());
+    }
+
+
+/**
+ * Specialization for msgpack::sbuffer (serialization buffers)
+ *
+ * @param val: A msgpack::sbuffer whose serialzed
+ * internal buffer contains the bytes to be published.
+ *
+ * @return true if the put succeeds, false otherwise.
+ *
+ */
+
+    template<>
+    inline bool DataSource<msgpack::sbuffer>::publish(msgpack::sbuffer &val)
     {
         return _ts->publish(_key, val.data(), val.size());
     }
