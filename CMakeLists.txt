@@ -16,4 +16,6 @@ add_subdirectory(examples/Helloworld)
 # autotools, so the actual directory will be under lib, bin, 
 # include etc.
 #
-# cmake .. -DCMAKE_INSTALL_PREFIX=../_install
+# THIRDPARTYDIR must be specified in all cases.
+#
+# cmake .. -DCMAKE_INSTALL_PREFIX=../_install -DTHIRDPARTYDIR=/home/gbt1/lib_16.3
