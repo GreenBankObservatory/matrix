@@ -47,11 +47,11 @@
 /// *  'processed_data' - a copy of the input data with the specified operation
 /// applied (e.g. squaring).
 
-class ExProcessor : public Component
+class ExProcessor : public matrix::Component
 {
 public:
   
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~ExProcessor();
     
 protected:    
@@ -73,9 +73,9 @@ protected:
 protected:
     matrix::DataSink<double, matrix::select_only>     input_signal_sink;    
     matrix::DataSource<double>     output_signal_source;
-  
-    Thread<ExProcessor>         poll_thread;
-    TCondition<bool>            poll_thread_started;
+
+    matrix::Thread<ExProcessor>         poll_thread;
+    matrix::TCondition<bool>            poll_thread_started;
     int operation;
     enum Operation { NONE, SQUARE }; 
     

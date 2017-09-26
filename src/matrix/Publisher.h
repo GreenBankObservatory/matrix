@@ -32,43 +32,47 @@
 #include <vector>
 #include <memory>
 
-class PublisherException : public exception
+namespace matrix
 {
-    std::string msg;
-
-public:
-
-    PublisherException(std::string err_msg, std::vector<std::string> t std::vector<std::string>())
+    class PublisherException : public exception
     {
-        std::string x = boost::algorithm::join(t, ", ");
-        msg = std::string("Publisher: ") + err_msg + "; " + x;
-    }
+        std::string msg;
 
-    ~PublisherException() throw()
+    public:
+
+        PublisherException(std::string err_msg, std::vector<std::string> t std::vector<std::string>())
+        {
+            std::string x = boost::algorithm::join(t, ", ");
+            msg = std::string("Publisher: ") + err_msg + "; " + x;
+        }
+
+        ~PublisherException() throw()
+        {
+        }
+
+        const char *what() const throw()
+        {
+            return msg.c_str();
+        }
+    };
+
+    class Publisher
     {
-    }
+    public:
 
-    const char *what() const throw()
-    {
-        return msg.c_str();
-    }
-};
+        Publisher(std::vector<std::vector<std::string> > urls);
 
-class Publisher
+        ~Publisher();
 
-{
-  public:
+        bool publish_data(std::string key, std::string data);
 
-    Publisher(std::vector<std::vector<std::string> > urls);
-    ~Publisher();
+        std::vector<std::vector<std::string> > get_urls();
 
-    bool publish_data(std::string key, std::string data);
-    std::vector<std::vector<std::string> > get_urls();
+    private:
 
-  private:
-
-    struct PubImpl;
-    std::shared_ptr<PubImpl> _impl;
+        struct PubImpl;
+        std::shared_ptr<PubImpl> _impl;
+    };
 };
 
 #endif // _PUBLISHER_H_

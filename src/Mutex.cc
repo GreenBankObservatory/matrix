@@ -37,16 +37,17 @@
  *
  *******************************************************************/
 
-
-Mutex::~Mutex()
+namespace matrix
 {
-    pthread_mutex_destroy(&mutex);
-}
+    Mutex::~Mutex()
+    {
+        pthread_mutex_destroy(&mutex);
+    }
 
-Mutex::Mutex()
-{
-    pthread_mutex_init(&mutex, 0);
-}
+    Mutex::Mutex()
+    {
+        pthread_mutex_init(&mutex, 0);
+    }
 
 /****************************************************************//**
  * Locks the mutex.
@@ -56,10 +57,10 @@ Mutex::Mutex()
  *
  *******************************************************************/
 
-int Mutex::lock()
-{
-    return pthread_mutex_lock(&mutex);
-}
+    int Mutex::lock()
+    {
+        return pthread_mutex_lock(&mutex);
+    }
 
 /****************************************************************//**
  * Unlocks the mutex.
@@ -69,7 +70,8 @@ int Mutex::lock()
  *
  *******************************************************************/
 
-int Mutex::unlock()
-{
-    return pthread_mutex_unlock(&mutex);
-}
+    int Mutex::unlock()
+    {
+        return pthread_mutex_unlock(&mutex);
+    }
+}; // namespace matrix

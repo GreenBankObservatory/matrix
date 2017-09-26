@@ -27,67 +27,103 @@
 #include<string>
 #include<memory>
 
-class Keymaster;
 
-class SharedObjectRegistry
+
+namespace matrix
 {
-public:
-    SharedObjectRegistry(std::shared_ptr<Keymaster> &km);
-    void * get_shared_obj(std::string);
-    void   add_shared_object(std::string key, void *p);
-    void * remove_shared_object(std::string key);
-    
-protected:
-    void * _get_shared_obj(std::string);
+    class Keymaster;
 
-    std::map<std::string, void *> shared_objs;
-    char addr_string[32];
-    std::shared_ptr<Keymaster> keymaster;
-};
+    class SharedObjectRegistry
+    {
+    public:
+        SharedObjectRegistry(std::shared_ptr<matrix::Keymaster> &km);
+
+        void *get_shared_obj(std::string);
+
+        void add_shared_object(std::string key, void *p);
+
+        void *remove_shared_object(std::string key);
+
+    protected:
+        void *_get_shared_obj(std::string);
+
+        std::map<std::string, void *> shared_objs;
+        char addr_string[32];
+        std::shared_ptr<matrix::Keymaster> keymaster;
+    };
 
 /// A template for accessing the shared object with a cleaner feel.
 /// Nothing magic here, and no resource management.
-template<typename T>
-class SharedObject
-{
-public:
-    SharedObject(void *p = nullptr) : ptr((T*)p) {}
-    void set_ptr(void *p) { ptr = (T*)p; }
-    T    get()     { return *ptr; }
-    T   *get_ptr() { return ptr; }
-    void set(T v)  { *ptr = v; }
-    bool valid()   { return ptr != nullptr; }
-    T *operator->(){ return ptr; }
+    template<typename T>
+    class SharedObject
+    {
+    public:
+        SharedObject(void *p = nullptr) : ptr((T *) p)
+        {
+        }
 
-    // historical Node interface
-    bool getValue(T &x) 
-    { 
-        if (valid()) 
+        void set_ptr(void *p)
         {
-            x = get(); 
-            return true;
+            ptr = (T *) p;
         }
-        else 
+
+        T get()
         {
-            return false; 
+            return *ptr;
         }
-    }
-    bool setValue(T x)  
-    { 
-        if (valid()) 
+
+        T *get_ptr()
         {
-            set(x); 
-            return true;
+            return ptr;
         }
-        else 
+
+        void set(T v)
         {
-            return false; 
+            *ptr = v;
         }
-    }
-protected:    
-    T *ptr;
+
+        bool valid()
+        {
+            return ptr != nullptr;
+        }
+
+        T *operator->()
+        {
+            return ptr;
+        }
+
+        // historical Node interface
+        bool getValue(T &x)
+        {
+            if (valid())
+            {
+                x = get();
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        bool setValue(T x)
+        {
+            if (valid())
+            {
+                set(x);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+    protected:
+        T *ptr;
+    };
+
 };
-    
 
 
 #endif

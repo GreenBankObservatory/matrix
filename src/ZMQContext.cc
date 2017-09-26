@@ -32,8 +32,12 @@
 #include "matrix/ZMQContext.h"
 #include "matrix/ThreadLock.h"
 
-std::shared_ptr<ZMQContext> ZMQContext::_instance;
-Mutex ZMQContext::_instance_lock;
+using namespace matrix;
+
+namespace matrix
+{
+    std::shared_ptr<ZMQContext> ZMQContext::_instance;
+    Mutex ZMQContext::_instance_lock;
 
 /********************************************************************
  * ZMQContext::ZMQContext
@@ -44,15 +48,14 @@ Mutex ZMQContext::_instance_lock;
  *
  *******************************************************************/
 
-ZMQContext::ZMQContext() : _context(1)
-
-{
-    timespec ts;
-    unsigned int seed;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    seed = static_cast<unsigned int>((ts.tv_sec * 1000000000LL + ts.tv_nsec) % 0x100000000);
-    srandom(seed);
-}
+    ZMQContext::ZMQContext() : _context(1)
+    {
+        timespec ts;
+        unsigned int seed;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        seed = static_cast<unsigned int>((ts.tv_sec * 1000000000LL + ts.tv_nsec) % 0x100000000);
+        srandom(seed);
+    }
 
 /********************************************************************
  * ZMQContext::~ZMQContext
@@ -62,10 +65,9 @@ ZMQContext::ZMQContext() : _context(1)
  *
  *******************************************************************/
 
-ZMQContext::~ZMQContext()
-
-{
-}
+    ZMQContext::~ZMQContext()
+    {
+    }
 
 /********************************************************************
  * ZMQContext::Instance()
@@ -77,22 +79,21 @@ ZMQContext::~ZMQContext()
  *
  *******************************************************************/
 
-std::shared_ptr<ZMQContext> ZMQContext::Instance()
-
-{
-    ThreadLock<Mutex> l(_instance_lock);
-
-    l.lock();
-    
-    if (_instance == NULL)
+    std::shared_ptr<ZMQContext> ZMQContext::Instance()
     {
-        _instance.reset(new ZMQContext());
+        ThreadLock<Mutex> l(_instance_lock);
+
+        l.lock();
+
+        if (_instance == NULL)
+        {
+            _instance.reset(new ZMQContext());
+        }
+
+        l.unlock();
+
+        return _instance;
     }
-
-    l.unlock();
-
-    return _instance;
-}
 
 /********************************************************************
  * ZMQContext::RemoveInstance()
@@ -101,14 +102,13 @@ std::shared_ptr<ZMQContext> ZMQContext::Instance()
  *
  *******************************************************************/
 
-void ZMQContext::RemoveInstance()
-
-{
-    ThreadLock<Mutex> l(_instance_lock);
-    l.lock();
-    _instance.reset();
-    l.unlock();
-}
+    void ZMQContext::RemoveInstance()
+    {
+        ThreadLock<Mutex> l(_instance_lock);
+        l.lock();
+        _instance.reset();
+        l.unlock();
+    }
 
 /********************************************************************
  * ZMQContext::get_context();
@@ -119,8 +119,8 @@ void ZMQContext::RemoveInstance()
  *
  *******************************************************************/
 
-zmq::context_t &ZMQContext::get_context()
-
-{
-    return _context;
-}
+    zmq::context_t &ZMQContext::get_context()
+    {
+        return _context;
+    }
+};

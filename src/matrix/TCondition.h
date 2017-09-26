@@ -59,93 +59,96 @@
 /// A template which implements a condition variable. This
 /// template can be used to signal/wait on a value of type T,
 /// or simply on a void signal.
-template <typename T> class TCondition : public Mutex
-
+namespace matrix
 {
-  public:
+    template<typename T>
+    class TCondition : public matrix::Mutex
+    {
+    public:
 
-    TCondition(T const &val);
-    virtual ~TCondition();
+        TCondition(T const &val);
 
-    /// Access the current value. Locks are used but the internal value may
-    /// change prior to being tested outside the class.
-    void get_value(T &v);
+        virtual ~TCondition();
 
-    /// Access the current value without the use of a lock.
-    T &value();
+        /// Access the current value. Locks are used but the internal value may
+        /// change prior to being tested outside the class.
+        void get_value(T &v);
 
-    /// Set the value atomically. See above, normal usage will use one arg.
-    /// A read-modify-write may use a false 2nd arg to indicate the lock is
-    /// already held, and should not be required. This would be the
-    /// case in a read-modify-write situation, as the the example:
-    ///
-    ///          cond.lock();
-    ///          cond.wait_with_lock(3);
-    ///          cond.set_value(0, false);
-    ///          cond.signal();
-    ///          cond.unlock();
-    ///
-    /// This would cause the waiting thread to wait until the internal
-    /// value was 3, then it would reset it safely to the value 0.
-    /// Note: We cannot use the method signal(T const &), as it would
-    /// attempt to relock the mutex. We also cannot use a regular
-    /// unlocking wait method followed by set_value(T) or signal(T)
-    /// because of the race between the unlock in wait and relock in
-    /// signal(T) or set_value(T).
+        /// Access the current value without the use of a lock.
+        T &value();
 
-    void set_value(T v, bool use_lock=true);
+        /// Set the value atomically. See above, normal usage will use one arg.
+        /// A read-modify-write may use a false 2nd arg to indicate the lock is
+        /// already held, and should not be required. This would be the
+        /// case in a read-modify-write situation, as the the example:
+        ///
+        ///          cond.lock();
+        ///          cond.wait_with_lock(3);
+        ///          cond.set_value(0, false);
+        ///          cond.signal();
+        ///          cond.unlock();
+        ///
+        /// This would cause the waiting thread to wait until the internal
+        /// value was 3, then it would reset it safely to the value 0.
+        /// Note: We cannot use the method signal(T const &), as it would
+        /// attempt to relock the mutex. We also cannot use a regular
+        /// unlocking wait method followed by set_value(T) or signal(T)
+        /// because of the race between the unlock in wait and relock in
+        /// signal(T) or set_value(T).
 
-    /// wait forever for the value to become equal to s.
-    /// Upon returning the internal mutex is unlocked.
-    void wait(T const &s);
+        void set_value(T v, bool use_lock = true);
 
-    /// wait with a timeout for the value to be equal to s.
-    /// Upon returning the internal mutex is unlocked.
-    /// Return value is true if the timeout was not reached,
-    /// or false if a timeout or error occured.
-    bool wait(T const &s, int usecs);
+        /// wait forever for the value to become equal to s.
+        /// Upon returning the internal mutex is unlocked.
+        void wait(T const &s);
 
-    /// wait without a timeout for the value to be equal to s.
-    /// Upon returning, the internal mutex is locked, and
-    /// the method unlock() must be used to unlock it.
-    /// Return value is true if the timeout was not reached,
-    /// or false otherwise.
-    void wait_with_lock(T const &s);
+        /// wait with a timeout for the value to be equal to s.
+        /// Upon returning the internal mutex is unlocked.
+        /// Return value is true if the timeout was not reached,
+        /// or false if a timeout or error occured.
+        bool wait(T const &s, int usecs);
 
-    /// wait with a timeout for the value to be equal to s.
-    /// Upon returning, the internal mutex is locked, and
-    /// the method unlock() must be used to unlock it.
-    /// Return value is true if the timeout was not reached,
-    /// or false otherwise.
-    bool wait_with_lock(T const &s, int usecs);
+        /// wait without a timeout for the value to be equal to s.
+        /// Upon returning, the internal mutex is locked, and
+        /// the method unlock() must be used to unlock it.
+        /// Return value is true if the timeout was not reached,
+        /// or false otherwise.
+        void wait_with_lock(T const &s);
 
-    /// Waits without checking the internal value. Upon returning
-    /// the internal mutex is locked, and must be unlocked by calling
-    /// the unlock() method. Return value is true if no timeout occured,
-    /// and false otherwise.
-    /// This is convienent to use when an external condition is checked.
-    bool wait_locked_with_timeout(int usecs);
+        /// wait with a timeout for the value to be equal to s.
+        /// Upon returning, the internal mutex is locked, and
+        /// the method unlock() must be used to unlock it.
+        /// Return value is true if the timeout was not reached,
+        /// or false otherwise.
+        bool wait_with_lock(T const &s, int usecs);
 
-    /// Singal without changing the internal value
-    void signal();
+        /// Waits without checking the internal value. Upon returning
+        /// the internal mutex is locked, and must be unlocked by calling
+        /// the unlock() method. Return value is true if no timeout occured,
+        /// and false otherwise.
+        /// This is convienent to use when an external condition is checked.
+        bool wait_locked_with_timeout(int usecs);
 
-    /// Set the value to 's' atomically and signal any waiters.
-    void signal(T const &s);
+        /// Singal without changing the internal value
+        void signal();
 
-    /// Broadcast without changing the internal value
-    void broadcast();
+        /// Set the value to 's' atomically and signal any waiters.
+        void signal(T const &s);
 
-    /// Set the value to 's' and send a broadcast
-    void broadcast(T const &s);
+        /// Broadcast without changing the internal value
+        void broadcast();
 
-  protected:
+        /// Set the value to 's' and send a broadcast
+        void broadcast(T const &s);
 
-    TCondition(TCondition &);
+    protected:
 
-    T _value;
-    pthread_cond_t _cond;
+        TCondition(TCondition &);
 
-};
+        T _value;
+        pthread_cond_t _cond;
+
+    };
 
 /*****************************************************************//**
  * Constructor, sets the initial condition value and initializes
@@ -155,25 +158,25 @@ template <typename T> class TCondition : public Mutex
  *
  *********************************************************************/
 
-template <typename T> TCondition<T>::TCondition(T const &val)
-                                      : Mutex(), _value(val)
+    template<typename T>
+    TCondition<T>::TCondition(T const &val)
+            : Mutex(), _value(val)
+    {
+        pthread_cond_init(&_cond, NULL);
 
-{
-    pthread_cond_init(&_cond, NULL);
-
-}
+    }
 
 /*****************************************************************//**
  * Destroys the internal data member pthread_cond_t.
  *
  *********************************************************************/
 
-template <typename T> TCondition<T>::~TCondition()
+    template<typename T>
+    TCondition<T>::~TCondition()
+    {
+        pthread_cond_destroy(&_cond);
 
-{
-    pthread_cond_destroy(&_cond);
-
-}
+    }
 
 
 /****************************************************************//**
@@ -183,14 +186,14 @@ template <typename T> TCondition<T>::~TCondition()
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::get_value(T &v)
+    template<typename T>
+    void TCondition<T>::get_value(T &v)
+    {
+        lock();
+        v = _value;
+        unlock();
 
-{
-    lock();
-    v = _value;
-    unlock();
-
-}
+    }
 
 /****************************************************************//**
  * Returns a reference to the value data member.
@@ -199,11 +202,11 @@ template <typename T> void TCondition<T>::get_value(T &v)
  *
  *******************************************************************/
 
-template <typename T> T &TCondition<T>::value()
-
-{
-    return _value;
-}
+    template<typename T>
+    T &TCondition<T>::value()
+    {
+        return _value;
+    }
 
 /****************************************************************//**
  * Allows a caller to set the value of the underlying condition
@@ -215,18 +218,20 @@ template <typename T> T &TCondition<T>::value()
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::set_value(T v, bool use_lock)
-
-{
-    if (use_lock)
+    template<typename T>
+    void TCondition<T>::set_value(T v, bool use_lock)
     {
-        lock();
-        _value = v;
-        unlock();
-    } else {
-        _value = v;
+        if (use_lock)
+        {
+            lock();
+            _value = v;
+            unlock();
+        }
+        else
+        {
+            _value = v;
+        }
     }
-}
 
 /****************************************************************//**
  * Signals that state parameter has been updated.  This releases exactly
@@ -236,11 +241,11 @@ template <typename T> void TCondition<T>::set_value(T v, bool use_lock)
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::signal()
-
-{
-    pthread_cond_signal(&_cond);
-}
+    template<typename T>
+    void TCondition<T>::signal()
+    {
+        pthread_cond_signal(&_cond);
+    }
 
 /****************************************************************//**
  * Signals that state parameter has been updated.  This releases exactly
@@ -252,28 +257,15 @@ template <typename T> void TCondition<T>::signal()
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::signal(T const &s)
+    template<typename T>
+    void TCondition<T>::signal(T const &s)
+    {
+        lock();
+        _value = s;
+        pthread_cond_signal(&_cond);
+        unlock();
 
-{
-    lock();
-    _value = s;
-    pthread_cond_signal(&_cond);
-    unlock();
-
-}
-
-/****************************************************************//**
- * Broadcasts that state parameter has been updated.  Releases all
- * threads waiting for this condition.  If no threads are waiting,
- * nothing happens.
- *
- *******************************************************************/
-
-template <typename T> void TCondition<T>::broadcast()
-
-{
-    pthread_cond_broadcast(&_cond);
-}
+    }
 
 /****************************************************************//**
  * Broadcasts that state parameter has been updated.  Releases all
@@ -282,15 +274,28 @@ template <typename T> void TCondition<T>::broadcast()
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::broadcast(T const &s)
+    template<typename T>
+    void TCondition<T>::broadcast()
+    {
+        pthread_cond_broadcast(&_cond);
+    }
 
-{
-    lock();
-    _value = s;
-    pthread_cond_broadcast(&_cond);
-    unlock();
+/****************************************************************//**
+ * Broadcasts that state parameter has been updated.  Releases all
+ * threads waiting for this condition.  If no threads are waiting,
+ * nothing happens.
+ *
+ *******************************************************************/
 
-}
+    template<typename T>
+    void TCondition<T>::broadcast(T const &s)
+    {
+        lock();
+        _value = s;
+        pthread_cond_broadcast(&_cond);
+        unlock();
+
+    }
 
 /****************************************************************//**
  * Waits for a corresponding signal or broadcast.
@@ -303,14 +308,14 @@ template <typename T> void TCondition<T>::broadcast(T const &s)
  *
  *******************************************************************/
 
-template <typename T> bool TCondition<T>::wait(T const &s, int usecs)
+    template<typename T>
+    bool TCondition<T>::wait(T const &s, int usecs)
+    {
+        bool rval = wait_with_lock(s, usecs);
+        unlock();
+        return rval;
 
-{
-    bool rval = wait_with_lock(s, usecs);
-    unlock();
-    return rval;
-
-}
+    }
 
 /****************************************************************//**
  * Waits for a corresponding signal or broadcast.
@@ -322,13 +327,13 @@ template <typename T> bool TCondition<T>::wait(T const &s, int usecs)
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::wait(T const &s)
+    template<typename T>
+    void TCondition<T>::wait(T const &s)
+    {
+        wait_with_lock(s);
+        unlock();
 
-{
-    wait_with_lock(s);
-    unlock();
-
-}
+    }
 
 /****************************************************************//**
  * Waits for a corresponding signal or broadcast, but does not unlock
@@ -340,17 +345,17 @@ template <typename T> void TCondition<T>::wait(T const &s)
  *
  *******************************************************************/
 
-template <typename T> void TCondition<T>::wait_with_lock(T const &s)
-
-{
-    lock();
-
-    while (_value != s)
+    template<typename T>
+    void TCondition<T>::wait_with_lock(T const &s)
     {
-        pthread_cond_wait(&_cond, &mutex);
+        lock();
+
+        while (_value != s)
+        {
+            pthread_cond_wait(&_cond, &mutex);
+        }
+        // Do not unlock!
     }
-    // Do not unlock!
-}
 
 /****************************************************************//**
  * Waits for a corresponding signal or broadcast, then returns without
@@ -364,59 +369,60 @@ template <typename T> void TCondition<T>::wait_with_lock(T const &s)
  *
  *******************************************************************/
 
-template <typename T> bool TCondition<T>::wait_with_lock(T const &s, int usecs)
-
-{
-    timespec to;
-    int status;
-    bool rval = true;
-
-    Time::Time_t time_to_return;
-
-    time_to_return = Time::getUTC(CLOCK_REALTIME) + (usecs * (Time::Time_t)1000);
-    Time::time2timespec(time_to_return, to);
-
-    lock();
-
-    while (_value != s)
+    template<typename T>
+    bool TCondition<T>::wait_with_lock(T const &s, int usecs)
     {
-        status = pthread_cond_timedwait(&_cond, &mutex, &to);
+        timespec to;
+        int status;
+        bool rval = true;
 
-        if (status == ETIMEDOUT)
+        Time::Time_t time_to_return;
+
+        time_to_return = Time::getUTC(CLOCK_REALTIME) + (usecs * (Time::Time_t) 1000);
+        Time::time2timespec(time_to_return, to);
+
+        lock();
+
+        while (_value != s)
         {
-            rval = false;
-            break;
+            status = pthread_cond_timedwait(&_cond, &mutex, &to);
+
+            if (status == ETIMEDOUT)
+            {
+                rval = false;
+                break;
+            }
         }
+
+        // Do not unlock!
+        return rval;
+
     }
-
-    // Do not unlock!
-    return rval;
-
-}
 
 // Wait with a timeout, but ignore the internal value.
 // This allows the implementation of an external while loop.
 // Note: Must be called with the condition already locked.
 // Returns with condition locked.
-template <typename T> bool TCondition<T>::wait_locked_with_timeout(int usecs)
-{
-    timespec to;
-    int status;
-    bool rval = true;
-
-    Time::Time_t time_to_return;
-
-    time_to_return = Time::getUTC(CLOCK_REALTIME) + (usecs * (Time::Time_t)1000);
-    Time::time2timespec(time_to_return, to);
-
-    status = pthread_cond_timedwait(&_cond, &mutex, &to);
-
-    if (status == ETIMEDOUT)
+    template<typename T>
+    bool TCondition<T>::wait_locked_with_timeout(int usecs)
     {
-        rval = false;
-    }
-    // Do not unlock!
-    return rval;
-}
+        timespec to;
+        int status;
+        bool rval = true;
 
+        Time::Time_t time_to_return;
+
+        time_to_return = Time::getUTC(CLOCK_REALTIME) + (usecs * (Time::Time_t) 1000);
+        Time::time2timespec(time_to_return, to);
+
+        status = pthread_cond_timedwait(&_cond, &mutex, &to);
+
+        if (status == ETIMEDOUT)
+        {
+            rval = false;
+        }
+        // Do not unlock!
+        return rval;
+    }
+};
 #endif

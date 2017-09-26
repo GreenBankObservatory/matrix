@@ -30,6 +30,7 @@
 
 using namespace std;
 using namespace YAML;
+using namespace matrix;
 
 // A simple toy Component for testing
 class HelloWorldComponent : public Component

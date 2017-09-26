@@ -26,7 +26,8 @@
 #include "matrix/FiniteStateMachine.h"
 
 using namespace std;
-using namespace FSM;
+using namespace matrix;
+using namespace matrix::FSM;
 
 class Someclass 
 {

@@ -35,6 +35,7 @@
 
 using namespace std;
 using namespace mxutils;
+using namespace matrix;
 
 void PublisherTest::test_publish_data()
 {

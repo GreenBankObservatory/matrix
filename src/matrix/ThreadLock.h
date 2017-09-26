@@ -56,25 +56,30 @@
  *     } // unlocks when foo goes out of scope
  *
  *******************************************************************/
-
-template<typename X> class ThreadLock
+namespace matrix
 {
-  public:
+    template<typename X>
+    class ThreadLock
+    {
+    public:
 
-    explicit ThreadLock (X &p);
-    ~ThreadLock();
+        explicit ThreadLock(X &p);
+
+        ~ThreadLock();
 
 
-    int lock();
-    int unlock();
-    int last_error();
+        int lock();
 
-  private:
+        int unlock();
 
-    X &_the_lock;
-    bool locked;
-    int rval;
-};
+        int last_error();
+
+    private:
+
+        X &_the_lock;
+        bool locked;
+        int rval;
+    };
 
 /****************************************************************//**
  * Constructs a ThreadLock object that locks a type X.
@@ -84,11 +89,13 @@ template<typename X> class ThreadLock
  *
  *******************************************************************/
 
-template<typename X> ThreadLock<X>::ThreadLock(X &p)
-    :  _the_lock(p),
-       locked(false),
-       rval(0)
-{}
+    template<typename X>
+    ThreadLock<X>::ThreadLock(X &p)
+            : _the_lock(p),
+              locked(false),
+              rval(0)
+    {
+    }
 
 /****************************************************************//**
  * Destructor. Unlocks the object X. This means X will always be
@@ -96,10 +103,11 @@ template<typename X> ThreadLock<X>::ThreadLock(X &p)
  *
  *******************************************************************/
 
-template<typename X> ThreadLock<X>::~ThreadLock()
-{
-    unlock();
-}
+    template<typename X>
+    ThreadLock<X>::~ThreadLock()
+    {
+        unlock();
+    }
 
 /****************************************************************//**
  * Locks the object X.
@@ -109,15 +117,16 @@ template<typename X> ThreadLock<X>::~ThreadLock()
  *
  *******************************************************************/
 
-template<typename X> int ThreadLock<X>::lock()
-{
-    if ((rval = _the_lock.lock()) == 0)
+    template<typename X>
+    int ThreadLock<X>::lock()
     {
-        locked = true;
-    }
+        if ((rval = _the_lock.lock()) == 0)
+        {
+            locked = true;
+        }
 
-    return rval;
-}
+        return rval;
+    }
 
 /****************************************************************//**
  * Unlocks the object X.
@@ -127,20 +136,21 @@ template<typename X> int ThreadLock<X>::lock()
  *
  *******************************************************************/
 
-template<typename X> int ThreadLock<X>::unlock()
-{
-    if (locked)
+    template<typename X>
+    int ThreadLock<X>::unlock()
     {
-        if ((rval = _the_lock.unlock()) == 0)
+        if (locked)
         {
-            locked = false;
+            if ((rval = _the_lock.unlock()) == 0)
+            {
+                locked = false;
+            }
+
+            return rval;
         }
 
-        return rval;
+        return 0;
     }
-
-    return 0;
-}
 
 /****************************************************************//**
  * Returns the value last returned by `lock()` and `unlock()`
@@ -150,9 +160,11 @@ template<typename X> int ThreadLock<X>::unlock()
  *
  *******************************************************************/
 
-template<typename X> int ThreadLock<X>::last_error()
-{
-    return rval;
-}
+    template<typename X>
+    int ThreadLock<X>::last_error()
+    {
+        return rval;
+    }
+};
 
 #endif

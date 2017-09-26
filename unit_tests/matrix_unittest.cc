@@ -37,6 +37,7 @@
 #include "ResourceLockTest.h"
 
 using namespace std;
+using namespace matrix;
 
 shared_ptr<ZMQContext> ctx; // = ZMQContext::Instance();
 

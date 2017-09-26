@@ -60,6 +60,7 @@
 
 using namespace std;
 using namespace mxutils;
+using namespace matrix;
 
 #define SUBSCRIBE   1
 #define UNSUBSCRIBE 2

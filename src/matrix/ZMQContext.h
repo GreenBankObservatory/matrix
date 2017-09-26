@@ -35,25 +35,28 @@
 
 #include <memory>
 
-class ZMQContext
-
+namespace matrix
 {
-  public:
-    ~ZMQContext();
+    class ZMQContext
+    {
+    public:
+        ~ZMQContext();
 
-    zmq::context_t &get_context();
+        zmq::context_t &get_context();
 
-    static std::shared_ptr<ZMQContext> Instance();
-    static void RemoveInstance();
+        static std::shared_ptr<ZMQContext> Instance();
 
-  private:
+        static void RemoveInstance();
 
-    zmq::context_t _context;
+    private:
 
-    ZMQContext();
+        zmq::context_t _context;
 
-    static std::shared_ptr<ZMQContext> _instance;
-    static Mutex _instance_lock;
+        ZMQContext();
+
+        static std::shared_ptr<ZMQContext> _instance;
+        static Mutex _instance_lock;
+    };
 };
 
 #endif // _ZMQCONTEXT_H_

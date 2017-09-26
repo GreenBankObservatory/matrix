@@ -32,6 +32,7 @@
 
 using namespace std;
 using namespace Time;
+using namespace matrix;
 
 // test for approximate equivalent time
 void ResourceLockTest::test_release()

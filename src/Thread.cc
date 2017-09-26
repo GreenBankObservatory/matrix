@@ -28,5 +28,8 @@
 // This has to exist somewhere in the matrix library.
 // It can be moved if we ever make a matrix_utils.cc
 // But its here for now.
-ThreadBase::CreateHook ThreadBase::thread_create_hook = 0;
+namespace matrix
+{
+    ThreadBase::CreateHook ThreadBase::thread_create_hook = 0;
+};
 

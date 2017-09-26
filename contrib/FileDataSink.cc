@@ -47,6 +47,7 @@
 using namespace std;
 using namespace Time;
 using namespace mxutils;
+using namespace matrix;
 
 static void throw_value_error(string key, string msg)
 {
@@ -58,7 +59,7 @@ static void throw_value_error(string key, string msg)
     throw q;
 }
 
-Component * FileDataSink::factory(string name, string km_url)
+matrix::Component * FileDataSink::factory(string name, string km_url)
 {
     return new FileDataSink(name, km_url);
 }

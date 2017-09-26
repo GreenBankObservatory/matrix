@@ -34,6 +34,8 @@
 #include <pthread.h>
 
 /// Enapsulates a pthread mutex for mutual exclusion.
+namespace matrix
+{
 class Mutex
 {
   public:
@@ -69,7 +71,7 @@ public:
 protected:
     Mutex mtx;
 };
-
+};
 
 
 #endif

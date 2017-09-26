@@ -32,6 +32,7 @@
 
 using namespace std;
 using namespace YAML;
+using namespace matrix;
 
 void hook(void)
 {

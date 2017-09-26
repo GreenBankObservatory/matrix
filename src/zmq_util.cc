@@ -42,6 +42,7 @@
 #endif
 using namespace std;
 using namespace std::placeholders;
+using namespace matrix;
 
 namespace mxutils
 {

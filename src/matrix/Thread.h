@@ -66,65 +66,83 @@
 /// (e.g. xenomai RTOS) to do some initialization at thread start.
 /// To be safe, the set_thread_create_hook() should be called
 /// prior to creating any threads.
-class ThreadBase 
+namespace matrix
 {
-public:
-    typedef void (*CreateHook) ();
-    static void set_thread_create_hook(CreateHook h) 
+    class ThreadBase
     {
-        thread_create_hook = h;
-    }
-protected:
-    static CreateHook thread_create_hook;
-};
+    public:
+        typedef void (*CreateHook)();
 
-template<typename T>
-class Thread : public ThreadBase
-{
-    typedef Thread<T> THREAD;
-
-    /// Redirect to member function.
-    static void *thread_proc(void *thread)
-    {
-        if (thread_create_hook)
+        static void set_thread_create_hook(CreateHook h)
         {
-            (thread_create_hook)();
+            thread_create_hook = h;
         }
-        return reinterpret_cast<THREAD *>(thread)->run();
-    }
 
-public:
+    protected:
+        static CreateHook thread_create_hook;
+    };
 
-    typedef void (T::*THREADPROC)();
-
-    Thread(T *object_, THREADPROC proc_, size_t stacksize_ = 0);
-    ~Thread();
-
-    int start(std::string thread_name = {});
-    bool running();
-    void stop();
-    void stop_without_cancel();
-    void detach();
-    void cancel();
-    void join();
-    bool joinable() { return false == _is_detached; }
-
-    pthread_t get_id() { return id; }
-
-private:
-    /// Redirect to the actual thread procedure.
-    void *run()
+    template<typename T>
+    class Thread : public matrix::ThreadBase
     {
-        (object->*proc)();
-        return 0;
-    }
+        typedef Thread<T> THREAD;
 
-    pthread_t  id;              ///< identifies the system thread
-    T         *object;          ///< thread data
-    THREADPROC proc;            ///< thread procedure
-    size_t stacksize;           ///< user specified thread stack size
-    bool _is_detached;          ///< has the thread been detached
-};
+        /// Redirect to member function.
+        static void *thread_proc(void *thread)
+        {
+            if (thread_create_hook)
+            {
+                (thread_create_hook)();
+            }
+            return reinterpret_cast<THREAD *>(thread)->run();
+        }
+
+    public:
+
+        typedef void (T::*THREADPROC)();
+
+        Thread(T *object_, THREADPROC proc_, size_t stacksize_ = 0);
+
+        ~Thread();
+
+        int start(std::string thread_name = {});
+
+        bool running();
+
+        void stop();
+
+        void stop_without_cancel();
+
+        void detach();
+
+        void cancel();
+
+        void join();
+
+        bool joinable()
+        {
+            return false == _is_detached;
+        }
+
+        pthread_t get_id()
+        {
+            return id;
+        }
+
+    private:
+        /// Redirect to the actual thread procedure.
+        void *run()
+        {
+            (object->*proc)();
+            return 0;
+        }
+
+        pthread_t id;              ///< identifies the system thread
+        T *object;          ///< thread data
+        THREADPROC proc;            ///< thread procedure
+        size_t stacksize;           ///< user specified thread stack size
+        bool _is_detached;          ///< has the thread been detached
+    };
 
 
 /**
@@ -139,14 +157,11 @@ private:
  *
  */
 
-template<typename T> Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, size_t stacksize_)
-    : id(0)
-    , object(object_)
-    , proc(proc_)
-    , stacksize(stacksize_)
-    , _is_detached(false)
-{
-}
+    template<typename T>
+    Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, size_t stacksize_)
+            : id(0), object(object_), proc(proc_), stacksize(stacksize_), _is_detached(false)
+    {
+    }
 
 /**
  * Destructor. Stops the thread with a cancel. If you wish to stop the
@@ -156,10 +171,11 @@ template<typename T> Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, 
  *
  */
 
-template<typename T> Thread<T>::~Thread()
-{
-    stop();
-}
+    template<typename T>
+    Thread<T>::~Thread()
+    {
+        stop();
+    }
 
 /**
  * Start the thread running.
@@ -171,49 +187,50 @@ template<typename T> Thread<T>::~Thread()
  *
  */
 
-template<typename T> int Thread<T>::start(std::string thread_name)
-{
-    int err;
+    template<typename T>
+    int Thread<T>::start(std::string thread_name)
+    {
+        int err;
 
 
-    assert(0 != object);
-    assert(0 != proc);
-    assert(0 == id);
+        assert(0 != object);
+        assert(0 != proc);
+        assert(0 == id);
 
 #if _POSIX_THREAD_ATTR_STACKSIZE
-    if (stacksize && sysconf(_SC_THREAD_ATTR_STACKSIZE) > 0)
-    {
-        pthread_attr_t attr;
-
-        if ((err = pthread_attr_init(&attr)) != 0)
+        if (stacksize && sysconf(_SC_THREAD_ATTR_STACKSIZE) > 0)
         {
-            return err;
-        }
+            pthread_attr_t attr;
 
-        if ((err = pthread_attr_setstacksize(&attr, stacksize)) != 0)
+            if ((err = pthread_attr_init(&attr)) != 0)
+            {
+                return err;
+            }
+
+            if ((err = pthread_attr_setstacksize(&attr, stacksize)) != 0)
+            {
+                return err;
+            }
+
+            err = pthread_create(&id, &attr, thread_proc, this);
+        }
+        else
         {
-            return err;
+            err = pthread_create(&id, 0, thread_proc, this);
         }
-
-        err = pthread_create(&id, &attr, thread_proc, this);
-    }
-    else
-    {
-        err = pthread_create(&id, 0, thread_proc, this);
-    }
 #else
-    err = pthread_create(&id, 0, thread_proc, this);
+        err = pthread_create(&id, 0, thread_proc, this);
 #endif
 
 #ifdef _GNU_SOURCE
-    if (!thread_name.empty())
-    {
-        pthread_setname_np(id, thread_name.c_str());
-    }
+        if (!thread_name.empty())
+        {
+            pthread_setname_np(id, thread_name.c_str());
+        }
 #endif
 
-    return err;
-}
+        return err;
+    }
 
 /**
  * Checks to see if the thread has been started and is running.
@@ -222,47 +239,50 @@ template<typename T> int Thread<T>::start(std::string thread_name)
  *
  */
 
-template<typename T> bool Thread<T>::running()
-
-{
-    return (0 != id);
-}
+    template<typename T>
+    bool Thread<T>::running()
+    {
+        return (0 != id);
+    }
 
 /**
  * Sends a cancel to the thread. Does not perform a join.
  */
-template<typename T> void Thread<T>::cancel()
-{
-    if (running())
+    template<typename T>
+    void Thread<T>::cancel()
     {
-        pthread_cancel(id);
+        if (running())
+        {
+            pthread_cancel(id);
+        }
     }
-}
 
 /**
  * Perform a thread join. Same as stop_without_cancel()
  */
-template<typename T> void Thread<T>::join()
-{
-    if (running() && joinable())
+    template<typename T>
+    void Thread<T>::join()
     {
-        pthread_join(id, 0);
-        id = 0;
+        if (running() && joinable())
+        {
+            pthread_join(id, 0);
+            id = 0;
+        }
     }
-}
 
 /**
  * Detach the thread. This is non-refundable -- you can't undo the detach.
  * Once detached, the thread can still be cancelled, but not joined.
  */
-template<typename T> void Thread<T>::detach()
-{
-    if (running())
+    template<typename T>
+    void Thread<T>::detach()
     {
-        pthread_detach(id);
-        _is_detached = true;
+        if (running())
+        {
+            pthread_detach(id);
+            _is_detached = true;
+        }
     }
-}
 
 /**
  * Stops the thread by cancelling it and joining on it. This is a severe
@@ -271,14 +291,15 @@ template<typename T> void Thread<T>::detach()
  *
  */
 
-template<typename T> void Thread<T>::stop()
-{
-    if (running())
+    template<typename T>
+    void Thread<T>::stop()
     {
-        cancel();
-        join();
+        if (running())
+        {
+            cancel();
+            join();
+        }
     }
-}
 
 /**
  * Does not issue a cancel to the thread, waits for the thread to end on
@@ -288,12 +309,14 @@ template<typename T> void Thread<T>::stop()
  *
  */
 
-template<typename T> void Thread<T>::stop_without_cancel()
-{
-    if (running())
+    template<typename T>
+    void Thread<T>::stop_without_cancel()
     {
-        join();
+        if (running())
+        {
+            join();
+        }
     }
-}
+};
 
 #endif

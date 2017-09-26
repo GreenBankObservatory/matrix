@@ -62,9 +62,9 @@ static std::string yaml_configuration =
 void TransportTest::setUp()
 {
     YAML::Node n = YAML::Load(yaml_configuration);
-    _kms.reset(new KeymasterServer(n));
+    _kms.reset(new matrix::KeymasterServer(n));
     _kms->run();
-    _km.reset(new Keymaster(km_urn));
+    _km.reset(new matrix::Keymaster(km_urn));
     TestCase::setUp();
 }
 

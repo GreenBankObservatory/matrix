@@ -22,22 +22,25 @@
 
 #include "matrix/Semaphore.h"
 
-Semaphore::~Semaphore()
+namespace matrix
 {
-    sem_destroy(&semaphore);
-}
+    Semaphore::~Semaphore()
+    {
+        sem_destroy(&semaphore);
+    }
 
-Semaphore::Semaphore()
-{
-    sem_init(&semaphore, 0, 0);
-}
+    Semaphore::Semaphore()
+    {
+        sem_init(&semaphore, 0, 0);
+    }
 
-void Semaphore::wait()
-{
-    sem_wait(&semaphore);
-}
+    void Semaphore::wait()
+    {
+        sem_wait(&semaphore);
+    }
 
-void Semaphore::post()
-{
-    sem_post(&semaphore);
-}
+    void Semaphore::post()
+    {
+        sem_post(&semaphore);
+    }
+};

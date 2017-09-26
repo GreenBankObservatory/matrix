@@ -56,7 +56,7 @@ protected:
     size_t log_size;
     matrix::data_description ddesc;
 
-    Mutex mtx;
+    matrix::Mutex mtx;
     int status;
     int last_reported_status;
     fitsfile *fout;

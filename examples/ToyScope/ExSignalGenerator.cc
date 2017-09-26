@@ -34,6 +34,7 @@
 using namespace std;
 using namespace Time;
 using namespace mxutils;
+using namespace matrix;
 
 static void throw_value_error(string key, string msg)
 {

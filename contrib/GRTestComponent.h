@@ -46,11 +46,11 @@
  *
  */
 
-class GRTestComponent : public Component
+class GRTestComponent : public matrix::Component
 {
 public:
 
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~GRTestComponent();
 
 protected:
@@ -70,9 +70,9 @@ protected:
     matrix::DataSource<matrix::GenericBuffer> data_source;
     matrix::GnuradioDataSource<float> gr_src;
 
-    Thread<GRTestComponent> _read_thread;
-    TCondition<bool> _read_thread_started;
-    TCondition<bool> _run;
+    matrix::Thread<GRTestComponent> _read_thread;
+    matrix::TCondition<bool> _read_thread_started;
+    matrix::TCondition<bool> _run;
 
     std::unique_ptr<matrix::GenericBuffer> buffer;
 

@@ -52,6 +52,7 @@
 using namespace std;
 using namespace mxutils;
 using namespace std::placeholders;
+using namespace matrix;
 
 typedef void (*V_FP)(CmdParam &);
 

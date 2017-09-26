@@ -61,92 +61,98 @@
  * here a fifo of 1000 entries, each of 1000 bytes, is created.
  *
  */
-
-template <size_t N>
-struct fixed_buffer
+namespace matrix
 {
-    fixed_buffer() : _buf(N, 0) {}
-
-    fixed_buffer & operator=(fixed_buffer const &rhs)
+    template<size_t N>
+    struct fixed_buffer
     {
-        memcpy((char *)_buf.data(), rhs._buf.data(), N);
-        return *this;
-    }
-
-    fixed_buffer & operator=(std::string const &rhs)
-    {
-        size_t sze = std::min(N, rhs.size());
-        memcpy((char *)_buf.data(), rhs.data(), sze);
-        return *this;
-    }
-
-    void set(int c)
-    {
-        memset((char *)_buf.data(), c, N);
-    }
-
-    char * data()
-    {
-        return (char *)_buf.data();
-    }
-
-private:
-    std::string _buf;
-};
-
-
-struct flex_buffer
-{
-    flex_buffer() {}
-
-    flex_buffer & operator=(flex_buffer const &rhs)
-    {
-        size_t sze = std::max(_buf.size(), rhs.size());
-        _resize(sze);
-        memcpy((char *)_buf.data(), rhs._buf.data(), sze);
-        return *this;
-    }
-
-    flex_buffer & operator=(std::string const &rhs)
-    {
-        size_t sze = std::max(_buf.size(), rhs.size());
-        _resize(sze);
-        memcpy((char *)_buf.data(), rhs.data(), sze);
-        return *this;
-    }
-
-    void set(int c)
-    {
-        _resize(1);
-        memset((char *)_buf.data(), c, _buf.size());
-    }
-
-    char * data()
-    {
-        return (char *)_buf.data();
-    }
-
-    std::string &buffer()
-    {
-        return _buf;
-    }
-
-    size_t size() const
-    {
-        return _buf.size();
-    }
-
-private:
-
-    void _resize(size_t size)
-    {
-        if (size > _buf.size())
+        fixed_buffer() : _buf(N, 0)
         {
-            _buf.resize(size);
         }
-    }
-    
-    std::string _buf;
-};
+
+        fixed_buffer &operator=(fixed_buffer const &rhs)
+        {
+            memcpy((char *) _buf.data(), rhs._buf.data(), N);
+            return *this;
+        }
+
+        fixed_buffer &operator=(std::string const &rhs)
+        {
+            size_t sze = std::min(N, rhs.size());
+            memcpy((char *) _buf.data(), rhs.data(), sze);
+            return *this;
+        }
+
+        void set(int c)
+        {
+            memset((char *) _buf.data(), c, N);
+        }
+
+        char *data()
+        {
+            return (char *) _buf.data();
+        }
+
+    private:
+        std::string _buf;
+    };
+
+
+    struct flex_buffer
+    {
+        flex_buffer()
+        {
+        }
+
+        flex_buffer &operator=(flex_buffer const &rhs)
+        {
+            size_t sze = std::max(_buf.size(), rhs.size());
+            _resize(sze);
+            memcpy((char *) _buf.data(), rhs._buf.data(), sze);
+            return *this;
+        }
+
+        flex_buffer &operator=(std::string const &rhs)
+        {
+            size_t sze = std::max(_buf.size(), rhs.size());
+            _resize(sze);
+            memcpy((char *) _buf.data(), rhs.data(), sze);
+            return *this;
+        }
+
+        void set(int c)
+        {
+            _resize(1);
+            memset((char *) _buf.data(), c, _buf.size());
+        }
+
+        char *data()
+        {
+            return (char *) _buf.data();
+        }
+
+        std::string &buffer()
+        {
+            return _buf;
+        }
+
+        size_t size() const
+        {
+            return _buf.size();
+        }
+
+    private:
+
+        void _resize(size_t size)
+        {
+            if (size > _buf.size())
+            {
+                _buf.resize(size);
+            }
+        }
+
+        std::string _buf;
+    };
+}; // namespace matrix
 
 #endif

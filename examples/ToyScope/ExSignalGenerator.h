@@ -47,11 +47,11 @@
 /// Data Sources (Outputs):
 /// *  "wavedata" - a single double value
 ///
-class ExSignalGenerator : public Component
+class ExSignalGenerator : public matrix::Component
 {
 public:
   
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~ExSignalGenerator();
     
 protected:    
@@ -73,9 +73,9 @@ protected:
 protected:
     matrix::DataSource<double>     output_signal_source;
     matrix::GnuradioDataSource<float> grc_src;
-  
-    Thread<ExSignalGenerator>       poll_thread;
-    TCondition<bool>                poll_thread_started;
+
+    matrix::Thread<ExSignalGenerator>       poll_thread;
+    matrix::TCondition<bool>                poll_thread_started;
     double amplitude;
     double frequency;
 

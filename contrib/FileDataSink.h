@@ -43,11 +43,11 @@
  *
  */
 
-class FileDataSink : public Component
+class FileDataSink : public matrix::Component
 {
 public:
 
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~FileDataSink();
 
 protected:
@@ -66,9 +66,9 @@ protected:
 
     matrix::DataSink<matrix::GenericBuffer> data_sink;
 
-    Thread<FileDataSink> _write_thread;
-    TCondition<bool> _write_thread_started;
-    TCondition<bool> _run;
+    matrix::Thread<FileDataSink> _write_thread;
+    matrix::TCondition<bool> _write_thread_started;
+    matrix::TCondition<bool> _run;
 
     std::unique_ptr<matrix::GenericBuffer> buffer;
 

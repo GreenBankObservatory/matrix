@@ -40,6 +40,7 @@
 
 using namespace std;
 using namespace mxutils;
+using namespace matrix;
 
 std::string keymaster_url = "inproc://matrix.keymaster";
 std::string tcp_keymaster_url = "tcp://ajax:42000";

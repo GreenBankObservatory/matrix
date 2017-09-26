@@ -29,6 +29,7 @@
 
 using namespace std;
 using namespace mxutils;
+using namespace matrix;
 
 // This is the transport repository. A map of map of transport
 // shared_ptr. The first map is keyed by component, and the value is
@@ -518,7 +519,7 @@ namespace matrix
 
         df.name = f[0];
         df.type = typenames_to_types[f[1]];
-        df.elements = convert<size_t>(f[2]);
+        df.elements = mxutils::convert<size_t>(f[2]);
 
         if (f.size() > 3 && f[3] == "nolog")
         {
@@ -621,4 +622,4 @@ namespace matrix
         return s_elem_size * s_elems;
     }
 
-}
+};

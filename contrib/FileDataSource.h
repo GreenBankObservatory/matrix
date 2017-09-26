@@ -45,11 +45,11 @@
  *
  */
 
-class FileDataSource : public Component
+class FileDataSource : public matrix::Component
 {
 public:
 
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~FileDataSource();
 
 protected:
@@ -68,9 +68,9 @@ protected:
 
     matrix::DataSource<matrix::GenericBuffer> data_source;
 
-    Thread<FileDataSource> _read_thread;
-    TCondition<bool> _read_thread_started;
-    TCondition<bool> _run;
+    matrix::Thread<FileDataSource> _read_thread;
+    matrix::TCondition<bool> _read_thread_started;
+    matrix::TCondition<bool> _run;
 
     std::unique_ptr<matrix::GenericBuffer> buffer;
 

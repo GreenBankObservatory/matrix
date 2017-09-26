@@ -40,14 +40,26 @@
 #include "matrix/ThreadLock.h"
 #include "matrix/Time.h"
 
-struct fifo_notifier
+namespace matrix
 {
-    void operator()(int n) {_call(n);}
-    void exec(int n)       {_call(n);}
-private:
-    virtual void _call(int) {}
+    struct fifo_notifier
+    {
+        void operator()(int n)
+        {
+            _call(n);
+        }
 
-};
+        void exec(int n)
+        {
+            _call(n);
+        }
+
+    private:
+        virtual void _call(int)
+        {
+        }
+
+    };
 
 /**
  * \class tsemfifo
@@ -87,77 +99,103 @@ private:
  *
  */
 
-template <typename T> class tsemfifo
-
-{
-  public:
-
-    class Exception
+    template<typename T>
+    class tsemfifo
     {
-      public:
+    public:
+
+        class Exception
+        {
+        public:
+
+            enum
+            {
+                MSGLEN = 300
+            };
+
+            void what(int ec, char const *msg = 0);
+
+            char const *what() const
+            {
+                return _what;
+            }
+
+            int error_code() const
+            {
+                return _err_code;
+            }
+
+        protected:
+
+            int _err_code;
+            char _what[MSGLEN + 1];
+        };
 
         enum
         {
-            MSGLEN = 300
+            FIFO_SIZE = 100,
         };
 
-        void what(int ec, char const *msg = 0);
-        char const *what() const {return _what;}
-        int error_code() const {return _err_code;}
+        tsemfifo(size_t size = FIFO_SIZE);
 
-      protected:
+        ~tsemfifo();
 
-        int _err_code;
-        char _what[MSGLEN + 1];
+        void release();
+
+        void flush();
+
+        unsigned int flush(int items);
+
+        bool put(T &obj);
+
+        bool try_put(T &obj);
+
+        bool timed_put(T &obj, Time::Time_t time_out);
+
+        unsigned int put_no_block(T &obj);
+
+        bool get(T &obj);
+
+        bool try_get(T &obj);
+
+        bool timed_get(T &obj, Time::Time_t time_out);
+
+        bool wait_for_empty(int milliseconds = -1);
+
+        unsigned int size();
+
+        unsigned int capacity();
+
+        void resize(size_t size = FIFO_SIZE);
+
+        void set_notifier(std::shared_ptr<fifo_notifier>);
+
+    private:
+
+        tsemfifo(const tsemfifo &);
+
+        tsemfifo &operator=(tsemfifo const &);
+
+        void _create_sem();
+
+        void _close_sem();
+
+        void _get(T &obj);
+
+        void _put(T &obj);
+
+        std::vector<T> _buffer;
+        unsigned int _head;
+        unsigned int _tail;
+        unsigned int _buf_len;
+        unsigned int _objects;
+        sem_t _full_sem;
+        sem_t _empty_sem;
+        TCondition<bool> _release;
+        TCondition<bool> _empty;
+        std::shared_ptr<fifo_notifier> _notifier;
+        Mutex _critical_section;
     };
-
-    enum
-    {
-        FIFO_SIZE = 100,
-    };
-
-    tsemfifo(size_t size = FIFO_SIZE);
-    ~tsemfifo();
-
-    void release();
-    void flush();
-    unsigned int  flush(int items);
-    bool put(T &obj);
-    bool try_put(T &obj);
-    bool timed_put(T &obj, Time::Time_t time_out);
-    unsigned int put_no_block(T &obj);
-    bool get(T &obj);
-    bool try_get(T &obj);
-    bool timed_get(T &obj, Time::Time_t time_out);
-    bool wait_for_empty(int milliseconds = -1);
-    unsigned int size();
-    unsigned int capacity();
-    void resize(size_t size = FIFO_SIZE);
-    void set_notifier(std::shared_ptr<fifo_notifier>);
-
-  private:
-
-    tsemfifo(const tsemfifo &);
-    tsemfifo &operator=(tsemfifo const &);
-
-    void _create_sem();
-    void _close_sem();
-
-    void _get(T &obj);
-    void _put(T &obj);
-
-    std::vector<T> _buffer;
-    unsigned int _head;
-    unsigned int _tail;
-    unsigned int _buf_len;
-    unsigned int _objects;
-    sem_t _full_sem;
-    sem_t _empty_sem;
-    TCondition<bool> _release;
-    TCondition<bool> _empty;
-    std::shared_ptr<fifo_notifier> _notifier;
-    Mutex _critical_section;
-};
 
 /**
  * tsemfifo<T>::Exception::what(int ec, char const *msg)
@@ -172,24 +210,24 @@ template <typename T> class tsemfifo
  *
  */
 
-template <class T> void tsemfifo<T>::Exception::what(int ec, char const *msg)
-
-{
-    char err[128];
-    memset(err, 0, 128);
-    strerror_r(ec, err, 127);
-
-    _err_code = ec;
-
-    if (msg)
+    template<class T>
+    void tsemfifo<T>::Exception::what(int ec, char const *msg)
     {
-        snprintf(_what, MSGLEN, "%s: %s", msg, err);
+        char err[128];
+        memset(err, 0, 128);
+        strerror_r(ec, err, 127);
+
+        _err_code = ec;
+
+        if (msg)
+        {
+            snprintf(_what, MSGLEN, "%s: %s", msg, err);
+        }
+        else
+        {
+            strncpy(_what, err, 127);
+        }
     }
-    else
-    {
-        strncpy(_what, err, 127);
-    }
-}
 
 /**
  * Construct a tsemfifo.  Allows the caller to specify the buffer size,
@@ -201,34 +239,34 @@ template <class T> void tsemfifo<T>::Exception::what(int ec, char const *msg)
  *
  */
 
-template <class T> tsemfifo<T>::tsemfifo(size_t size)
-    : _buffer(size),
-      _buf_len(size),
-      _release(false),
-      _empty(true),
-      _notifier(new fifo_notifier)
+    template<class T>
+    tsemfifo<T>::tsemfifo(size_t size)
+            : _buffer(size),
+              _buf_len(size),
+              _release(false),
+              _empty(true),
+              _notifier(new fifo_notifier)
+    {
+        ThreadLock<Mutex> l(_critical_section);
 
-{
-    ThreadLock<Mutex> l(_critical_section);
-
-    l.lock();
-    _create_sem();
-    _head = _tail = _objects = 0;
-}
+        l.lock();
+        _create_sem();
+        _head = _tail = _objects = 0;
+    }
 
 /**
  * Destructor for tsemfifo FIFO class.  Releases memory, semaphores etc.
  *
  */
 
-template <class T> tsemfifo<T>::~tsemfifo()
+    template<class T>
+    tsemfifo<T>::~tsemfifo()
+    {
+        ThreadLock<Mutex> l(_critical_section);
 
-{
-    ThreadLock<Mutex> l(_critical_section);
-
-    l.lock();
-    _close_sem();
-}
+        l.lock();
+        _close_sem();
+    }
 
 /**
  * This private member function creates the semaphores with the proper
@@ -236,24 +274,24 @@ template <class T> tsemfifo<T>::~tsemfifo()
  *
  */
 
-template <class T> void tsemfifo<T>::_create_sem()
-
-{
-    sem_init(&_full_sem, 0, 0);
-    sem_init(&_empty_sem, 0, _buf_len);
-}
+    template<class T>
+    void tsemfifo<T>::_create_sem()
+    {
+        sem_init(&_full_sem, 0, 0);
+        sem_init(&_empty_sem, 0, _buf_len);
+    }
 
 /**
  * This private member function destroys the semaphore objects.
  *
  */
 
-template <class T> void tsemfifo<T>::_close_sem()
-
-{
-    sem_destroy(&_full_sem);
-    sem_destroy(&_empty_sem);
-}
+    template<class T>
+    void tsemfifo<T>::_close_sem()
+    {
+        sem_destroy(&_full_sem);
+        sem_destroy(&_empty_sem);
+    }
 
 /**
  * Empties the queue. Throws a tsemfifo<T>::Exception if there is a
@@ -261,19 +299,19 @@ template <class T> void tsemfifo<T>::_close_sem()
  *
  */
 
-template <class T> void tsemfifo<T>::flush()
+    template<class T>
+    void tsemfifo<T>::flush()
+    {
+        ThreadLock<Mutex> l(_critical_section);
 
-{
-    ThreadLock<Mutex> l(_critical_section);
+        l.lock();
+        _close_sem();
+        _create_sem();
 
-    l.lock();
-    _close_sem();
-    _create_sem();
-
-    _release.set_value(false);
-    _empty.set_value(true);
-    _head = _tail = _objects = 0;
-}
+        _release.set_value(false);
+        _empty.set_value(true);
+        _head = _tail = _objects = 0;
+    }
 
 /**
  * Flushes 'items' items out of the queue.
@@ -286,70 +324,70 @@ template <class T> void tsemfifo<T>::flush()
  *
  */
 
-template <class T> unsigned int tsemfifo<T>::flush(int items)
-
-{
-    ThreadLock<Mutex> l(_critical_section);
-
-    // A fastpath for when there is no work to do:
-    if ((-1*items) == _objects)
+    template<class T>
+    unsigned int tsemfifo<T>::flush(int items)
     {
-        return _objects;
-    }
+        ThreadLock<Mutex> l(_critical_section);
 
-    l.lock();
-
-    // Check to see if items is negative. If so, the caller intends
-    // that all but the abs(items) should be flushed.
-    if (items < 0)
-    {
-        // The number of remaining items in this case needs to be
-        // fewer than the actual number in the queue. If not, just
-        // return the number of items in the queue.
-        if (abs(items) < _objects)
-        {
-            items = _objects - abs(items);
-        }
-        else
+        // A fastpath for when there is no work to do:
+        if ((-1 * items) == _objects)
         {
             return _objects;
         }
-    }
 
-    if (items > _objects)
-    {
-        items = _objects;
-    }
+        l.lock();
 
-    _head = (_head + items) % _buf_len;
-    _objects = _objects - items;
-
-    if (!_objects)               // Was not empty, now empty.  Set empty event.
-    {
-        _empty.broadcast(true);
-    }
-
-    for (int i = 0; i < items; ++i)
-    {
-        int r = sem_wait(&_full_sem);
-
-        if (r == -1 && errno != EINTR)
+        // Check to see if items is negative. If so, the caller intends
+        // that all but the abs(items) should be flushed.
+        if (items < 0)
         {
-            Exception e;
-            e.what(errno, "tsemfifo<T>::get()");
-            throw e;
+            // The number of remaining items in this case needs to be
+            // fewer than the actual number in the queue. If not, just
+            // return the number of items in the queue.
+            if (abs(items) < _objects)
+            {
+                items = _objects - abs(items);
+            }
+            else
+            {
+                return _objects;
+            }
         }
 
-        if (sem_post(&_empty_sem) == -1)
+        if (items > _objects)
         {
-            Exception e;
-            e.what(errno, "tsemfifo<T>::flush(int items)");
-            throw e;
+            items = _objects;
         }
+
+        _head = (_head + items) % _buf_len;
+        _objects = _objects - items;
+
+        if (!_objects)               // Was not empty, now empty.  Set empty event.
+        {
+            _empty.broadcast(true);
+        }
+
+        for (int i = 0; i < items; ++i)
+        {
+            int r = sem_wait(&_full_sem);
+
+            if (r == -1 && errno != EINTR)
+            {
+                Exception e;
+                e.what(errno, "tsemfifo<T>::get()");
+                throw e;
+            }
+
+            if (sem_post(&_empty_sem) == -1)
+            {
+                Exception e;
+                e.what(errno, "tsemfifo<T>::flush(int items)");
+                throw e;
+            }
+        }
+
+        return _objects;
     }
-    
-    return _objects;
-}
 
 /**
  * Blocks until the FIFO is empty.  This is useful for another task to
@@ -363,17 +401,17 @@ template <class T> unsigned int tsemfifo<T>::flush(int items)
  *
  */
 
-template <class T> bool tsemfifo<T>::wait_for_empty(int milliseconds)
-
-{
-    if (milliseconds == -1)
+    template<class T>
+    bool tsemfifo<T>::wait_for_empty(int milliseconds)
     {
-        _empty.wait(true);
-        return true;
-    }
+        if (milliseconds == -1)
+        {
+            _empty.wait(true);
+            return true;
+        }
 
-    return _empty.wait(true, milliseconds * 1000);
-}
+        return _empty.wait(true, milliseconds * 1000);
+    }
 
 /**
  * This private function actually does the work of updating the FIFO
@@ -384,40 +422,40 @@ template <class T> bool tsemfifo<T>::wait_for_empty(int milliseconds)
  *
  */
 
-template <class T> void tsemfifo<T>::_put(T &obj)
-
-{
-    ThreadLock<Mutex> l(_critical_section);
-
-
-    l.lock();
-    _buffer[_tail] = obj;
-
-    if (_tail < (_buf_len - 1))
+    template<class T>
+    void tsemfifo<T>::_put(T &obj)
     {
-        ++_tail;
-    }
-    else
-    {
-        _tail = 0;
-    }
+        ThreadLock<Mutex> l(_critical_section);
 
-    if (!_objects)                   // Was empty, now has something.
-    {                                // clear the empty condition variable/event
-        _empty.set_value(false);
-    }
 
-    ++_objects;
-    _notifier->exec(_objects);
-    l.unlock();
+        l.lock();
+        _buffer[_tail] = obj;
 
-    if (sem_post(&_full_sem) == -1)
-    {
-        Exception e;
-        e.what(errno, "tsemfifo<T>::_put()");
-        throw e;
+        if (_tail < (_buf_len - 1))
+        {
+            ++_tail;
+        }
+        else
+        {
+            _tail = 0;
+        }
+
+        if (!_objects)                   // Was empty, now has something.
+        {                                // clear the empty condition variable/event
+            _empty.set_value(false);
+        }
+
+        ++_objects;
+        _notifier->exec(_objects);
+        l.unlock();
+
+        if (sem_post(&_full_sem) == -1)
+        {
+            Exception e;
+            e.what(errno, "tsemfifo<T>::_put()");
+            throw e;
+        }
     }
-}
 
 /**
  * Puts a new value at the tail of the FIFO.  put() will block if the
@@ -429,32 +467,32 @@ template <class T> void tsemfifo<T>::_put(T &obj)
  *
  */
 
-template <class T> bool tsemfifo<T>::put(T &obj)
-
-{
-    int r;
-
-    do
+    template<class T>
+    bool tsemfifo<T>::put(T &obj)
     {
-        r = sem_wait(&_empty_sem);
+        int r;
 
-        if (r == -1 && errno != EINTR)
+        do
         {
-            Exception e;
-            e.what(errno, "tsemfifo<T>::put()");
-            throw e;
+            r = sem_wait(&_empty_sem);
+
+            if (r == -1 && errno != EINTR)
+            {
+                Exception e;
+                e.what(errno, "tsemfifo<T>::put()");
+                throw e;
+            }
         }
-    }
-    while (r == -1 && errno != EDEADLK);
+        while (r == -1 && errno != EDEADLK);
 
-    if (_release.wait(true, 0))
-    {
-        return false;
-    }
+        if (_release.wait(true, 0))
+        {
+            return false;
+        }
 
-    _put(obj);
-    return true;
-}
+        _put(obj);
+        return true;
+    }
 
 /**
  * Puts a new value at the tail of the FIFO.  try_put() will not block
@@ -471,25 +509,25 @@ template <class T> bool tsemfifo<T>::put(T &obj)
  *
  */
 
-template <class T> bool tsemfifo<T>::try_put(T &obj)
-
-{
-    if (sem_trywait(&_empty_sem) == -1)
+    template<class T>
+    bool tsemfifo<T>::try_put(T &obj)
     {
-        if (errno == EAGAIN)
+        if (sem_trywait(&_empty_sem) == -1)
         {
-            return false;
+            if (errno == EAGAIN)
+            {
+                return false;
+            }
+
+            Exception e;
+            e.what(errno, "tsemfifo<T>::try_put()");
+
+            throw e;
         }
 
-        Exception e;
-        e.what(errno, "tsemfifo<T>::try_put()");
-
-        throw e;
+        _put(obj);
+        return true;
     }
-
-    _put(obj);
-    return true;
-}
 
 /**
  * Puts a new value at the tail of the FIFO.  timed_put() will block
@@ -508,28 +546,28 @@ template <class T> bool tsemfifo<T>::try_put(T &obj)
  *
  */
 
-template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
-
-{
-    timespec ts;
-
-    Time::time2timespec(Time::getUTC(CLOCK_REALTIME) + time_out, ts);
-
-    if (sem_timedwait(&_empty_sem, &ts) == -1)
+    template<class T>
+    bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
     {
-        if (errno == ETIMEDOUT)
+        timespec ts;
+
+        Time::time2timespec(Time::getUTC(CLOCK_REALTIME) + time_out, ts);
+
+        if (sem_timedwait(&_empty_sem, &ts) == -1)
         {
-            return false;
+            if (errno == ETIMEDOUT)
+            {
+                return false;
+            }
+            Exception e;
+            e.what(errno, "tsemfifo<T>::timed_put()");
+
+            throw e;
         }
-        Exception e;
-        e.what(errno, "tsemfifo<T>::timed_put()");
 
-        throw e;
+        _put(obj);
+        return true;
     }
-
-    _put(obj);
-    return true;
-}
 
 /**
  * This put does not block, and bumps off the oldest entry if the fifo
@@ -539,21 +577,22 @@ template <class T> bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
  *
  */
 
-template <class T> unsigned int tsemfifo<T>::put_no_block(T &obj)
-{
-    unsigned int flushed(0);
-    
-    // try_put() will fail and return 'false' if the fifo is full. In
-    // that case, flush the oldest ojbect, and this should provide
-    // enough room to put the object.
-    while (!try_put(obj))
+    template<class T>
+    unsigned int tsemfifo<T>::put_no_block(T &obj)
     {
-        flush(1);
-        ++flushed;
-    }
+        unsigned int flushed(0);
 
-    return flushed;
-}
+        // try_put() will fail and return 'false' if the fifo is full. In
+        // that case, flush the oldest ojbect, and this should provide
+        // enough room to put the object.
+        while (!try_put(obj))
+        {
+            flush(1);
+            ++flushed;
+        }
+
+        return flushed;
+    }
 
 /**
  * This private helper function actually does the manipulatio of the
@@ -564,39 +603,39 @@ template <class T> unsigned int tsemfifo<T>::put_no_block(T &obj)
  *
  */
 
-template <class T> void tsemfifo<T>::_get(T &obj)
-
-{
-    ThreadLock<Mutex> l(_critical_section);
-
-    l.lock();
-    obj = _buffer[_head];
-
-    if (_head < (_buf_len - 1))
+    template<class T>
+    void tsemfifo<T>::_get(T &obj)
     {
-        ++_head;
-    }
-    else
-    {
-        _head = 0;
-    }
+        ThreadLock<Mutex> l(_critical_section);
 
-    --_objects;
+        l.lock();
+        obj = _buffer[_head];
 
-    l.unlock();
+        if (_head < (_buf_len - 1))
+        {
+            ++_head;
+        }
+        else
+        {
+            _head = 0;
+        }
 
-    if (!_objects)               // Was not empty, now empty.  Set empty event.
-    {
-        _empty.broadcast(true);
+        --_objects;
+
+        l.unlock();
+
+        if (!_objects)               // Was not empty, now empty.  Set empty event.
+        {
+            _empty.broadcast(true);
+        }
+
+        if (sem_post(&_empty_sem) == -1)
+        {
+            Exception e;
+            e.what(errno, "tsemfifo<T>::_get()");
+            throw e;
+        }
     }
-
-    if (sem_post(&_empty_sem) == -1)
-    {
-        Exception e;
-        e.what(errno, "tsemfifo<T>::_get()");
-        throw e;
-    }
-}
 
 /**
  * Gets a value out of the head of the FIFO.  get() will block,
@@ -610,32 +649,32 @@ template <class T> void tsemfifo<T>::_get(T &obj)
  *
  */
 
-template <class T> bool tsemfifo<T>::get(T &obj)
-
-{
-    int r;
-
-    do
+    template<class T>
+    bool tsemfifo<T>::get(T &obj)
     {
-        r = sem_wait(&_full_sem);
+        int r;
 
-        if (r == -1 && errno != EINTR)
+        do
         {
-            Exception e;
-            e.what(errno, "tsemfifo<T>::get()");
-            throw e;
+            r = sem_wait(&_full_sem);
+
+            if (r == -1 && errno != EINTR)
+            {
+                Exception e;
+                e.what(errno, "tsemfifo<T>::get()");
+                throw e;
+            }
         }
-    }
-    while (r == -1 && errno != EDEADLK);
+        while (r == -1 && errno != EDEADLK);
 
-    if (_release.wait(true, 0))
-    {
-        return false;
-    }
+        if (_release.wait(true, 0))
+        {
+            return false;
+        }
 
-    _get(obj);
-    return true;
-}
+        _get(obj);
+        return true;
+    }
 
 /**
  * Gets a value out of the head of the FIFO.  try_get() will not block
@@ -648,24 +687,24 @@ template <class T> bool tsemfifo<T>::get(T &obj)
  *
  */
 
-template <class T> bool tsemfifo<T>::try_get(T &obj)
-
-{
-    if (sem_trywait(&_full_sem) == -1)
+    template<class T>
+    bool tsemfifo<T>::try_get(T &obj)
     {
-        if (errno == EAGAIN)
+        if (sem_trywait(&_full_sem) == -1)
         {
-            return false;
+            if (errno == EAGAIN)
+            {
+                return false;
+            }
+            Exception e;
+            e.what(errno, "tsemfifo<T>::try_get()");
+
+            throw e;
         }
-        Exception e;
-        e.what(errno, "tsemfifo<T>::try_get()");
 
-        throw e;
+        _get(obj);
+        return true;
     }
-
-    _get(obj);
-    return true;
-}
 
 /**
  * Gets a value out of the head of the FIFO.  timed_get() will block
@@ -683,28 +722,28 @@ template <class T> bool tsemfifo<T>::try_get(T &obj)
  *
  */
 
-template <class T> bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
-
-{
-    timespec ts;
-
-    Time::time2timespec(Time::getUTC(CLOCK_REALTIME) + time_out, ts);
-
-    if (sem_timedwait(&_full_sem, &ts) == -1)
+    template<class T>
+    bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
     {
-        if (errno == ETIMEDOUT)
+        timespec ts;
+
+        Time::time2timespec(Time::getUTC(CLOCK_REALTIME) + time_out, ts);
+
+        if (sem_timedwait(&_full_sem, &ts) == -1)
         {
-            return false;
+            if (errno == ETIMEDOUT)
+            {
+                return false;
+            }
+            Exception e;
+            e.what(errno, "tsemfifo<T>::timed_get()");
+
+            throw e;
         }
-        Exception e;
-        e.what(errno, "tsemfifo<T>::timed_get()");
 
-        throw e;
+        _get(obj);
+        return true;
     }
-
-    _get(obj);
-    return true;
-}
 
 
 /**
@@ -714,13 +753,13 @@ template <class T> bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
  *
  */
 
-template <class T> void tsemfifo<T>::release()
-
-{
-    _release.broadcast(true);
-    sem_post(&_full_sem);
-    sem_post(&_empty_sem);
-}
+    template<class T>
+    void tsemfifo<T>::release()
+    {
+        _release.broadcast(true);
+        sem_post(&_full_sem);
+        sem_post(&_empty_sem);
+    }
 
 /**
  * Returns the number of objects in the FIFO.
@@ -729,18 +768,18 @@ template <class T> void tsemfifo<T>::release()
  *
  */
 
-template <class T> unsigned int tsemfifo<T>::size()
+    template<class T>
+    unsigned int tsemfifo<T>::size()
+    {
+        unsigned int o;
+        ThreadLock<Mutex> l(_critical_section);
 
-{
-  unsigned int o;
-  ThreadLock<Mutex> l(_critical_section);
 
+        l.lock();
+        o = _objects;
+        return o;
 
-  l.lock();
-  o = _objects;
-  return o;
-
-}
+    }
 
 /**
  * Returns the maximum size of the FIFO, in objects of type T.
@@ -749,18 +788,18 @@ template <class T> unsigned int tsemfifo<T>::size()
  *
  */
 
-template <class T> unsigned int tsemfifo<T>::capacity()
+    template<class T>
+    unsigned int tsemfifo<T>::capacity()
+    {
+        unsigned int o;
+        ThreadLock<Mutex> l(_critical_section);
 
-{
-  unsigned int o;
-  ThreadLock<Mutex> l(_critical_section);
 
+        l.lock();
+        o = _buf_len;
+        return o;
 
-  l.lock();
-  o = _buf_len;
-  return o;
-
-}
+    }
 
 /**
  * Allows another party to insert a snipped of code to execute when
@@ -772,11 +811,13 @@ template <class T> unsigned int tsemfifo<T>::capacity()
  *
  */
 
-template <class T> void tsemfifo<T>::set_notifier(std::shared_ptr<fifo_notifier> n)
-{
-    ThreadLock<Mutex> l(_critical_section);
-    l.lock();
-    _notifier = n;
-}
+    template<class T>
+    void tsemfifo<T>::set_notifier(std::shared_ptr<fifo_notifier> n)
+    {
+        ThreadLock<Mutex> l(_critical_section);
+        l.lock();
+        _notifier = n;
+    }
+};
 
 #endif  // _TSEMFIFO_H_

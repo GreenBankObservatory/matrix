@@ -24,18 +24,21 @@
 #define SEMAPHORE_H
 
 #include <semaphore.h>
-
-class Semaphore
+namespace matrix
 {
-public:
-    ~Semaphore();
-    Semaphore();
-    
-    void wait();
-    void post();
-    
-private:
-    sem_t semaphore;
-};
+    class Semaphore
+    {
+    public:
+        ~Semaphore();
 
+        Semaphore();
+
+        void wait();
+
+        void post();
+
+    private:
+        sem_t semaphore;
+    };
+};
 #endif

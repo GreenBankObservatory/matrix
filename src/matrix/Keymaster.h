@@ -51,30 +51,37 @@
 #define __classmethod__  __func__
 #endif
 
-class KeymasterServer
+namespace matrix
 {
-public:
+    class KeymasterServer
+    {
+    public:
 
-    KeymasterServer(std::string configfile);
-    KeymasterServer(YAML::Node n);
-    ~KeymasterServer();
+        KeymasterServer(std::string configfile);
 
-    void run();
-    void terminate();
+        KeymasterServer(YAML::Node n);
 
-private:
+        ~KeymasterServer();
 
-    struct KmImpl;
+        void run();
 
-    boost::shared_ptr<KeymasterServer::KmImpl> _impl;
-};
+        void terminate();
 
-class KeymasterException : public MatrixException
-{
-public:
-    KeymasterException(std::string msg) :
-        MatrixException("KeymasterException", msg) {}
-};
+    private:
+
+        struct KmImpl;
+
+        boost::shared_ptr<KeymasterServer::KmImpl> _impl;
+    };
+
+    class KeymasterException : public matrix::MatrixException
+    {
+    public:
+        KeymasterException(std::string msg) :
+                MatrixException("KeymasterException", msg)
+        {
+        }
+    };
 
 /**
  * \class KeymasterCallbackBase
@@ -86,13 +93,21 @@ public:
  *
  */
 
-struct KeymasterCallbackBase
-{
-    void operator()(std::string key, YAML::Node val) {_call(key, val);}
-    void exec(std::string key, YAML::Node val)       {_call(key, val);}
-private:
-    virtual void _call(std::string key, YAML::Node val) = 0;
-};
+    struct KeymasterCallbackBase
+    {
+        void operator()(std::string key, YAML::Node val)
+        {
+            _call(key, val);
+        }
+
+        void exec(std::string key, YAML::Node val)
+        {
+            _call(key, val);
+        }
+
+    private:
+        virtual void _call(std::string key, YAML::Node val) = 0;
+    };
 
 /**
  * \class KeymasterHeartbeatCB
@@ -107,30 +122,30 @@ private:
  *
  */
 
-struct KeymasterHeartbeatCB : public KeymasterCallbackBase
-{
-    Time::Time_t last_update()
+    struct KeymasterHeartbeatCB : public KeymasterCallbackBase
     {
-        Time::Time_t t;
-        ThreadLock<Mutex> l(lock);
-        l.lock();
-        t = last_heard;
-        l.unlock();
-        return t;
-    }
+        Time::Time_t last_update()
+        {
+            Time::Time_t t;
+            ThreadLock<Mutex> l(lock);
+            l.lock();
+            t = last_heard;
+            l.unlock();
+            return t;
+        }
 
-private:
-    void _call(std::string key, YAML::Node val)
-    {
-        ThreadLock<Mutex> l(lock);
-        l.lock();
-        last_heard = val.as<Time::Time_t>();
-        l.unlock();
-    }
+    private:
+        void _call(std::string key, YAML::Node val)
+        {
+            ThreadLock<Mutex> l(lock);
+            l.lock();
+            last_heard = val.as<Time::Time_t>();
+            l.unlock();
+        }
 
-    Mutex lock;
-    Time::Time_t last_heard;
-};
+        Mutex lock;
+        Time::Time_t last_heard;
+    };
 
 /**
  * \class KeymasterMemberCB
@@ -161,95 +176,110 @@ private:
  *
  */
 
-template <typename T>
-class KeymasterMemberCB : public KeymasterCallbackBase
-{
-public:
-    typedef void (T::*ActionMethod)(std::string, YAML::Node);
-
-    KeymasterMemberCB(T *obj, ActionMethod cb) :
-      _object(obj),
-      _faction(cb)
+    template<typename T>
+    class KeymasterMemberCB : public KeymasterCallbackBase
     {
-    }
+    public:
+        typedef void (T::*ActionMethod)(std::string, YAML::Node);
 
-private:
-    ///
-    /// Invoke a call to the user provided callback
-    ///
-    void _call(std::string key, YAML::Node val)
-    {
-        if (_object && _faction)
+        KeymasterMemberCB(T *obj, ActionMethod cb) :
+                _object(obj),
+                _faction(cb)
         {
-            (_object->*_faction)(key, val);
         }
+
+    private:
+        ///
+        /// Invoke a call to the user provided callback
+        ///
+        void _call(std::string key, YAML::Node val)
+        {
+            if (_object && _faction)
+            {
+                (_object->*_faction)(key, val);
+            }
+        }
+
+        T *_object;
+        ActionMethod _faction;
+    };
+
+
+    class Keymaster
+    {
+    public:
+
+        Keymaster(std::string keymaster_url, bool shared = false);
+
+        ~Keymaster();
+
+        YAML::Node get(std::string key);
+
+        bool get(std::string key, ::mxutils::yaml_result &yr);
+
+        bool put(std::string key, YAML::Node n, bool create = false);
+
+        void put_nb(std::string key, std::string val, bool create = true);
+
+        bool del(std::string key);
+
+        bool subscribe(std::string key, KeymasterCallbackBase *f);
+
+        bool unsubscribe(std::string key);
+
+        template<typename T>
+        T get_as(std::string key);
+
+        template<typename T>
+        bool put(std::string key, T v, bool create = false);
+
+        ::mxutils::yaml_result get_last_result();
+
+    private:
+
+        void _subscriber_task();
+
+        void _put_task();
+
+        void _run();
+
+        void _run_put();
+
+        void _handle_keymaster_server_exception();
+
+        ::mxutils::yaml_result _call_keymaster(std::string cmd, std::string key,
+                                             std::string val = "", std::string flag = "");
+
+        std::shared_ptr<zmq::socket_t> _keymaster_socket();
+
+        std::shared_ptr<zmq::socket_t> _km_;
+        ::mxutils::yaml_result _r;
+        std::string _km_url;
+        std::string _pipe_url;
+        std::vector<std::string> _km_pub_urls;
+
+        std::map<std::string, KeymasterCallbackBase *> _callbacks;
+        Thread<Keymaster> _subscriber_thread;
+        TCondition<bool> _subscriber_thread_ready;
+        Thread<Keymaster> _put_thread;
+        TCondition<bool> _put_thread_ready;
+        bool _put_thread_run;
+        tsemfifo<std::tuple<std::string, std::string, bool> > _put_fifo;
+        Mutex _shared_lock;
+    };
+
+    template<typename T>
+    T Keymaster::get_as(std::string key)
+    {
+        return get(key).as<T>();
     }
 
-    T  *_object;
-    ActionMethod _faction;
-};
-
-
-class Keymaster
-{
-public:
-
-    Keymaster(std::string keymaster_url, bool shared = false);
-    ~Keymaster();
-
-    YAML::Node get(std::string key);
-    bool get(std::string key, mxutils::yaml_result &yr);
-    bool put(std::string key, YAML::Node n, bool create = false);
-    void put_nb(std::string key, std::string val, bool create = true);
-    bool del(std::string key);
-    bool subscribe(std::string key, KeymasterCallbackBase *f);
-    bool unsubscribe(std::string key);
-
-    template <typename T>
-    T get_as(std::string key);
-    template <typename T>
-    bool put(std::string key, T v, bool create = false);
-
-    mxutils::yaml_result get_last_result();
-
-private:
-
-    void _subscriber_task();
-    void _put_task();
-    void _run();
-    void _run_put();
-    void _handle_keymaster_server_exception();
-    mxutils::yaml_result _call_keymaster(std::string cmd, std::string key,
-                                         std::string val = "", std::string flag = "");
-    std::shared_ptr<zmq::socket_t> _keymaster_socket();
-
-    std::shared_ptr<zmq::socket_t> _km_;
-    mxutils::yaml_result _r;
-    std::string _km_url;
-    std::string _pipe_url;
-    std::vector<std::string> _km_pub_urls;
-
-    std::map<std::string, KeymasterCallbackBase *> _callbacks;
-    Thread<Keymaster> _subscriber_thread;
-    TCondition<bool> _subscriber_thread_ready;
-    Thread<Keymaster> _put_thread;
-    TCondition<bool> _put_thread_ready;
-    bool _put_thread_run;
-    tsemfifo<std::tuple<std::string, std::string, bool> > _put_fifo;
-    Mutex _shared_lock;
-};
-
-template <typename T>
-T Keymaster::get_as(std::string key)
-{
-    return get(key).as<T>();
-}
-
-template <typename T>
-bool Keymaster::put(std::string key, T v, bool create)
-{
-    YAML::Node n(v);
-    return put(key, n, create);
-}
+    template<typename T>
+    bool Keymaster::put(std::string key, T v, bool create)
+    {
+        YAML::Node n(v);
+        return put(key, n, create);
+    }
+}; // namespace matrix
 
 #endif

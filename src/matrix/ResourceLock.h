@@ -34,51 +34,62 @@
 /// A resource management utility which can be used in place of
 /// the pthread_cleanup_push/pop mechanism.
 ///
-
-class ResourceLock
+namespace matrix
 {
-public:
-    /// Construct a resource management object. The parameter should
-    /// be a lambda with a signature of void(). See example below.
-    ResourceLock(std::function<void()> _capture) :
-    _the_release(_capture), _do_cleanup(true)
-    {}
-
-    /// Destruct and release resource by invoking the lambda and closure.
-    ~ResourceLock() { release(); }
-
-    /// Calls the resource releasing lambda
-    void release()
+    class ResourceLock
     {
-        if (_do_cleanup)
+    public:
+        /// Construct a resource management object. The parameter should
+        /// be a lambda with a signature of void(). See example below.
+        ResourceLock(std::function<void()> _capture) :
+                _the_release(_capture), _do_cleanup(true)
         {
-            _the_release();
+        }
+
+        /// Destruct and release resource by invoking the lambda and closure.
+        ~ResourceLock()
+        {
+            release();
+        }
+
+        /// Calls the resource releasing lambda
+        void release()
+        {
+            if (_do_cleanup)
+            {
+                _the_release();
+                _do_cleanup = false;
+            }
+        }
+
+        // prevent ResourceManagement objects from being copied.
+        ResourceLock(const ResourceLock &) = delete;
+
+        ResourceLock() = delete;
+
+        ResourceLock &operator=(const ResourceLock &) = delete;
+
+        // Allow std::move() to work
+        ResourceLock(ResourceLock &&p)
+        {
+            _the_release = p._the_release;
+            p._the_release = nullptr;
+            _do_cleanup = p._do_cleanup;
+            p._do_cleanup = false;
+        }
+
+        /// If somehow the resource gets cleaned up before the destructor
+        /// is called, we can cancel out the calling of the lambda.
+        void cancel_cleanup()
+        {
             _do_cleanup = false;
         }
-    }
 
-    // prevent ResourceManagement objects from being copied.
-    ResourceLock(const ResourceLock &) = delete;
-    ResourceLock() = delete;
-    ResourceLock & operator=(const ResourceLock &) = delete;
-    // Allow std::move() to work
-    ResourceLock(ResourceLock &&p)
-    {
-        _the_release = p._the_release;
-        p._the_release = nullptr;
-        _do_cleanup = p._do_cleanup;
-        p._do_cleanup = false;
-    }
+    private:
 
-    /// If somehow the resource gets cleaned up before the destructor
-    /// is called, we can cancel out the calling of the lambda.
-    void cancel_cleanup() { _do_cleanup = false; }
-
-private:
-
-    std::function<void()>  _the_release;
-    bool _do_cleanup;
-};
+        std::function<void()> _the_release;
+        bool _do_cleanup;
+    };
 
 /**
  * Example:
@@ -109,5 +120,5 @@ private:
         intended, then use push_back().
  */
 
-
+}; // namespace matrix
 #endif

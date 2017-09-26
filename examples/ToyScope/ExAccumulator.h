@@ -43,11 +43,11 @@
 /// Data Sinks (Inputs) - 'input_data', format is one double
 /// Data Sources (Outputs): 'output_signal', format is one double
 ///
-class ExAccumulator : public Component
+class ExAccumulator : public matrix::Component
 {
 public:
   
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~ExAccumulator();
     
 protected:    
@@ -67,9 +67,9 @@ protected:
 protected:
     matrix::DataSink<double,matrix::select_only>     input_signal_sink;    
     matrix::DataSource<double>     output_signal_source;
-  
-    Thread<ExAccumulator>       poll_thread;
-    TCondition<bool>            poll_thread_started;
+
+    matrix::Thread<ExAccumulator>       poll_thread;
+    matrix::TCondition<bool>            poll_thread_started;
     int decimate_factor;
      
     

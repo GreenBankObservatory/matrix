@@ -30,9 +30,10 @@
 #define _TRANSPORTTEST_H_
 
 #include <cppunit/extensions/HelperMacros.h>
+#include <matrix/Keymaster.h>
 
-class KeymasterServer;
-class Keymaster;
+//class matrix::KeymasterServer;
+//class matrix::Keymaster;
 
 class TransportTest : public CppUnit::TestCase
 {
@@ -45,8 +46,8 @@ class TransportTest : public CppUnit::TestCase
     CPPUNIT_TEST(test_rtinproc_publish);
     CPPUNIT_TEST_SUITE_END();
 
-    std::shared_ptr<KeymasterServer> _kms;
-    std::shared_ptr<Keymaster> _km;
+    std::shared_ptr<matrix::KeymasterServer> _kms;
+    std::shared_ptr<matrix::Keymaster> _km;
 
     void do_the_transaction(std::string transport);
 

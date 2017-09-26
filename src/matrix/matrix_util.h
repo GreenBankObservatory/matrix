@@ -40,52 +40,59 @@
 #include <boost/algorithm/string.hpp>
 
 struct timeval;
-
-class MatrixException : public std::runtime_error
+namespace matrix
 {
-public:
-
-    enum
+    class MatrixException : public std::runtime_error
     {
-        MSGLEN = 300
+    public:
+
+        enum
+        {
+            MSGLEN = 300
+        };
+
+        MatrixException(std::string etype, std::string msg)
+                : runtime_error(etype),
+                  _msg(msg)
+        {
+        }
+
+        virtual ~MatrixException() throw()
+        {
+        }
+
+
+        virtual char const *what() const noexcept
+        {
+            std::ostringstream msg;
+            msg << std::runtime_error::what() << ": " << _msg;
+            memset((void *) _what, 0, MSGLEN + 1);
+            strncpy((char *) _what, msg.str().c_str(), MSGLEN);
+            return _what;
+        }
+
+    private:
+
+        std::string _msg;
+        char _what[MSGLEN + 1];
     };
-
-    MatrixException(std::string etype, std::string msg)
-        : runtime_error(etype),
-          _msg(msg)
-    {
-    }
-
-    virtual ~MatrixException() throw ()
-    {
-    }
-
-
-    virtual char const *what() const noexcept
-    {
-        std::ostringstream msg;
-        msg << std::runtime_error::what() << ": " << _msg;
-        memset((void *)_what, 0, MSGLEN + 1);
-        strncpy((char *)_what, msg.str().c_str(), MSGLEN);
-        return _what;
-    }
-
-private:
-
-    std::string _msg;
-    char _what[MSGLEN + 1];
 };
 
+    namespace mxutils
+    {
+        void do_nanosleep(int seconds, int nanoseconds);
 
-namespace mxutils
-{
-    void do_nanosleep(int seconds, int nanoseconds);
-    bool operator<(timeval &lhs, timeval &rhs);
-    timeval operator+(timeval lhs, timeval rhs);
-    timeval operator+(timeval lhs, double rhs);
-    timeval operator-(timeval lhs, timeval rhs);
-    std::ostream & operator<<(std::ostream &os, const timeval &t);
-    std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
+        bool operator<(timeval &lhs, timeval &rhs);
+
+        timeval operator+(timeval lhs, timeval rhs);
+
+        timeval operator+(timeval lhs, double rhs);
+
+        timeval operator-(timeval lhs, timeval rhs);
+
+        std::ostream &operator<<(std::ostream &os, const timeval &t);
+
+        std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
 
 /**
  * This is a predicate function, intended to return true if a particular
@@ -100,15 +107,15 @@ namespace mxutils
  *
  */
 
-    inline bool is_non_numeric_p(char c)
-    {
-        static char cs[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                            'A', 'B', 'C', 'D', 'E', 'F',
-                            'a', 'b', 'c', 'd', 'e', 'f',
-                            '.', '+', '-', 'x'};
-        static std::set<char> syms(cs, cs + sizeof cs);
-        return syms.find(c) == syms.end();
-    }
+        inline bool is_non_numeric_p(char c)
+        {
+            static char cs[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                'A', 'B', 'C', 'D', 'E', 'F',
+                                'a', 'b', 'c', 'd', 'e', 'f',
+                                '.', '+', '-', 'x'};
+            static std::set<char> syms(cs, cs + sizeof cs);
+            return syms.find(c) == syms.end();
+        }
 
 /**
  * This helper will strip out whatever characters the predicate
@@ -120,12 +127,12 @@ namespace mxutils
  *
  */
 
-    inline std::string strip_non_numeric(const std::string &s)
-    {
-        std::string stripped = s;
-        remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
-        return stripped;
-    }
+        inline std::string strip_non_numeric(const std::string &s)
+        {
+            std::string stripped = s;
+            remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
+            return stripped;
+        }
 
 /**
  * \class fn_string_join is a simple functor that provides a handy way to
@@ -135,23 +142,23 @@ namespace mxutils
  *
  */
 
-    struct fn_string_join
-    {
-        fn_string_join(std::string delim)
+        struct fn_string_join
         {
-            _delim = delim;
-        }
+            fn_string_join(std::string delim)
+            {
+                _delim = delim;
+            }
 
-        template <typename T>
-        std::string operator()(T x)
-        {
-            return boost::algorithm::join(x, _delim);
-        }
+            template<typename T>
+            std::string operator()(T x)
+            {
+                return boost::algorithm::join(x, _delim);
+            }
 
-    private:
+        private:
 
-        std::string _delim;
-    };
+            std::string _delim;
+        };
 
 /**
  * \class is_substring_in_p
@@ -165,18 +172,20 @@ namespace mxutils
  *
  */
 
-    struct is_substring_in_p
-    {
-        is_substring_in_p(std::string subs) : _subs(subs) {}
-
-        bool operator ()(std::string s)
+        struct is_substring_in_p
         {
-            return s.find(_subs) != std::string::npos;
-        }
+            is_substring_in_p(std::string subs) : _subs(subs)
+            {
+            }
 
-    private:
-        std::string _subs;
-    };
+            bool operator()(std::string s)
+            {
+                return s.find(_subs) != std::string::npos;
+            }
+
+        private:
+            std::string _subs;
+        };
 
 /**
  * Outputs a vector to an ostream
@@ -187,17 +196,17 @@ namespace mxutils
  *
  */
 
-    template <typename T>
-    void output_vector(std::vector<T> v, std::ostream &o)
-    {
-        std::ostringstream str;
-        str << "[";
-        std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
-        std::string s = str.str();
-        std::string y(s.begin(), s.end() - 2);
-        y += "]";
-        o << y;
-    }
+        template<typename T>
+        void output_vector(std::vector<T> v, std::ostream &o)
+        {
+            std::ostringstream str;
+            str << "[";
+            std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
+            std::string s = str.str();
+            std::string y(s.begin(), s.end() - 2);
+            y += "]";
+            o << y;
+        }
 
 /**
  * These template specializations convert 's' to a value of type T and
@@ -212,58 +221,69 @@ namespace mxutils
  */
 
 /* General template */
-    template <typename T> T convert(const std::string &s)
+    template<typename T>
+    T convert(const std::string &s)
     {
         return T(s);
     }
 
 /* specializations */
-    template <> inline std::string convert<std::string>(const std::string &s)
+    template<>
+    inline std::string convert<std::string>(const std::string &s)
     {
         return s;
     }
 
-    template <> inline int8_t convert<int8_t>(const std::string &s)
+    template<>
+    inline int8_t convert<int8_t>(const std::string &s)
     {
-        return (int8_t)stoi(strip_non_numeric(s), 0, 0);
+        return (int8_t) stoi(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline uint8_t convert<uint8_t>(const std::string &s)
+    template<>
+    inline uint8_t convert<uint8_t>(const std::string &s)
     {
-        return (uint8_t)stoul(strip_non_numeric(s), 0, 0);
+        return (uint8_t) stoul(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline int16_t convert<int16_t>(const std::string &s)
+    template<>
+    inline int16_t convert<int16_t>(const std::string &s)
     {
-        return (int16_t)stoi(strip_non_numeric(s), 0, 0);
+        return (int16_t) stoi(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline uint16_t convert<uint16_t>(const std::string &s)
+    template<>
+    inline uint16_t convert<uint16_t>(const std::string &s)
     {
-        return (uint16_t)stoul(strip_non_numeric(s), 0, 0);
+        return (uint16_t) stoul(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline int32_t convert<int32_t>(const std::string &s)
+    template<>
+    inline int32_t convert<int32_t>(const std::string &s)
     {
-        return (int32_t)stoi(strip_non_numeric(s), 0, 0);
+        return (int32_t) stoi(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline uint32_t convert<uint32_t>(const std::string &s)
+    template<>
+    inline uint32_t convert<uint32_t>(const std::string &s)
     {
-        return (uint32_t)stoul(strip_non_numeric(s), 0, 0);
+        return (uint32_t) stoul(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline int64_t convert<int64_t>(const std::string &s)
+    template<>
+    inline int64_t convert<int64_t>(const std::string &s)
     {
-        return (int64_t)stol(strip_non_numeric(s), 0, 0);
+        return (int64_t) stol(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline uint64_t convert<uint64_t>(const std::string &s)
+    template<>
+    inline uint64_t convert<uint64_t>(const std::string &s)
     {
-        return (uint64_t)stoul(strip_non_numeric(s), 0, 0);
+        return (uint64_t) stoul(strip_non_numeric(s), 0, 0);
     }
 
-    template <> inline bool convert<bool>(const std::string &s)
+    template<>
+    inline bool convert<bool>(const std::string &s)
     {
         bool v = false;
 
@@ -275,19 +295,21 @@ namespace mxutils
         return v;
     }
 
-    template <> inline double convert<double>(const std::string &s)
+    template<>
+    inline double convert<double>(const std::string &s)
     {
         // [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
         return stod(strip_non_numeric(s));
     }
 
-    template <> inline float convert<float>(const std::string &s)
+    template<>
+    inline float convert<float>(const std::string &s)
     {
         // [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
         return stof(strip_non_numeric(s));
     }
 
-}
+};
 
 
 #endif // _MATRIX_UTIL_H_

@@ -36,6 +36,7 @@
 
 using namespace std;
 using namespace YAML;
+using namespace matrix;
 
 int main(int argc, char **argv)
 {

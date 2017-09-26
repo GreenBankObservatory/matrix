@@ -47,6 +47,7 @@
 using namespace std;
 using namespace Time;
 using namespace mxutils;
+using namespace matrix;
 
 static void throw_value_error(string key, string msg)
 {
@@ -58,13 +59,13 @@ static void throw_value_error(string key, string msg)
     throw q;
 }
 
-Component * FileDataSource::factory(string name, string km_url)
+matrix::Component * FileDataSource::factory(string name, string km_url)
 {
     return new FileDataSource(name, km_url);
 }
 
 FileDataSource::FileDataSource(string name, string km_url) :
-    Component(name, km_url),
+    matrix::Component(name, km_url),
     data_source(km_url, my_instance_name, "block_data"),
     _read_thread(this, &FileDataSource::_reader_thread),
     _read_thread_started(false),

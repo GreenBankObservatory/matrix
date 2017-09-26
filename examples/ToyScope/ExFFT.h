@@ -53,11 +53,11 @@ struct FFTIn
     double in[256][2];
 };
 
-class ExFFT : public Component
+class ExFFT : public matrix::Component
 {
 public:
   
-    static Component *factory(std::string, std::string);
+    static matrix::Component *factory(std::string, std::string);
     virtual ~ExFFT();
     
 protected:    
@@ -80,9 +80,9 @@ protected:
 protected:
     matrix::DataSink<double, matrix::select_only>     input_signal_sink;    
     matrix::DataSource<double>     output_signal_source;
-  
-    Thread<ExFFT>         poll_thread;
-    TCondition<bool>            poll_thread_started;
+
+    matrix::Thread<ExFFT>         poll_thread;
+    matrix::TCondition<bool>            poll_thread_started;
     int operation;
     int N;
     enum Operation { NONE, SQUARE }; 
