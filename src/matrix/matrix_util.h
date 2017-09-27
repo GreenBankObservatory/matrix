@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <iterator>
 #include <vector>
+#include <map>
 #include <set>
 #include <ostream>
 #include <cstring>
@@ -207,6 +208,32 @@ namespace matrix
             y += "]";
             o << y;
         }
+
+/**
+ * Outputs a map to an ostream
+ *
+ * @param m: the map to be output
+ *
+ * @param o: the ostream type
+ *
+ */
+
+    template <typename T, typename Q>
+    void output_map(std::map<T,Q> m, std::ostream &o)
+    {
+        std::ostringstream str;
+        str << "{";
+
+        for (auto x: m)
+        {
+            str << x.first << ":" << x.second << ", ";
+        }
+
+        std::string s = str.str();
+        std::string y(s.begin(), s.end() - 2);
+        y += "}";
+        o << y;
+    }
 
 /**
  * These template specializations convert 's' to a value of type T and

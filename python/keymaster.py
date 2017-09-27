@@ -34,12 +34,15 @@ import inspect
 import weakref
 from time import sleep
 
-def gen_random_string(rand_len = 10, chars = string.ascii_uppercase + string.ascii_lowercase + string.digits):
+
+def gen_random_string(rand_len=10, chars=string.ascii_uppercase +
+                      string.ascii_lowercase + string.digits):
     """Generates a random sequence of characters of size 'rand_len' from
        the characters provided in 'char'
 
     """
     return ''.join(random.choice(chars) for _ in range(rand_len))
+
 
 class Keymaster(object):
 
@@ -54,7 +57,8 @@ class Keymaster(object):
             pub_urls = self._keymaster().get('Keymaster.URLS.AsConfigured.Pub')
             # choose the one who's transport is the same as that of our
             # keymaster's request URL. i.e., if tcp, then use the pub tcp, etc.
-            self._pub_url = [p for p in pub_urls if p.split(':')[0] == km_url.split(':')[0]][0]
+            self._pub_url = [p for p in pub_urls if p.split(
+                ':')[0] == km_url.split(':')[0]][0]
             # main thread communicates to this thread via ZMQ inproc REQ/REP.
             self.pipe_url = "inproc://" + gen_random_string(20)
             self._callbacks = {}
@@ -78,15 +82,15 @@ class Keymaster(object):
                 pipe = ctx.socket(zmq.REP)
                 poller = zmq.Poller()
                 sub_sock.connect(self._pub_url)
-                pipe.bind(self.pipe_url);
-                poller.register(sub_sock, flags = zmq.POLLIN)
-                poller.register(pipe, flags = zmq.POLLIN)
+                pipe.bind(self.pipe_url)
+                poller.register(sub_sock, flags=zmq.POLLIN)
+                poller.register(pipe, flags=zmq.POLLIN)
 
                 while not self.end_thread:
                     event = poller.poll()
 
                     for e in event:
-                        sock = e[0] # e[1] always POLLIN
+                        sock = e[0]  # e[1] always POLLIN
 
                         if sock == pipe:
                             msg = pipe.recv_pyobj()
@@ -112,7 +116,8 @@ class Keymaster(object):
                                     pipe.send_pyobj("'%s' unsubscribed." % key)
                                 else:
                                     pipe.send_pyobj(False, zmq.SNDMORE)
-                                    pipe.send_pyobj("'%s': No such key is subscribed." % key)
+                                    pipe.send_pyobj(
+                                        "'%s': No such key is subscribed." % key)
 
                             elif msg == self._keymaster().UNSUBSCRIBE_ALL:
                                 keys_cleared = self._callbacks.keys()
@@ -122,7 +127,8 @@ class Keymaster(object):
 
                                 self._callbacks.clear()
                                 pipe.send_pyobj(True, zmq.SNDMORE)
-                                pipe.send_pyobj('Keys cleared: %s' % ', '.join(keys_cleared))
+                                pipe.send_pyobj('Keys cleared: %s' %
+                                                ', '.join(keys_cleared))
 
                             elif msg == self._keymaster().QUIT:
                                 pipe.send_pyobj(True)
@@ -152,8 +158,7 @@ class Keymaster(object):
             finally:
                 print "Keymaster: Ending subscriber thread."
 
-
-    def __init__(self, url, ctx = None):
+    def __init__(self, url, ctx=None):
         self.SUBSCRIBE = 10
         self.UNSUBSCRIBE = 11
         self.UNSUBSCRIBE_ALL = 12
@@ -197,7 +202,7 @@ class Keymaster(object):
             self._km.connect(self._km_url)
         return self._km
 
-    def _call_keymaster(self, cmd, key, val = None, flag = None):
+    def _call_keymaster(self, cmd, key, val=None, flag=None):
         """atomically calls the keymaster."""
         km = self._keymaster_socket()
         parts = [p for p in [cmd, key, val, flag] if p]
@@ -217,7 +222,7 @@ class Keymaster(object):
         else:
             return {}
 
-    def put(self, key, value, create = False):
+    def put(self, key, value, create=False):
         """Puts a value at 'key' on the Keymaster"""
         return self._call_keymaster('PUT', key, yaml.dump(value), "create" if create else "")['result']
 
@@ -257,7 +262,7 @@ class Keymaster(object):
         if not self._sub_task:
             self._sub_task = Keymaster.subscriber_task(self)
             self._sub_task.start()
-            sleep(1) # give it time to start
+            sleep(1)  # give it time to start
 
         # there is already a callback, fail.
         if key in self._sub_task._callbacks:
@@ -296,7 +301,6 @@ class Keymaster(object):
             return (rval, msg)
         return (False, 'No subscriber thread running!')
 
-
     def unsubscribe_all(self):
         """Causes all callbacks to be unsubscribed, and terminates the
            subscriber thread. Next call to 'subscribe' will restart
@@ -313,7 +317,7 @@ class Keymaster(object):
             return (rval, msg)
         return (False, 'No subscriber thread running!')
 
+
 def my_callback(key, val):
     print key
     print val
-
