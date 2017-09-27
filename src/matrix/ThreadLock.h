@@ -25,8 +25,8 @@
  *
  *******************************************************************/
 
-#if !defined(_THREADLOCK_H_)
-#define _THREADLOCK_H_
+#if !defined(_MATRIX_THREADLOCK_H_)
+#define _MATRIX_THREADLOCK_H_
 
 #include <assert.h>
 

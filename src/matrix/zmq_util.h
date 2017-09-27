@@ -25,8 +25,8 @@
  *
  *******************************************************************/
 
-#if !defined _ZMQ_UTIL_H_
-#define _ZMQ_UTIL_H_
+#if !defined _MATRIX_ZMQ_UTIL_H_
+#define _MATRIX_ZMQ_UTIL_H_
 
 #include "zmq.hpp"
 
@@ -98,4 +98,4 @@ namespace mxutils
 
 }
 
-#endif // _ZMQ_UTIL_H_
+#endif // _MATRIX_ZMQ_UTIL_H_

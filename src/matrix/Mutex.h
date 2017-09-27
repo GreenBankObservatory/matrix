@@ -28,8 +28,8 @@
  *
  *******************************************************************/
 
-#ifndef MUTEX_H
-#define MUTEX_H
+#ifndef MATRIX_MUTEX_H
+#define MATRIX_MUTEX_H
 
 #include <pthread.h>
 

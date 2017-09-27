@@ -25,8 +25,8 @@
  *
  *******************************************************************/
 
-#if !defined(_PUBLISHER_H_)
-#define _PUBLISHER_H_
+#if !defined(_MATRIX_PUBLISHER_H_)
+#define _MATRIX_PUBLISHER_H_
 
 #include <string>
 #include <vector>
@@ -75,4 +75,4 @@ namespace matrix
     };
 };
 
-#endif // _PUBLISHER_H_
+#endif // _MATRIX_PUBLISHER_H_

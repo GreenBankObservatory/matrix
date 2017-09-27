@@ -21,8 +21,8 @@
 //  P. O. Box 2
 //  Green Bank, WV 24944-0002 USA
 
-#ifndef NANutils_h
-#define NANutils_h
+#ifndef MATRIX_NANutils_h
+#define MATRIX_NANutils_h
 namespace matrix
 {
     // Return a Not-A-Number double

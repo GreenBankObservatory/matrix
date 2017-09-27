@@ -20,8 +20,8 @@
 //#     P. O. Box 2
 //#     Green Bank, WV 24944-0002 USA
 
-#ifndef SEMAPHORE_H
-#define SEMAPHORE_H
+#ifndef MATRIX_SEMAPHORE_H
+#define MATRIX_SEMAPHORE_H
 
 #include <semaphore.h>
 namespace matrix

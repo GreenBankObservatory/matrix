@@ -26,8 +26,8 @@
  *
  *******************************************************************/
 
-#if !defined(_TSEMFIFO_H_)
-#define _TSEMFIFO_H_
+#if !defined(_MATRIX_TSEMFIFO_H_)
+#define _MATRIX_TSEMFIFO_H_
 
 #include <semaphore.h>
 #include <errno.h>
@@ -820,4 +820,4 @@ namespace matrix
     }
 };
 
-#endif  // _TSEMFIFO_H_
+#endif  // _MATRIX_TSEMFIFO_H_

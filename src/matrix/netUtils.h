@@ -26,8 +26,8 @@
  *
  *******************************************************************/
 
-#if !defined(_NET_UTILS_H_)
-#define _NET_UTILS_H_
+#if !defined(_MATRIX_NET_UTILS_H_)
+#define _MATRIX_NET_UTILS_H_
 
 #include <string>
 

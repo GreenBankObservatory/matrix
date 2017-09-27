@@ -22,8 +22,8 @@
 
 //# $Id: Thread.h,v 1.5 2008/02/29 15:05:48 rcreager Exp $
 
-#ifndef THREAD_H
-#define THREAD_H
+#ifndef MATRIX_THREAD_H
+#define MATRIX_THREAD_H
 
 #include <assert.h>
 #include <pthread.h>

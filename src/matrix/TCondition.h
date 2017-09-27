@@ -26,8 +26,8 @@
  *
  *******************************************************************/
 
-#ifndef _TCONDITION_H_
-#define _TCONDITION_H_
+#ifndef _MATRIX_TCONDITION_H_
+#define _MATRIX_TCONDITION_H_
 
 #include <sys/time.h>
 #include <pthread.h>
