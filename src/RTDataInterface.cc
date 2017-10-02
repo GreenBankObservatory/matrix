@@ -231,18 +231,12 @@ namespace matrix
 
         // Many clients may be registered for this data under
         // 'key'. Look for an exact match of key, cb:
+        // Note: We delete all clients for a given key with the rtproc
+        // transport because the unsubscribe call here only is
+        // called once due to reference counting on the TC. -- JJB
         for (client = _clients.equal_range(key).first;
              client != _clients.equal_range(key).second; ++client)
         {
-            if (client->second == cb)
-            {
-                break;
-            }
-        }
-
-        if (client != _clients.equal_range(key).second)
-        {
-            // found it!
             _clients.erase(client);
             rval = true;
         }
