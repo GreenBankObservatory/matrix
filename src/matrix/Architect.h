@@ -121,7 +121,7 @@ namespace matrix
 ///
 namespace matrix
 {
-    class Architect : public Component
+    class Architect : public matrix::Component
     {
     public:
         Architect(std::string name, std::string km_url);
@@ -131,7 +131,7 @@ namespace matrix
         /// Add a component factory constructor for later use in creating
         /// the component instance. The factory signature should be
         /// `       Component * Classname::factory(string type, ComponentFactory);`
-        static void add_component_factory(std::string name, Component::ComponentFactory func);
+        static void add_component_factory(std::string name, matrix::Component::ComponentFactory func);
 
         /// This reads the connections section of the keymaster database/config file
         /// and for each mode listed, creates a set of instance names of the
@@ -165,11 +165,11 @@ namespace matrix
         /// shutdown the controller and its components
         void terminate();
 
-        std::shared_ptr<Component> get_component_by_name(std::string name);
+        std::shared_ptr<matrix::Component> get_component_by_name(std::string name);
 
         struct ComponentInfo
         {
-            std::shared_ptr<Component> instance;
+            std::shared_ptr<matrix::Component> instance;
             std::string state;
             std::string status;
             bool active;
@@ -181,9 +181,9 @@ namespace matrix
 
     protected:
 
-        typedef std::map<std::string, Component::ComponentFactory> ComponentFactoryMap;
-        typedef Protected<std::map<std::string, ComponentInfo> > ComponentMap;
-        typedef Protected<std::map<std::string, std::set<std::string> > > ActiveModeComponentSet;
+        typedef std::map<std::string, matrix::Component::ComponentFactory> ComponentFactoryMap;
+        typedef matrix::Protected<std::map<std::string, ComponentInfo> > ComponentMap;
+        typedef matrix::Protected<std::map<std::string, std::set<std::string> > > ActiveModeComponentSet;
         typedef std::pair<std::string, std::string> StateReport;
 
         /// A callback for component state changes.
@@ -242,15 +242,15 @@ namespace matrix
         std::string current_mode;
 
         // std::string keymaster_url;
-        TCondition<bool> state_condition;
-        tsemfifo<std::pair<std::string, std::string> > state_fifo;
-        TCondition<bool> state_thread_started;
-        Thread<Architect> state_thread;
+        matrix::TCondition<bool> state_condition;
+        matrix::tsemfifo<std::pair<std::string, std::string> > state_fifo;
+        matrix::TCondition<bool> state_thread_started;
+        matrix::Thread<Architect> state_thread;
 
         /// A place to store Component factory methods
         /// indexed by Component type, not name.
         static ComponentFactoryMap factory_methods;
-        static std::shared_ptr<KeymasterServer> the_keymaster_server;
+        static std::shared_ptr<matrix::KeymasterServer> the_keymaster_server;
     };
 };
 

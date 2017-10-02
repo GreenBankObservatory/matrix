@@ -34,11 +34,11 @@
 
 namespace matrix
 {
-    class ComponentException : public MatrixException
+    class ComponentException : public matrix::MatrixException
     {
     public:
         ComponentException(std::string msg) :
-                MatrixException(msg, "Component exception")
+                matrix::MatrixException(msg, "Component exception")
         {
         }
     };
@@ -255,16 +255,16 @@ namespace matrix
         std::string keymaster_url;
         std::string my_instance_name;   /// <== The component's short name
         std::string my_full_instance_name; /// <== The full YAML path for the component
-        Protected<FSM::FiniteStateMachine<std::string>> fsm;
-        std::shared_ptr<Keymaster> keymaster;
+        matrix::Protected<matrix::FSM::FiniteStateMachine<std::string>> fsm;
+        std::shared_ptr<matrix::Keymaster> keymaster;
         /// A thingy which has all the connection info for the current mode.
         /// Maps a key of <mode,component,sink> to the corresponding <component,source,transport>
         ConnectionMap connections;
         std::string current_mode;
         bool done;
-        Thread<Component> cmd_thread;
-        tsemfifo<std::string> command_fifo;
-        TCondition<bool> cmd_thread_started;
+        matrix::Thread<Component> cmd_thread;
+        matrix::tsemfifo<std::string> command_fifo;
+        matrix::TCondition<bool> cmd_thread_started;
         bool verbose; /// <== Controls debug print outs.
     };
 

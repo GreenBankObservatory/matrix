@@ -44,7 +44,7 @@ namespace matrix
  *
  */
 
-    class RTTransportServer : public TransportServer
+    class RTTransportServer : public matrix::TransportServer
     {
     public:
 
@@ -64,8 +64,8 @@ namespace matrix
 
         struct Impl;
         std::shared_ptr<Impl> _impl;
-        friend class TransportServer;
-        static TransportServer *factory(std::string, std::string);
+        friend class matrix::TransportServer;
+        static matrix::TransportServer *factory(std::string, std::string);
         static std::map<std::string, RTTransportServer *> _rttransports;
     };
 
@@ -79,7 +79,7 @@ namespace matrix
  *
  */
 
-    class RTTransportClient : public TransportClient
+    class RTTransportClient : public matrix::TransportClient
     {
     public:
 
@@ -94,10 +94,10 @@ namespace matrix
         bool _unsubscribe(std::string key, DataCallbackBase *cb);
 
         std::string _key;
-        DataCallbackBase *_cb;
+        matrix::DataCallbackBase *_cb;
 
-        friend class TransportClient;
-        static TransportClient *factory(std::string);
+        friend class matrix::TransportClient;
+        static matrix::TransportClient *factory(std::string);
     };
 
 }

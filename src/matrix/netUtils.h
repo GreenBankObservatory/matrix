@@ -34,8 +34,8 @@
 namespace mxutils
 {
 
-bool getCanonicalHostname(std::string &name);
+    bool getCanonicalHostname(std::string &name);
 
-}
+};
 
 #endif

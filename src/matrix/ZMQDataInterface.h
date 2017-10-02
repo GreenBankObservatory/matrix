@@ -29,7 +29,7 @@
 namespace matrix
 {
 
-    class ZMQTransportServer : public TransportServer
+    class ZMQTransportServer : public matrix::TransportServer
     {
     public:
         ZMQTransportServer(std::string keymaster_url, std::string key);
@@ -42,13 +42,13 @@ namespace matrix
         struct PubImpl;
         std::shared_ptr<PubImpl> _impl;
 
-        friend class TransportServer;
-        static TransportServer *factory(std::string, std::string);
+        friend class matrix::TransportServer;
+        static matrix::TransportServer *factory(std::string, std::string);
     };
 
 
 
-    class ZMQTransportClient : public TransportClient
+    class ZMQTransportClient : public matrix::TransportClient
     {
     public:
         ZMQTransportClient(std::string urn);
@@ -57,14 +57,14 @@ namespace matrix
     private:
         bool _connect();
         bool _disconnect();
-        bool _subscribe(std::string key, DataCallbackBase *cb);
+        bool _subscribe(std::string key, matrix::DataCallbackBase *cb);
         bool _unsubscribe(std::string key);
 
         struct Impl;
         std::shared_ptr<Impl> _impl;
 
-        friend class TransportClient;
-        static TransportClient *factory(std::string);
+        friend class matrix::TransportClient;
+        static matrix::TransportClient *factory(std::string);
     };
 
 }

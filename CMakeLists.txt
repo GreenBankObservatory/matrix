@@ -16,6 +16,9 @@ add_subdirectory(examples/Helloworld)
 # autotools, so the actual directory will be under lib, bin, 
 # include etc.
 #
-# THIRDPARTYDIR must be specified in all cases.
+# THIRDPARTYDIR must be specified in all cases. What the
+# THIRDPARYTDIR is specifying is the location of the dependencies
+# e.g yaml-cpp and zmq, not the location of matrix include files.
 #
-# cmake .. -DCMAKE_INSTALL_PREFIX=../_install -DTHIRDPARTYDIR=/home/gbt1/lib_16.3
+# Typical configuration command:
+# cmake .. -DCMAKE_INSTALL_PREFIX=/home/gbt1/lib_16.3 -DTHIRDPARTYDIR=/home/gbt1/lib_16.3

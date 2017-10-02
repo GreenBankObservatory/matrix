@@ -39,11 +39,11 @@
 
 namespace matrix
 {
-    class TestDataGenerator : public Component
+    class TestDataGenerator : public matrix::Component
     {
     public:
 
-        static Component *factory(std::string, std::string);
+        static matrix::Component *factory(std::string, std::string);
         virtual ~TestDataGenerator();
 
     protected:
@@ -79,10 +79,10 @@ namespace matrix
         test_data_t test_data;
         default_vals_t default_vals;
 
-        Thread<TestDataGenerator> poll_thread;
-        TCondition<bool>          poll_thread_started;
+        matrix::Thread<TestDataGenerator> poll_thread;
+        matrix::TCondition<bool>          poll_thread_started;
         bool                      _run;
-        Mutex                     _data_mutex;
+        matrix::Mutex                     _data_mutex;
     };
 
 }

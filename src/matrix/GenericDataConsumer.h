@@ -40,13 +40,13 @@
 
 namespace matrix
 {
-    class GenericDataConsumer : public Component
+    class GenericDataConsumer : public matrix::Component
     {
     public:
-        static Component *factory(std::string, std::string);
+        static matrix::Component *factory(std::string, std::string);
         virtual ~GenericDataConsumer();
 
-        void add_data_handler(std::unique_ptr<GenericBufferHandler> hp)
+        void add_data_handler(std::unique_ptr<matrix::GenericBufferHandler> hp)
         {
             _handler = std::move(hp);
         }
@@ -65,10 +65,10 @@ namespace matrix
 
         matrix::DataSink<matrix::GenericBuffer, matrix::select_only> _sink;
 
-        Thread<GenericDataConsumer> _thread;
-        TCondition<bool> _thread_started;
-        TCondition<bool> _run;
-        std::unique_ptr<GenericBufferHandler> _handler;
+        matrix::Thread<GenericDataConsumer> _thread;
+        matrix::TCondition<bool> _thread_started;
+        matrix::TCondition<bool> _run;
+        std::unique_ptr<matrix::GenericBufferHandler> _handler;
     };
 
 }

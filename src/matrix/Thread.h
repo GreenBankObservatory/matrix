@@ -158,7 +158,7 @@ namespace matrix
  */
 
     template<typename T>
-    Thread<T>::Thread(T *object_, Thread<T>::THREADPROC proc_, size_t stacksize_)
+    matrix::Thread<T>::Thread(T *object_, matrix::Thread<T>::THREADPROC proc_, size_t stacksize_)
             : id(0), object(object_), proc(proc_), stacksize(stacksize_), _is_detached(false)
     {
     }
@@ -172,7 +172,7 @@ namespace matrix
  */
 
     template<typename T>
-    Thread<T>::~Thread()
+    matrix::Thread<T>::~Thread()
     {
         stop();
     }
@@ -188,7 +188,7 @@ namespace matrix
  */
 
     template<typename T>
-    int Thread<T>::start(std::string thread_name)
+    int matrix::Thread<T>::start(std::string thread_name)
     {
         int err;
 
@@ -240,7 +240,7 @@ namespace matrix
  */
 
     template<typename T>
-    bool Thread<T>::running()
+    bool matrix::Thread<T>::running()
     {
         return (0 != id);
     }
@@ -249,7 +249,7 @@ namespace matrix
  * Sends a cancel to the thread. Does not perform a join.
  */
     template<typename T>
-    void Thread<T>::cancel()
+    void matrix::Thread<T>::cancel()
     {
         if (running())
         {
@@ -261,7 +261,7 @@ namespace matrix
  * Perform a thread join. Same as stop_without_cancel()
  */
     template<typename T>
-    void Thread<T>::join()
+    void matrix::Thread<T>::join()
     {
         if (running() && joinable())
         {
@@ -275,7 +275,7 @@ namespace matrix
  * Once detached, the thread can still be cancelled, but not joined.
  */
     template<typename T>
-    void Thread<T>::detach()
+    void matrix::Thread<T>::detach()
     {
         if (running())
         {
@@ -292,7 +292,7 @@ namespace matrix
  */
 
     template<typename T>
-    void Thread<T>::stop()
+    void matrix::Thread<T>::stop()
     {
         if (running())
         {
@@ -310,7 +310,7 @@ namespace matrix
  */
 
     template<typename T>
-    void Thread<T>::stop_without_cancel()
+    void matrix::Thread<T>::stop_without_cancel()
     {
         if (running())
         {

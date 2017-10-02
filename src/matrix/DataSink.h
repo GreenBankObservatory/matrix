@@ -144,7 +144,7 @@ namespace matrix
 
         std::string operator() (std::string component, std::string data_name)
         {
-            Keymaster km(_km_urn);
+            matrix::Keymaster km(_km_urn);
             YAML::Node n = km.get("components." + component);
             std::string transport = n["Sources"][data_name].as<std::string>();
             std::vector<std::string> urls =
@@ -154,7 +154,7 @@ namespace matrix
 
             if (it == urls.end()) // not found!
             {
-                throw(TransportClient::CreationError(
+                throw(matrix::TransportClient::CreationError(
                           "Transport " + _transport + " not configured by " + component + "." + data_name));
             }
 
@@ -190,7 +190,7 @@ namespace matrix
 
         std::string operator() (std::string component, std::string data_name)
         {
-            Keymaster km(_km_urn);
+            matrix::Keymaster km(_km_urn);
             YAML::Node n = km.get("components." + component);
             std::string transport = n["Sources"][data_name].as<std::string>();
             std::vector<std::string> urls =
@@ -198,13 +198,13 @@ namespace matrix
 
             if (urls.size() > 1)
             {
-                throw(TransportClient::CreationError(
+                throw(matrix::TransportClient::CreationError(
                           "Multiple transports with none specified for" + component + "." + data_name));
             }
 
             if (urls.empty())
             {
-                throw(TransportClient::CreationError(
+                throw(matrix::TransportClient::CreationError(
                           "No configured transports found for " + component + "." + data_name));
             }
 
@@ -232,7 +232,7 @@ namespace matrix
         virtual ~DataSinkBase() {}
 
         virtual size_t items() = 0;
-        virtual void set_notifier(std::shared_ptr<fifo_notifier> n) = 0;
+        virtual void set_notifier(std::shared_ptr<matrix::fifo_notifier> n) = 0;
         virtual std::string current_source_urn() = 0;
         virtual std::string current_source_key() = 0;
         virtual void disconnect() = 0;
@@ -284,7 +284,7 @@ namespace matrix
 
     class poller
     {
-        struct notifier : public fifo_notifier
+        struct notifier : public matrix::fifo_notifier
         {
             notifier(TCondition<bool> &n)
                 : item_placed(n)
@@ -296,12 +296,12 @@ namespace matrix
                 item_placed.signal(true);
             }
 
-            TCondition<bool> &item_placed;
+            matrix::TCondition<bool> &item_placed;
         };
 
-        TCondition<bool> _item_placed;
-        std::shared_ptr<fifo_notifier> _notifier;
-        std::vector<DataSinkBase *> _queues;
+        matrix::TCondition<bool> _item_placed;
+        std::shared_ptr<matrix::fifo_notifier> _notifier;
+        std::vector<matrix::DataSinkBase *> _queues;
 
     public:
         poller()
@@ -319,7 +319,7 @@ namespace matrix
  *
  */
 
-        void push_back(DataSinkBase *ds)
+        void push_back(matrix::DataSinkBase *ds)
         {
             ds->set_notifier(_notifier);
             _queues.push_back(ds);
@@ -338,7 +338,7 @@ namespace matrix
 
         bool any_of(int usecs)
         {
-            ThreadLock<decltype(_item_placed)> l(_item_placed);
+            matrix::ThreadLock<decltype(_item_placed)> l(_item_placed);
             Time::Time_t time_to_quit = Time::getUTC() + ((Time::Time_t)usecs) * 1000L;
             l.lock();
 
@@ -467,14 +467,14 @@ namespace matrix
      */
 
     template <typename T>
-    int _data_handler(void *data, size_t sze, tsemfifo<T> &ringbuf, bool blocking)
+    int _data_handler(void *data, size_t sze, matrix::tsemfifo<T> &ringbuf, bool blocking)
     {
         if (sizeof(T) != sze)
         {
             std::ostringstream msg;
             msg << "size mismatch error. sizeof(T) == " << sizeof(T)
                 << " and given data buffer size is " << sze;
-            throw MatrixException("DataSink::_data_handler()", msg.str());
+            throw matrix::MatrixException("DataSink::_data_handler()", msg.str());
         }
         if (blocking)
         {
@@ -506,7 +506,7 @@ namespace matrix
      */
 
     template <>
-    inline int _data_handler<std::string>(void *data, size_t sze, tsemfifo<std::string> &ringbuf, bool blocking)
+    inline int _data_handler<std::string>(void *data, size_t sze, matrix::tsemfifo<std::string> &ringbuf, bool blocking)
     {
         std::string val(sze, 0);
         std::memmove((char *)val.data(), data, sze);
@@ -545,7 +545,7 @@ namespace matrix
 
     template <>
     inline int _data_handler<matrix::GenericBuffer>(void *data, size_t sze,
-            tsemfifo<matrix::GenericBuffer> &ringbuf, bool blocking)
+                                                    matrix::tsemfifo<matrix::GenericBuffer> &ringbuf, bool blocking)
     {
         matrix::GenericBuffer buf;
 
@@ -570,7 +570,7 @@ namespace matrix
     }
 
     template <typename T, typename U = select_specified>
-    class DataSink : public DataSinkBase
+    class DataSink : public matrix::DataSinkBase
     {
     public:
         DataSink(std::string km_urn, size_t ringbuf_size = 10, bool blocking=false);
@@ -582,7 +582,7 @@ namespace matrix
         size_t items();
         size_t lost_items();
         size_t flush(int items);
-        void set_notifier(std::shared_ptr<fifo_notifier> n);
+        void set_notifier(std::shared_ptr<matrix::fifo_notifier> n);
 
         void connect(std::string component_name, std::string data_name,
                      std::string transport = "");
@@ -611,9 +611,9 @@ namespace matrix
         std::string _data_name;
         std::string _transport;
 
-        std::shared_ptr<TransportClient> _tc;
-        tsemfifo<T> _ringbuf;
-        DataMemberCB<DataSink> _cb;
+        std::shared_ptr<matrix::TransportClient> _tc;
+        matrix::tsemfifo<T> _ringbuf;
+        matrix::DataMemberCB<DataSink> _cb;
         bool _blocking;
     };
 
@@ -648,7 +648,7 @@ namespace matrix
         {
             disconnect();
         }
-        catch (KeymasterException e)
+        catch (matrix::KeymasterException e)
         {
             std::cerr << now << e.what() << std::endl;
         }
@@ -913,7 +913,7 @@ namespace matrix
  */
 
     template <typename T, typename U>
-    void DataSink<T, U>::set_notifier(std::shared_ptr<fifo_notifier> n)
+    void DataSink<T, U>::set_notifier(std::shared_ptr<matrix::fifo_notifier> n)
     {
         _ringbuf.set_notifier(n);
     }
@@ -937,7 +937,7 @@ namespace matrix
   *
   */
 
-    bool reconnectDataSink(DataSinkBase *ds, Keymaster &km, KeymasterHeartbeatCB &kmhb,
+    bool reconnectDataSink(matrix::DataSinkBase *ds, matrix::Keymaster &km, matrix::KeymasterHeartbeatCB &kmhb,
                            std::string comp, std::string src, std::string transport);
 }
 

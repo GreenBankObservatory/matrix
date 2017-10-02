@@ -554,11 +554,10 @@ namespace matrix
 
         typedef std::map<std::string, factory_sig> factory_map_t;
         static factory_map_t factories;
-        static Mutex factories_mutex;
+        static matrix::Mutex factories_mutex;
 
         typedef std::map<std::string, std::shared_ptr<TransportServer> > transport_map_t;
-        typedef Protected<std::map<std::string, transport_map_t> > component_map_t;
-
+        typedef matrix::Protected<std::map<std::string, transport_map_t> > component_map_t;
         static component_map_t transports;
     };
 
@@ -658,21 +657,21 @@ namespace matrix
 
     private:
 
-        Mutex _shared_lock;
+        matrix::Mutex _shared_lock;
 
         static std::shared_ptr<TransportClient> create(std::string urn);
 
         typedef std::map<std::string, factory_sig> factory_map_t;
         static factory_map_t factories;
-        static Mutex factories_mutex;
+        static matrix::Mutex factories_mutex;
 
-        typedef Protected<std::map<std::string, std::shared_ptr<TransportClient> > > client_map_t;
+        typedef matrix::Protected<std::map<std::string, std::shared_ptr<TransportClient> > > client_map_t;
         static client_map_t transports;
     };
 
     inline bool TransportClient::connect(std::string urn)
     {
-        ThreadLock<Mutex> l(_shared_lock);
+        matrix::ThreadLock<matrix::Mutex> l(_shared_lock);
         l.lock();
 
         // connect to new urn?
@@ -686,21 +685,21 @@ namespace matrix
 
     inline bool TransportClient::disconnect()
     {
-        ThreadLock<Mutex> l(_shared_lock);
+        matrix::ThreadLock<matrix::Mutex> l(_shared_lock);
         l.lock();
         return _disconnect();
     }
 
     inline bool TransportClient::subscribe(std::string key, DataCallbackBase *cb)
     {
-        ThreadLock<Mutex> l(_shared_lock);
+        matrix::ThreadLock<matrix::Mutex> l(_shared_lock);
         l.lock();
         return _subscribe(key, cb);
     }
 
     inline bool TransportClient::unsubscribe(std::string key)
     {
-        ThreadLock<Mutex> l(_shared_lock);
+        matrix::ThreadLock<matrix::Mutex> l(_shared_lock);
         l.lock();
         return _unsubscribe(key);
     }

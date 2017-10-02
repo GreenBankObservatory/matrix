@@ -160,7 +160,7 @@ namespace matrix
 
     template<typename T>
     TCondition<T>::TCondition(T const &val)
-            : Mutex(), _value(val)
+            : matrix::Mutex(), _value(val)
     {
         pthread_cond_init(&_cond, NULL);
 

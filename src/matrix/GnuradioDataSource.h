@@ -119,14 +119,14 @@ namespace matrix
           _data_name(data_name),
           _sock()
     {
-        Keymaster km(km_urn);
+        matrix::Keymaster km(km_urn);
         // obtain the transport name associated with this data source and
         // get a pointer to that transport
         _zmq_address = km.get_as<std::string>("components."
                                                  + component_name
                                                  + ".grc_url."
                                                  + data_name);
-        _sock.reset( new zmq::socket_t(ZMQContext::Instance()->get_context(), ZMQ_PUB) );
+        _sock.reset( new zmq::socket_t(matrix::ZMQContext::Instance()->get_context(), ZMQ_PUB) );
 
         connect();
 

@@ -78,7 +78,7 @@ namespace matrix
     {
     public:
         KeymasterException(std::string msg) :
-                MatrixException("KeymasterException", msg)
+                matrix::MatrixException("KeymasterException", msg)
         {
         }
     };
@@ -122,12 +122,12 @@ namespace matrix
  *
  */
 
-    struct KeymasterHeartbeatCB : public KeymasterCallbackBase
+    struct KeymasterHeartbeatCB : public matrix::KeymasterCallbackBase
     {
         Time::Time_t last_update()
         {
             Time::Time_t t;
-            ThreadLock<Mutex> l(lock);
+            matrix::ThreadLock<matrix::Mutex> l(lock);
             l.lock();
             t = last_heard;
             l.unlock();
@@ -137,13 +137,13 @@ namespace matrix
     private:
         void _call(std::string key, YAML::Node val)
         {
-            ThreadLock<Mutex> l(lock);
+            matrix::ThreadLock<matrix::Mutex> l(lock);
             l.lock();
             last_heard = val.as<Time::Time_t>();
             l.unlock();
         }
 
-        Mutex lock;
+        matrix::Mutex lock;
         Time::Time_t last_heard;
     };
 
@@ -177,7 +177,7 @@ namespace matrix
  */
 
     template<typename T>
-    class KeymasterMemberCB : public KeymasterCallbackBase
+    class KeymasterMemberCB : public matrix::KeymasterCallbackBase
     {
     public:
         typedef void (T::*ActionMethod)(std::string, YAML::Node);
@@ -223,7 +223,7 @@ namespace matrix
 
         bool del(std::string key);
 
-        bool subscribe(std::string key, KeymasterCallbackBase *f);
+        bool subscribe(std::string key, matrix::KeymasterCallbackBase *f);
 
         bool unsubscribe(std::string key);
 
@@ -258,14 +258,14 @@ namespace matrix
         std::string _pipe_url;
         std::vector<std::string> _km_pub_urls;
 
-        std::map<std::string, KeymasterCallbackBase *> _callbacks;
-        Thread<Keymaster> _subscriber_thread;
-        TCondition<bool> _subscriber_thread_ready;
-        Thread<Keymaster> _put_thread;
-        TCondition<bool> _put_thread_ready;
+        std::map<std::string, matrix::KeymasterCallbackBase *> _callbacks;
+        matrix::Thread<Keymaster> _subscriber_thread;
+        matrix::TCondition<bool> _subscriber_thread_ready;
+        matrix::Thread<Keymaster> _put_thread;
+        matrix::TCondition<bool> _put_thread_ready;
         bool _put_thread_run;
-        tsemfifo<std::tuple<std::string, std::string, bool> > _put_fifo;
-        Mutex _shared_lock;
+        matrix::tsemfifo<std::tuple<std::string, std::string, bool> > _put_fifo;
+        matrix::Mutex _shared_lock;
     };
 
     template<typename T>

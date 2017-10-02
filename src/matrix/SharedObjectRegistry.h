@@ -32,7 +32,6 @@
 namespace matrix
 {
     class Keymaster;
-
     class SharedObjectRegistry
     {
     public:

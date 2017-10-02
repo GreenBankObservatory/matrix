@@ -36,19 +36,21 @@
 /// Enapsulates a pthread mutex for mutual exclusion.
 namespace matrix
 {
-class Mutex
-{
-  public:
+    class Mutex
+    {
+    public:
 
-    virtual ~Mutex();
-    Mutex();
+        virtual ~Mutex();
 
-    int unlock();
-    int lock();
+        Mutex();
 
-  protected:
-    pthread_mutex_t mutex;
-};
+        int unlock();
+
+        int lock();
+
+    protected:
+        pthread_mutex_t mutex;
+    };
 
 /// A template to add a mutex lock/unlock to an stl container, so
 /// one can write constructs like:
@@ -62,15 +64,23 @@ class Mutex
 ///      Protected< vector<int> >pc;
 ///      ThreadLock<decltype(pc)> thread_lock(pc);
 ///
-template <typename Container>
-class Protected : public Container
-{
-public:
-    int lock()   { return mtx.lock(); }
-    int unlock() { return mtx.unlock(); }
-protected:
-    Mutex mtx;
-};
+    template<typename Container>
+    class Protected : public Container
+    {
+    public:
+        int lock()
+        {
+            return mtx.lock();
+        }
+
+        int unlock()
+        {
+            return mtx.unlock();
+        }
+
+    protected:
+        matrix::Mutex mtx;
+    };
 };
 
 

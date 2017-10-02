@@ -191,10 +191,10 @@ namespace matrix
         unsigned int _objects;
         sem_t _full_sem;
         sem_t _empty_sem;
-        TCondition<bool> _release;
-        TCondition<bool> _empty;
-        std::shared_ptr<fifo_notifier> _notifier;
-        Mutex _critical_section;
+        matrix::TCondition<bool> _release;
+        matrix::TCondition<bool> _empty;
+        std::shared_ptr<matrix::fifo_notifier> _notifier;
+        matrix::Mutex _critical_section;
     };
 
 /**
@@ -211,7 +211,7 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::Exception::what(int ec, char const *msg)
+    void matrix::tsemfifo<T>::Exception::what(int ec, char const *msg)
     {
         char err[128];
         memset(err, 0, 128);
@@ -240,14 +240,14 @@ namespace matrix
  */
 
     template<class T>
-    tsemfifo<T>::tsemfifo(size_t size)
+    matrix::tsemfifo<T>::tsemfifo(size_t size)
             : _buffer(size),
               _buf_len(size),
               _release(false),
               _empty(true),
               _notifier(new fifo_notifier)
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
         l.lock();
         _create_sem();
@@ -260,9 +260,9 @@ namespace matrix
  */
 
     template<class T>
-    tsemfifo<T>::~tsemfifo()
+    matrix::tsemfifo<T>::~tsemfifo()
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
         l.lock();
         _close_sem();
@@ -275,7 +275,7 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::_create_sem()
+    void matrix::tsemfifo<T>::_create_sem()
     {
         sem_init(&_full_sem, 0, 0);
         sem_init(&_empty_sem, 0, _buf_len);
@@ -287,7 +287,7 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::_close_sem()
+    void matrix::tsemfifo<T>::_close_sem()
     {
         sem_destroy(&_full_sem);
         sem_destroy(&_empty_sem);
@@ -300,9 +300,9 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::flush()
+    void matrix::tsemfifo<T>::flush()
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
         l.lock();
         _close_sem();
@@ -325,9 +325,9 @@ namespace matrix
  */
 
     template<class T>
-    unsigned int tsemfifo<T>::flush(int items)
+    unsigned int matrix::tsemfifo<T>::flush(int items)
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
         // A fastpath for when there is no work to do:
         if ((-1 * items) == _objects)
@@ -402,7 +402,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::wait_for_empty(int milliseconds)
+    bool matrix::tsemfifo<T>::wait_for_empty(int milliseconds)
     {
         if (milliseconds == -1)
         {
@@ -423,9 +423,9 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::_put(T &obj)
+    void matrix::tsemfifo<T>::_put(T &obj)
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
 
         l.lock();
@@ -468,7 +468,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::put(T &obj)
+    bool matrix::tsemfifo<T>::put(T &obj)
     {
         int r;
 
@@ -510,7 +510,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::try_put(T &obj)
+    bool matrix::tsemfifo<T>::try_put(T &obj)
     {
         if (sem_trywait(&_empty_sem) == -1)
         {
@@ -547,7 +547,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
+    bool matrix::tsemfifo<T>::timed_put(T &obj, Time::Time_t time_out)
     {
         timespec ts;
 
@@ -578,7 +578,7 @@ namespace matrix
  */
 
     template<class T>
-    unsigned int tsemfifo<T>::put_no_block(T &obj)
+    unsigned int matrix::tsemfifo<T>::put_no_block(T &obj)
     {
         unsigned int flushed(0);
 
@@ -604,9 +604,9 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::_get(T &obj)
+    void matrix::tsemfifo<T>::_get(T &obj)
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
         l.lock();
         obj = _buffer[_head];
@@ -650,7 +650,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::get(T &obj)
+    bool matrix::tsemfifo<T>::get(T &obj)
     {
         int r;
 
@@ -688,7 +688,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::try_get(T &obj)
+    bool matrix::tsemfifo<T>::try_get(T &obj)
     {
         if (sem_trywait(&_full_sem) == -1)
         {
@@ -723,7 +723,7 @@ namespace matrix
  */
 
     template<class T>
-    bool tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
+    bool matrix::tsemfifo<T>::timed_get(T &obj, Time::Time_t time_out)
     {
         timespec ts;
 
@@ -754,7 +754,7 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::release()
+    void matrix::tsemfifo<T>::release()
     {
         _release.broadcast(true);
         sem_post(&_full_sem);
@@ -769,10 +769,10 @@ namespace matrix
  */
 
     template<class T>
-    unsigned int tsemfifo<T>::size()
+    unsigned int matrix::tsemfifo<T>::size()
     {
         unsigned int o;
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
 
         l.lock();
@@ -789,10 +789,10 @@ namespace matrix
  */
 
     template<class T>
-    unsigned int tsemfifo<T>::capacity()
+    unsigned int matrix::tsemfifo<T>::capacity()
     {
         unsigned int o;
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
 
         l.lock();
@@ -812,9 +812,9 @@ namespace matrix
  */
 
     template<class T>
-    void tsemfifo<T>::set_notifier(std::shared_ptr<fifo_notifier> n)
+    void matrix::tsemfifo<T>::set_notifier(std::shared_ptr<matrix::fifo_notifier> n)
     {
-        ThreadLock<Mutex> l(_critical_section);
+        matrix::ThreadLock<matrix::Mutex> l(_critical_section);
         l.lock();
         _notifier = n;
     }

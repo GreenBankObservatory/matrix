@@ -55,7 +55,7 @@ namespace matrix
         ZMQContext();
 
         static std::shared_ptr<ZMQContext> _instance;
-        static Mutex _instance_lock;
+        static matrix::Mutex _instance_lock;
     };
 };
 
