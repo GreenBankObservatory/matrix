@@ -43,11 +43,11 @@ namespace matrix
             my_instance_name(myname),
             my_full_instance_name("components." + my_instance_name),
             keymaster(),
+            current_mode("none"),
             done(false),
+            cmd_thread(this, &Component::command_loop),
             command_fifo(),
             cmd_thread_started(false),
-            cmd_thread(this, &Component::command_loop),
-            current_mode("none"),
             verbose(false)
     {
         initialize_fsm();
@@ -315,7 +315,7 @@ namespace matrix
         command_fifo.put(cmd);
     }
 
-    void Component::mode_changed(string path, YAML::Node n)
+    void Component::mode_changed(string, YAML::Node n)
     {
         current_mode = n.as<string>();
     }
@@ -397,6 +397,7 @@ namespace matrix
 
     bool Component::_handle_leaving_state()
     {
+        return true;
     }
 
     bool Component::_handle_entering_state()

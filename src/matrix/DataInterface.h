@@ -55,6 +55,8 @@
 
 namespace matrix
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class GenericBuffer
  *
@@ -108,6 +110,7 @@ namespace matrix
  * component as described above may be used in its place.
  *
  */
+#pragma GCC diagnostic pop
 
     class GenericBuffer
     {
@@ -238,6 +241,8 @@ namespace matrix
         virtual void _call(std::string key, void *val, size_t szed) = 0;
     };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class DataMemberCB
  *
@@ -266,6 +271,7 @@ namespace matrix
  *     }
  *
  */
+#pragma GCC diagnostic pop
 
     template <typename T>
     class DataMemberCB : public DataCallbackBase
@@ -321,6 +327,8 @@ namespace matrix
         }
     };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**********************************************************************
  * transport_selection_strategy
  **********************************************************************/
@@ -452,7 +460,7 @@ namespace matrix
   *      nettask:
   *        Transports:
   *          A:
-  *            Specified: [inproc://matrix.nettask.XXXXX, tcp://*]
+  *            Specified: [inproc://matrix.nettask.XXXXX, tcp://\*]
   *            AsConfigured: [inproc://matrix.nettask.a4sLv, tcp://ajax.gb.nrao.edu:52016]
   *
   * The 'AsSpecified' values will be identical for inproc and ipc, with
@@ -492,6 +500,7 @@ namespace matrix
   *     TransportServer::add_factory(transports, TransportServer *(*)(string, string));
   *
   */
+#pragma GCC diagnostic pop
 
     class TransportServer
     {

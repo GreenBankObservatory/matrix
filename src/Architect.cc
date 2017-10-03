@@ -81,17 +81,6 @@ static bool state_compare(std::pair<const std::string, Architect::ComponentInfo>
     return (state_2_enum(a.second.state) < state_2_enum(b.second.state));
 }
 
-
-static string lstrip(const string s)
-{
-    size_t d = s.find_first_of(".");
-    if (d == string::npos)
-    {
-        return s;
-    }
-    return s.substr(d+1, string::npos);
-}
-
 namespace matrix
 {
     shared_ptr <KeymasterServer>     Architect::the_keymaster_server;
@@ -176,7 +165,6 @@ namespace matrix
         YAML::Node km_components = keymaster->get("components");
 
         dbprintf("Architect::_create_component_instances\n");
-        bool result;
 
         for (YAML::const_iterator it = km_components.begin(); it != km_components.end(); ++it)
         {
@@ -247,7 +235,6 @@ namespace matrix
     bool Architect::wait_all_in_state(string statename, int usecs)
     {
         ThreadLock<decltype(state_condition)> l(state_condition);
-        timespec curtime, to;
 
         Time_t time_to_quit = getUTC() + ((Time_t) usecs) * 1000L;
         l.lock();
@@ -327,7 +314,7 @@ namespace matrix
     }
 
 // Architect final methods
-    void Architect::system_mode_changed(string yml_path, YAML::Node updated_mode)
+    void Architect::system_mode_changed(string /* yml_path */, YAML::Node updated_mode)
     {
         if (!set_system_mode(updated_mode.as<string>()))
         {
@@ -343,7 +330,7 @@ namespace matrix
         _component_state_changed(yml_path, new_status);
     }
 
-    void Architect::connections_changed(string path, YAML::Node n)
+    void Architect::connections_changed(string, YAML::Node)
     {
         configure_component_modes();
     }

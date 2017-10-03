@@ -196,7 +196,7 @@ namespace mxutils
 
     static bool walk_the_nodes(vector<string> &keys, vector<YAML::Node> &nodes, bool create)
     {
-        int i = 0;
+        size_t i = 0;
 
         if (nodes.empty() || keys.empty())
         {
@@ -258,7 +258,6 @@ namespace mxutils
 
     yaml_result get_yaml_node(YAML::Node node, std::string keychain)
     {
-        int i = 0;
         vector<string> keys;
         vector<YAML::Node> nodes;
 
@@ -316,7 +315,6 @@ namespace mxutils
     {
         vector<YAML::Node> nodes;
         vector<string> keys;
-        int i = 0;
 
         try
         {
@@ -372,7 +370,6 @@ namespace mxutils
 
     yaml_result delete_yaml_node(YAML::Node node, std::string keychain)
     {
-        int i = 0;
         vector<string> keys;
         vector<YAML::Node> nodes;
 

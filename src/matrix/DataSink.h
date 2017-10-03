@@ -34,6 +34,8 @@
 
 #include <sstream>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class DataSink is the client data interface, and abstracts the
  * data from the transport mechanism.
@@ -96,6 +98,7 @@
  * DataSink<double> and both sources publish doubles.
  *
  */
+#pragma GCC diagnostic pop
 
 #include "DataInterface.h"
 #include "matrix_util.h"
@@ -107,7 +110,8 @@ namespace matrix
 /**********************************************************************
  * transport_selection_strategy
  **********************************************************************/
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class select_specified
  *
@@ -132,6 +136,7 @@ namespace matrix
  * data source on component 'frog'.
  *
  */
+#pragma GCC diagnostic pop
 
     class select_specified
     {
@@ -166,6 +171,8 @@ namespace matrix
         std::string _transport;
     };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class select_only
  *
@@ -179,6 +186,7 @@ namespace matrix
  *      ds.connect("frog", "song");  // transport stuff hidden.
  *
  */
+#pragma GCC diagnostic pop
 
     class select_only
     {
@@ -240,6 +248,8 @@ namespace matrix
         virtual bool connected() = 0;
     };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class poller
  *
@@ -281,6 +291,7 @@ namespace matrix
  *      }
  *
  */
+#pragma GCC diagnostic pop
 
     class poller
     {
@@ -386,7 +397,8 @@ namespace matrix
         }
     };
 
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * \class DataSink
  *
@@ -435,7 +447,7 @@ namespace matrix
  *         Sources:
  *           lines: A
  *     Note: no space between slashes below. Shown as is to avoid compiler warnings.
- *     string km_urn("inproc:/ /matrix.keymaster");
+ *     string km_urn("inproc://matrix.keymaster");
  *     KeymasterServer kms("test.yaml");
  *     kms.run();
  *
@@ -451,7 +463,7 @@ namespace matrix
  *     cout << "Received: " << rcv_msg << endl;
  *
  */
-
+#pragma GCC diagnostic pop
     /**
      * General implementation for all types T. This is used by the
      * transport to provide the data to the tsemfifo belonging to a

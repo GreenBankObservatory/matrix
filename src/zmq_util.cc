@@ -54,7 +54,8 @@ namespace mxutils
 // Sends using a time out.
     void z_send_with_timeout(zmq::socket_t &sock, zmq::message_t &msg, int flags, int to);
 
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * Generates a string of length 'len' with random alpha-numeric
  * characters in it. This is useful to generate unique inproc and ipc
@@ -72,6 +73,7 @@ namespace mxutils
  * @return The string of random alpha-numeric characters.
  *
  */
+#pragma GCC diagnostic pop
 
 std::string gen_random_string(const int len)
 {
@@ -96,6 +98,8 @@ std::string gen_random_string(const int len)
     return s;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
  * Given a possibly incomplete urn, creates a completed urn.
  *
@@ -103,7 +107,7 @@ std::string gen_random_string(const int len)
  *
  *   1 If only the transport is given, a transient URN will be
  *   generated:
- *     * tcp: tcp://*:XXXXX (The XXXXXs indicate that the port should be
+ *     * tcp: tcp://\*:XXXXX (The XXXXXs indicate that the port should be
  *       randomly chosen from the ephemeral range during bind.)
  *     * ipc: ipc:///tmp/<20 randomly chosen alphanumeric characters>
  *     * inproc: inproc://<20 randomly chosen alphanumeric characters.
@@ -115,7 +119,7 @@ std::string gen_random_string(const int len)
  *
  *   3 A valid partial tcp urn. This is a URN that does not end in
  *   ':12345', where '12345' may be any 5-digit value < 32768; for
- *   example, 'tcp://*', or 'tcp://ajax.gb.nrao.edu'. A ':XXXXX' will be
+ *   example, 'tcp://\*', or 'tcp://ajax.gb.nrao.edu'. A ':XXXXX' will be
  *   appended to the URN to indicate that a port from the ephemeral
  *   range should be chosen.
  *
@@ -132,8 +136,8 @@ std::string gen_random_string(const int len)
  *     string urn2 = process_zmq_urn("ipc://foobar_XXXXXXXXXX");
  *     // urn2 now "ipc://foobar_aiRrV41mtzx
  *     string urn3 = process_zmq_urn("tcp");
- *     // urn3 now "tcp://*:XXXXX
- *     string urn4 = process_zmq_urn("tcp://*:4242");
+ *     // urn3 now "tcp://\*:XXXXX
+ *     string urn4 = process_zmq_urn("tcp://\*:4242");
  *     // urn4 == input urn.
  *
  * @param urn: the starting URN. It may be a transport, or an incomplete
@@ -143,6 +147,7 @@ std::string gen_random_string(const int len)
  * @return A complete URN.
  *
  */
+#pragma GCC diagnostic pop
 
 std::string process_zmq_urn(const std::string input)
 {
@@ -172,7 +177,6 @@ std::string process_zmq_urn(const std::string input)
         // complete URN:
         if (s.find("://") != string::npos)
         {
-            int xs = 0;
 
             // is urn in form 'ipc://foo.bar.XXXX'? replace all
             // trailing Xs with an equivalent number of randomly

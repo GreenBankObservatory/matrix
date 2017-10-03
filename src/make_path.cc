@@ -96,7 +96,7 @@ namespace matrix
                 perror("make_path");
             }
         }
-
+        return errno == 0;
     }
 
     void generate_log_filename(Time::Time_t time, string &fname)

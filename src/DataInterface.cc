@@ -238,7 +238,7 @@ namespace matrix
 // These methods are meant to be abstract. However, we may
 // find some common functionality. For now we just emit
 // an error message.
-    bool TransportServer::_register_urn(vector<string> urns)
+    bool TransportServer::_register_urn(vector<string> )
     {
         cerr << "abstract method " << __func__ << " called" << endl;
         return false;
@@ -251,19 +251,19 @@ namespace matrix
     }
 
 // This will probably replace register_urn above
-    bool TransportServer::_bind(vector<string> urns)
+    bool TransportServer::_bind(vector<string> )
     {
         cerr << "abstract method " << __func__ << " called" << endl;
         return false;
     }
 
-    bool TransportServer::_publish(string key, const void *data, size_t size_of_data)
+    bool TransportServer::_publish(string , const void *, size_t )
     {
         cerr << "abstract method " << __func__ << " called" << endl;
         return false;
     }
 
-    bool TransportServer::_publish(string key, string data)
+    bool TransportServer::_publish(string , string )
     {
         cerr << "abstract method " << __func__ << " called" << endl;
         return false;
@@ -388,12 +388,12 @@ namespace matrix
         return false;
     }
 
-    bool TransportClient::_subscribe(string key, DataCallbackBase *cb)
+    bool TransportClient::_subscribe(string , DataCallbackBase *)
     {
         return false;
     }
 
-    bool TransportClient::_unsubscribe(string key)
+    bool TransportClient::_unsubscribe(string )
     {
         return false;
     }
@@ -474,7 +474,7 @@ namespace matrix
         {
             map<string, vector<string> > vs = fields.as<map<string, vector<string> > >();
 
-            for (int i = 0; i < vs.size(); ++i)
+            for (size_t i = 0; i < vs.size(); ++i)
             {
                 std::string s = std::to_string(i);
                 auto p = vs.find(s);

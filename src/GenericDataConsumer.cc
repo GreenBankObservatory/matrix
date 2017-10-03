@@ -90,7 +90,7 @@ namespace matrix
         catch (KeymasterException e)
         {
             cerr << e.what() << endl;
-            return;
+            throw_value_error(my_full_instance_name + ".data_description", e.what());
         }
 
         _thread_started.signal(true);

@@ -293,7 +293,7 @@ namespace matrix
             {
                 map<string, vector<string> > vs = fields.as<map<string, vector<string> > >();
 
-                for (int i = 0; i < vs.size(); ++i)
+                for (size_t i = 0; i < vs.size(); ++i)
                 {
                     std::string s = std::to_string(i);
                     dv.push_back(vs[s][3]);
@@ -397,7 +397,6 @@ namespace matrix
     GenericBuffer TestDataGenerator::_create_generic_buffer(vector<string> &init_vals, data_description dd)
     {
         GenericBuffer gb;
-        size_t offset = 0;
 
         // size() computes the size and also the offsets of the
         // data. The latter are stored as the 'offset' field in the

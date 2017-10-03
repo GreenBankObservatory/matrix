@@ -189,8 +189,6 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
     _running(true),
     _clone_interval(0)
 {
-    int i = 0;
-
     _root_node.push_front(YAML::Clone(config));
     setup_urls();
 
@@ -810,7 +808,7 @@ bool KeymasterServer::KmImpl::publish(std::string key, bool block)
             boost::split(keys, dp.key, boost::is_any_of("."));
 
             // Publish with keys
-            for (int i = 1; i < keys.size() + 1; ++i)
+            for (size_t i = 1; i < keys.size() + 1; ++i)
             {
                 string key = boost::algorithm::join(vector<string>(keys.begin(), keys.begin() + i), ".");
                 yaml_result r = get_yaml_node(node, key);
@@ -973,7 +971,7 @@ void KeymasterServer::terminate()
  *
  */
 
-Keymaster::Keymaster(string keymaster_url, bool shared)
+Keymaster::Keymaster(string keymaster_url, bool /* shared */)
     :
     _km_url(keymaster_url),
     _pipe_url(string("inproc://") + gen_random_string(20)),

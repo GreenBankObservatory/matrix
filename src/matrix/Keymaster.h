@@ -135,7 +135,7 @@ namespace matrix
         }
 
     private:
-        void _call(std::string key, YAML::Node val)
+        void _call(std::string /* key */, YAML::Node val)
         {
             matrix::ThreadLock<matrix::Mutex> l(lock);
             l.lock();

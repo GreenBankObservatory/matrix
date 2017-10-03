@@ -170,7 +170,6 @@ namespace matrix
         _pub_skt(_ctx, ZMQ_PUB)
 
     {
-        int i = 0;
 
         // process the urns.
         _publish_service_urls.clear();

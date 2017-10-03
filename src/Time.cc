@@ -61,8 +61,6 @@ namespace Time
 
     void  time2timespec(const Time_t t, timespec &ts_result)
     {
-        Time_t secs;
-        secs = t;
         ts_result.tv_sec = (time_t)  (t/NANOSEC_PER_SEC);
         ts_result.tv_nsec= (long int)(t%NANOSEC_PER_SEC);
     }

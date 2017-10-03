@@ -221,7 +221,7 @@ namespace matrix
  *
  */
 
-    bool RTTransportServer::Impl::unsubscribe(string key, DataCallbackBase *cb)
+    bool RTTransportServer::Impl::unsubscribe(string key, DataCallbackBase *)
     {
         bool rval = false;
         multimap<string, DataCallbackBase *>::iterator client;
@@ -309,12 +309,12 @@ namespace matrix
 
     bool RTTransportServer::_subscribe(string key, DataCallbackBase *cb)
     {
-        _impl->subscribe(key, cb);
+        return _impl->subscribe(key, cb);
     }
 
     bool RTTransportServer::_unsubscribe(string key, DataCallbackBase *cb)
     {
-        _impl->unsubscribe(key, cb);
+        return _impl->unsubscribe(key, cb);
     }
 
 /**
