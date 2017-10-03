@@ -329,8 +329,10 @@ namespace matrix
     {
         matrix::ThreadLock<matrix::Mutex> l(_critical_section);
 
+        bool all_but_nitems = (items < 0);
+        unsigned int nitems = static_cast<unsigned int>(abs(items));
         // A fastpath for when there is no work to do:
-        if ((-1 * items) == _objects)
+        if (all_but_nitems && (nitems == _objects))
         {
             return _objects;
         }
@@ -339,14 +341,14 @@ namespace matrix
 
         // Check to see if items is negative. If so, the caller intends
         // that all but the abs(items) should be flushed.
-        if (items < 0)
+        if (all_but_nitems)
         {
             // The number of remaining items in this case needs to be
             // fewer than the actual number in the queue. If not, just
             // return the number of items in the queue.
-            if (abs(items) < _objects)
+            if (nitems < _objects)
             {
-                items = _objects - abs(items);
+                nitems = _objects - nitems;
             }
             else
             {
@@ -354,13 +356,13 @@ namespace matrix
             }
         }
 
-        if (items > _objects)
+        if (nitems > _objects)
         {
-            items = _objects;
+            nitems = _objects;
         }
 
-        _head = (_head + items) % _buf_len;
-        _objects = _objects - items;
+        _head = (_head + nitems) % _buf_len;
+        _objects = _objects - nitems;
 
         if (!_objects)               // Was not empty, now empty.  Set empty event.
         {

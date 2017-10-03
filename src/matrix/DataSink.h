@@ -434,8 +434,8 @@ namespace matrix
  *             Specified: [inproc, ipc, tcp]
  *         Sources:
  *           lines: A
- *
- *     string km_urn("inproc://matrix.keymaster");
+ *     Note: no space between slashes below. Shown as is to avoid compiler warnings.
+ *     string km_urn("inproc:/ /matrix.keymaster");
  *     KeymasterServer kms("test.yaml");
  *     kms.run();
  *
