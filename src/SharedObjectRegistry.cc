@@ -76,8 +76,7 @@ namespace matrix
             << key << endl;
             return nullptr;
         }
-        auto pv = yr.node.as < unsigned
-        long > ();
+        auto pv = yr.node.as<unsigned long>();
         auto rr = (SharedObjectRegistry *) pv;
         if (rr == nullptr)
         {

@@ -39,16 +39,17 @@
 namespace matrix
 {
 
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 /**
- * \class DataSource
+ * \class GnuradioDataSource
  *
  * A quick experimental method of publishing data to gnuradio-zeromq blocks.
  * NOTE: A currently only the float and std::complex<float> types are supported.
  * (A limitation of Gnu Radio.)
  *
  * The ZMQ URL is specified in the config file under the key e.g:
- *     components.component_name.grc_url.data_name: tcp://*:5555
+ *     components.component_name.grc_url.data_name: tcp://localhost:5555
  *
  * As an example the YAML in the config file for a component named siggen publishing
  * output_data would be:
@@ -57,7 +58,7 @@ namespace matrix
  *     siggen:
  *         type: SignalGenerator
  *         grc_url:
- *             output_data: tcp://*:5555
+ *             output_data: tcp://localhost:5555
  *
  * In a component, the usage would look something like:
  * class SignalGenerator : public Component
@@ -75,6 +76,7 @@ namespace matrix
  * but shouldn't publish in the Standby state.
  *
  */
+#pragma GCC diagnostic pop
 
     template <typename T>
     class GnuradioDataSource

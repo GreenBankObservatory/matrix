@@ -97,6 +97,13 @@ namespace Time
     }
 
 // Note: This routine can only calculate MJD's for dates after 1970/1/1
+    Time_t dmjd2Time(double dmjd)
+    {
+        return static_cast<Time::Time_t>((dmjd - MJD_1970_EPOCH) * 86400.0) 
+                                         * Time::TM_ONE_SEC;
+    }
+
+// Note: This routine can only calculate MJD's for dates after 1970/1/1
     Time_t timeStamp2Time(uint32_t mjd, uint32_t msec)
     {
         Time_t t = ((Time_t)(mjd - MJD_1970_EPOCH)) * NANOSEC_PER_DAY;

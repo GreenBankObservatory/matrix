@@ -57,15 +57,20 @@ namespace Time
     int    MJD(const Time_t);
     /// @return the floating point number of days since MJD epoch.
     double DMJD(const Time_t);
+    /// @return the Time_t for the floating point MJD (inverse of DMJD())
+    Time_t dmjd2Time(double mjd);
 
     Time_t timeStamp2Time(uint32_t mjd, uint32_t msec);
     void   time2TimeStamp(const Time_t, uint32_t &mjd, uint32_t &msec_since_midnight);
     void   time2TimeStamp(const Time_t, uint32_t &mjd, double   &msec_since_midnight);
 
-    // Analog to gmtime()
+    /// An analog to gmtime().
+    /// @return true if calculation succeeded.
     bool   calendarDate(const Time_t, int &year,   int &month, int &dayofmonth,
                       int  &hour, int &minute, double &sec);
 
+    /// @return the Time_t for the year, month, calendar day and milliseconds since midnight
+    /// Note: limitation of 1msec resolution
     Time_t date2Time(const int year, const int month, const int dayofmonth,
                    const int msec_since_midnight = 0);
 
