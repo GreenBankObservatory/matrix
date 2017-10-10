@@ -328,6 +328,7 @@ namespace matrix
     unsigned int matrix::tsemfifo<T>::flush(int items)
     {
         matrix::ThreadLock<matrix::Mutex> l(_critical_section);
+        l.lock();
 
         bool all_but_nitems = (items < 0);
         unsigned int nitems = static_cast<unsigned int>(abs(items));
@@ -337,7 +338,8 @@ namespace matrix
             return _objects;
         }
 
-        l.lock();
+        // limit the range of nitems to be in the range 0 < nitems < buf_len
+        nitems = nitems > _buf_len ? _buf_len : nitems;
 
         // Check to see if items is negative. If so, the caller intends
         // that all but the abs(items) should be flushed.
@@ -369,7 +371,7 @@ namespace matrix
             _empty.broadcast(true);
         }
 
-        for (int i = 0; i < items; ++i)
+        for (unsigned int i = 0; i < nitems; ++i)
         {
             int r = sem_wait(&_full_sem);
 
