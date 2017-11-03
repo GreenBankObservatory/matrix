@@ -24,7 +24,7 @@ def notify(status, details){
 }
 
 def checkout() {
-    dir('matrix') { git branch: 'master', url: '/home/sandboxes/nsizemor/repos/matrix' }
+    git branch: 'master', url: '/home/sandboxes/nsizemor/repos/matrix'
 }
 
 def build() {
