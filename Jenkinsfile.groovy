@@ -68,17 +68,6 @@ node {
         }
     }
 
-    stage('Install') {
-        try {
-            install()
-        } catch(error) {
-            echo "Failure!"
-            notify('failure', 'An error has occurred during the install stage.')
-            throw(error)
-        }
-    }
-
-
     stage('Test') {
         try {
             test()
