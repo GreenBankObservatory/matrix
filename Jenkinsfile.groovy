@@ -84,7 +84,7 @@ node {
     stage('cppcheck') {
         try {
             sh '''
-                ${WORKSPACE}/matrix/cppcheck.sh
+                ${WORKSPACE}/cppcheck.sh
             '''
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '', reportFiles: 'cppcheck.txt', reportName: 'cppcheck Report', reportTitles: ''])
         } catch(error) {
