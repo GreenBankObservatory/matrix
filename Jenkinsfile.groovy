@@ -98,6 +98,7 @@ node {
         try {
             sh 'doxygen ./Doxyfile'
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '', reportFiles: 'codedocs/html/index.html', reportName: 'Doxygen', reportTitles: ''])
+            sh 'cp -r codedocs/html /home/gbt1/lighttpd/srv/www/htdocs/doxygen/matrix'
         } catch(error) {
             echo "Failure!"
             notify('failure', 'An error has occurred during the Documentation stage.')
