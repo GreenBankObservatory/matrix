@@ -96,7 +96,7 @@ node {
 
     stage('Documentation') {
         try {
-            sh 'doxygen Doxyfile'
+            sh 'doxygen ./Doxyfile'
             publishHTML([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '', reportFiles: 'codedocs/html/index.html', reportName: 'Doxygen', reportTitles: ''])
         } catch(error) {
             echo "Failure!"
