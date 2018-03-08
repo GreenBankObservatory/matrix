@@ -32,6 +32,7 @@
 #include <string>
 #include <algorithm>
 #include <sys/time.h>
+#include <math.h>
 
 using namespace std;
 
