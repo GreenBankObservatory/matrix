@@ -1,7 +1,7 @@
 #ifndef SamplingThread_h
 #define SamplingThread_h
 
-#include <qwt_sampling_thread.h>
+#include <qwt/qwt_sampling_thread.h>
 #include <stdio.h>
 #include "matrix/Keymaster.h"
 #include "matrix/DataInterface.h"
@@ -32,12 +32,12 @@ private:
     virtual double value(double timeStamp) ;
     void sink_reader_thread();
 
-    std::unique_ptr<Keymaster> keymaster;
+    std::unique_ptr<matrix::Keymaster> keymaster;
     std::unique_ptr<matrix::DataSink<matrix::GenericBuffer> > input_signal_sink;
     std::unique_ptr<matrix::data_description> ddesc;
     matrix::GenericBuffer gbuffer;
-    Thread<SamplingThread> sink_thread;
-    TCondition<bool> sink_thread_started;
+    matrix::Thread<SamplingThread> sink_thread;
+    matrix::TCondition<bool> sink_thread_started;
     std::string ch1_fieldname;
     double d_last_value;
     bool paused;

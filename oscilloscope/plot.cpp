@@ -1,14 +1,14 @@
 #include "plot.h"
 #include "curvedata.h"
 #include "signaldata.h"
-#include <qwt_plot_grid.h>
-#include <qwt_plot_layout.h>
-#include <qwt_plot_canvas.h>
-#include <qwt_plot_marker.h>
-#include <qwt_plot_curve.h>
-#include <qwt_plot_directpainter.h>
-#include <qwt_curve_fitter.h>
-#include <qwt_painter.h>
+#include <qwt/qwt_plot_grid.h>
+#include <qwt/qwt_plot_layout.h>
+#include <qwt/qwt_plot_canvas.h>
+#include <qwt/qwt_plot_marker.h>
+#include <qwt/qwt_plot_curve.h>
+#include <qwt/qwt_plot_directpainter.h>
+#include <qwt/qwt_curve_fitter.h>
+#include <qwt/qwt_painter.h>
 #include <qevent.h>
 
 #include <iostream>
@@ -35,8 +35,9 @@ Plot::Plot(QWidget *parent):
     // overlays ( f.e rubberbands for zooming ). 
     // Here we don't have them and the internal 
     // backing store of QWidget is good enough.
+    QwtPlotCanvas *pltcanvas = (QwtPlotCanvas *)canvas();
 
-    canvas()->setPaintAttribute(QwtPlotCanvas::BackingStore, false);
+    pltcanvas->setPaintAttribute(QwtPlotCanvas::BackingStore, false);
 
 
 #if defined(Q_WS_X11)
@@ -53,10 +54,10 @@ Plot::Plot(QWidget *parent):
     // the canvas is disabled. So in this application
     // we better don't both backing stores.
 
-    if ( canvas()->testPaintAttribute( QwtPlotCanvas::BackingStore ) )
+    if ( pltcanvas->testPaintAttribute( QwtPlotCanvas::BackingStore ) )
     {
-        canvas()->setAttribute(Qt::WA_PaintOnScreen, true);
-        canvas()->setAttribute(Qt::WA_NoSystemBackground, true);
+        pltcanvas->setAttribute(Qt::WA_PaintOnScreen, true);
+        pltcanvas->setAttribute(Qt::WA_NoSystemBackground, true);
     }
 
 #endif
@@ -364,7 +365,7 @@ void Plot::incrementInterval()
     // the autocalculation of the ticks and shift them
     // manually instead.
 
-    QwtScaleDiv scaleDiv = *axisScaleDiv(QwtPlot::xBottom);
+    QwtScaleDiv scaleDiv = axisScaleDiv(QwtPlot::xBottom);
     scaleDiv.setInterval(d_interval);
 
     for ( int i = 0; i < QwtScaleDiv::NTickTypes; i++ )

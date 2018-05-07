@@ -2,9 +2,10 @@
 Keymaster:
     URLS:
         Initial:
-          - inproc://matrix.keymaster
+          - inproc://toyscope.keymaster
+          - ipc:///tmp/toyscope.keymaster
           - tcp://*:42000
-
+    clone_interval: 50
 
 architect:
     control:
@@ -28,7 +29,7 @@ components:
             wavedata: A
         Transports:
             A:
-                Specified: [inproc]
+                Specified: [ipc]
 
     processor:
         type: Processor
@@ -36,7 +37,7 @@ components:
             processed_data: B
         Transports:
             B:
-                Specified: [tcp]
+                Specified: [ipc]
         operation: none
 
     accumulator:
@@ -46,7 +47,7 @@ components:
             output_signal: C
         Transports:
             C:
-                Specified: [tcp]
+                Specified: [ipc]
 
 
 # Connection mapping for the various configurations. The mapping is a

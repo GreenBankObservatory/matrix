@@ -3,8 +3,11 @@ Keymaster:
   URLS:
     Initial:
       - inproc://matrix.keymaster
+      - ipc:///tmp/helloworld.keymaster
       - tcp://*:42000
 
+  # temporary fix to limit yaml memory use	
+  clone_interval: 50
 # Components in the system
 #
 # Each component has a name by which it is known. Some components have 0

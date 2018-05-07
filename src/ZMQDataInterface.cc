@@ -200,6 +200,7 @@ namespace matrix
 
                     if (!getCanonicalHostname(_hostname))
                     {
+
                         cerr << Time::isoDateTime(Time::getUTC())
                              << " -- ZMQTransportServer: Unable to obtain canonical hostname: "
                              << strerror(errno) << endl;

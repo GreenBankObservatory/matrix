@@ -1,6 +1,6 @@
-#include <qwt_plot.h>
-#include <qwt_interval.h>
-#include <qwt_system_clock.h>
+#include <qwt/qwt_plot.h>
+#include <qwt/qwt_interval.h>
+#include <qwt/qwt_system_clock.h>
 #include "samplingthread.h"
 
 class QwtPlotCurve;

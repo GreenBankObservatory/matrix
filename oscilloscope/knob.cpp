@@ -1,9 +1,9 @@
 #include "knob.h"
-#include <qwt_math.h>
+#include <qwt/qwt_math.h>
 #include <qpen.h>
-#include <qwt_knob.h>
-#include <qwt_round_scale_draw.h>
-#include <qwt_scale_engine.h>
+#include <qwt/qwt_knob.h>
+#include <qwt/qwt_round_scale_draw.h>
+#include <qwt/qwt_scale_engine.h>
 #include <qlabel.h>
 #include <qevent.h>
 
@@ -14,7 +14,7 @@ Knob::Knob(const QString &title, double min, double max, QWidget *parent):
 
     d_knob = new QwtKnob(this);
     d_knob->setFont(font);
-    d_knob->setRange(min, max);
+    // d_knob->setRange(min, max);
     
     QwtScaleDiv scaleDiv = 
         d_knob->scaleEngine()->divideScale(min, max, 5, 3);

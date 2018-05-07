@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 
-#include <qwt_scale_engine.h>
+#include <qwt/qwt_scale_engine.h>
 #include <qlabel.h>
 #include <qlayout.h>
 #include <QPushButton>
@@ -164,7 +164,7 @@ void MainWindow::save_snapshot()
     int id = winId();
     string filename;
     string cmd;
-    generate_log_filename(Time::getUTC(), filename);
+    matrix::generate_log_filename(Time::getUTC(), filename);
 
     cmd = string("import -window ") + to_string(id) + " /tmp/" + filename + ".png &";
     id=system(cmd.c_str());

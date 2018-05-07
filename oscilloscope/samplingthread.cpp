@@ -1,6 +1,6 @@
 #include "samplingthread.h"
 #include "signaldata.h"
-#include <qwt_math.h>
+#include <qwt/qwt_math.h>
 #include <math.h>
 #include <stdio.h>
 #include "matrix/Keymaster.h"

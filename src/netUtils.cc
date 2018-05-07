@@ -55,20 +55,20 @@ namespace mxutils
  *
  *******************************************************************/
 
-bool is_canonical(string n)
-{
-    if (n.find('.') == string::npos)
+    bool is_canonical(string n)
     {
-	return false;
-    }
+        if (n.find('.') == string::npos)
+        {
+            return false;
+        }
 
-    if (n.find("localhost") != string::npos)
-    {
-	return false;
-    }
+        if (n.find("localhost") != string::npos)
+        {
+            return false;
+        }
 
-    return true;
-}
+        return true;
+    }
 
 /****************************************************************//**
  * Returns the local host's canonical host name
@@ -86,39 +86,39 @@ bool is_canonical(string n)
  *
  *******************************************************************/
 
-bool getCanonicalHostname(string &name)
+    bool getCanonicalHostname(string &name)
 
-{
-    list<string> names;
-    list<string>::iterator it;
-    string buf(256, 0);
-    struct hostent *hent;
-
-    if (gethostname((char *)buf.data(), buf.size()) == 0)
     {
-	buf.resize(buf.find('\0')); // accurately reflect string length
-	names.push_back(buf);
+        list<string> names;
+        list<string>::iterator it;
+        string buf(256, 0);
+        struct hostent *hent;
 
-	if ((hent = gethostbyname(buf.c_str())) != NULL)
-	{
-	    names.push_back(hent->h_name);
+        if (gethostname((char *)buf.data(), buf.size()) == 0)
+        {
+            buf.resize(buf.find('\0')); // accurately reflect string length
+            names.push_back(buf);
 
-	    for (int i = 0; hent->h_aliases[i]; i++)
-	    {
-		names.push_back(hent->h_aliases[i]);
-	    }
+            if ((hent = gethostbyname(buf.c_str())) != NULL)
+            {
+                names.push_back(hent->h_name);
 
-	    it = find_if(names.begin(), names.end(), is_canonical);
+                for (int i = 0; hent->h_aliases[i]; i++)
+                {
+                    names.push_back(hent->h_aliases[i]);
+                }
 
-	    if (it != names.end())
-	    {
-		name = *it;
-		return true;
-	    }
-	}
+                it = find_if(names.begin(), names.end(), is_canonical);
+
+                if (it != names.end())
+                {
+                    name = *it;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
-
-    return false;
-}
 
 }

@@ -1,5 +1,5 @@
 #include "wheelbox.h"
-#include <qwt_wheel.h>
+#include <qwt/qwt_wheel.h>
 #include <qlcdnumber.h>
 #include <qlabel.h>
 #include <qlayout.h>
@@ -46,7 +46,7 @@ WheelBox::WheelBox(const QString &title,
     d_number->setSegmentStyle(QLCDNumber::Filled);
     d_number->setAutoFillBackground(true);
     d_number->setFixedHeight(d_number->sizeHint().height() * 2 );
-    // d_number->setFocusPolicy(Qt::WheelFocus);
+    d_number->setFocusPolicy(Qt::WheelFocus);
 
     QPalette pal(Qt::black);
     pal.setColor(QPalette::WindowText, Qt::green);
@@ -54,14 +54,14 @@ WheelBox::WheelBox(const QString &title,
     
     d_wheel = new Wheel(this);
     d_wheel->setOrientation(Qt::Vertical);
-    d_wheel->setRange(min, max, stepSize < 1 ? 1.0 : stepSize);
+    d_wheel->setRange(min, max);
     d_wheel->setFixedSize(qRound(d_number->height() / 2.5), d_number->height());
     coarse = fmod((min+max)/2.0, 1.0);
     d_wheel->setValue(coarse);
 
     d_fine = new Wheel(this);
     d_fine->setOrientation(Qt::Vertical);
-    d_fine->setRange(-50.0, 50.0, 0.1);
+    d_fine->setRange(-50.0, 50.0);
     d_fine->setFixedSize(qRound(d_number->height() / 2.5), d_number->height());
     fine = 0.0;
     d_fine->setValue(fine);

@@ -33,6 +33,7 @@
 #include "matrix/ThreadLock.h"
 #include "matrix/zmq_util.h"
 #include "matrix/netUtils.h"
+#include "matrix/matrix_util.h"
 #include "matrix/yaml_util.h"
 #include "matrix/Time.h"
 #include "matrix/ResourceLock.h"
@@ -194,10 +195,23 @@ KeymasterServer::KmImpl::KmImpl(YAML::Node config)
 
     if (using_tcp() && !getCanonicalHostname(_hostname))
     {
-        ostringstream msg;
-        msg << "KeymasterServer: TCP transport requested, but unable to obtain canonical hostname:"
-            << strerror(errno) << ends;
-        throw(runtime_error(msg.str()));
+        // fallback to non-canonical host name, and leave a warning
+
+        char hn[256];
+
+        if (gethostname(hn, 255) != 0)
+        {
+            // total failure.
+            ostringstream msg;
+            msg << "KeymasterServer: TCP transport requested, "
+                << "but unable to obtain hostname:"
+                << strerror(errno) << ends;
+            throw(runtime_error(msg.str()));
+        }
+
+        cerr << "WARNING: unable to obtain canonical hostname. Using '"
+             << hn << "' instead" << endl;
+        _hostname = hn;
     }
 }
 
@@ -403,7 +417,7 @@ void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<str
     {
         if (cvi->find("tcp") != string::npos)
         {
-            // If it's TCP we bind to tcp://*.<port>, but we also
+            // If it's TCP we bind to tcp://*:<port>, but we also
             // create here the url which may be used by a client to find
             // this service. It will later be posted on the Keymaster.
             vector<string> fields;
@@ -412,12 +426,14 @@ void KeymasterServer::KmImpl::bind_server(zmq::socket_t &server_sock, vector<str
             ostringstream tcp_url;
             tcp_url << "tcp://" << _hostname << ":" << fields.back();
             *cvi = tcp_url.str();
+            cout << "INFO: Keymaster server at " << *cvi << endl;
         }
         else
         {
             // If it's IPC or inprock, use the given URL. It will already have
             // '.publisher appended if this is the publisher.
             server_sock.bind(cvi->c_str());
+            cout << "INFO: Keymaster server at " << *cvi << endl;
         }
     }
 }
@@ -532,6 +548,12 @@ void KeymasterServer::KmImpl::state_manager_task()
                                   "Keymaster.URLS.AsConfigured.State", _state_service_urls, true);
     yaml_result rp = put_yaml_val(_root_node.front(),
                                   "Keymaster.URLS.AsConfigured.Pub", _publish_service_urls, true);
+    ostringstream state;
+    ostringstream pub;
+    mxutils::output_vector(_state_service_urls, state);
+    mxutils::output_vector(_publish_service_urls, pub);
+    cout << "Keymaster.URLS.AsConfigured.State:" << state.str() << endl;
+    cout << "Keymaster.URLS.AsConfigured.Pub:" << pub.str() << endl;
     publish("Keymaster.URLS.AsConfigured.State", true);
     publish("Keymaster.URLS.AsConfigured.Pub", true);
 
@@ -1427,6 +1449,9 @@ void Keymaster::_run()
             try
             {
                 _km_pub_urls = get_as<vector<string> >("Keymaster.URLS.AsConfigured.Pub");
+                ostringstream pubs;
+                mxutils::output_vector(_km_pub_urls, pubs);
+                cout << "Keymaster.URLS.AsConfigured.Pub:" << pubs.str() << endl;
                 break;
             }
             catch (KeymasterException &e)
@@ -1488,8 +1513,21 @@ void Keymaster::_subscriber_task()
         return;
     }
 
-    sub_sock.connect(cvi->c_str());
-    pipe.bind(_pipe_url.c_str());
+    string the_url = *cvi;
+
+    try
+    {
+        sub_sock.connect(the_url.c_str());
+        pipe.bind(_pipe_url.c_str());
+    }
+    catch (zmq::error_t &e)
+    {
+        cerr << "Error in Keymaster::_subscriber_task(): " << e.what() << endl;
+        cerr << "Subscription URL = " << the_url << endl;
+        cerr << "Pipe URL = " << _pipe_url << endl;
+        cerr << "There will be no Keymaster events." << endl;
+    }
+
     _subscriber_thread_ready.signal(true);
 
     // we're going to poll. We will be waiting for subscription requests
