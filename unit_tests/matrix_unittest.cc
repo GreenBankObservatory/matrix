@@ -35,6 +35,7 @@
 #include "matrix/Thread.h"
 #include "matrix/ZMQContext.h"
 #include "ResourceLockTest.h"
+#include "log_t_test.h"
 
 using namespace std;
 using namespace matrix;
@@ -53,6 +54,7 @@ int main(int argc, char **argv)
 //    runner.addTest(KeymasterTest::suite());
 //    runner.addTest(TransportTest::suite());
     runner.addTest(TSemfifoTest::suite());
+    runner.addTest(log_tTest::suite());
     runner.run();
 
     return 0;

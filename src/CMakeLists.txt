@@ -14,6 +14,7 @@ set(INCLUDE_FILES
     matrix/GenericDataConsumer.h
     matrix/GnuradioDataSource.h
     matrix/Keymaster.h
+    matrix/log_t.h
     matrix/make_path.h
     matrix/masterdoc.h
     matrix/matrix_util.h
@@ -44,6 +45,7 @@ set(SOURCE_FILES
     DataSink.cc
     GenericDataConsumer.cc
     Keymaster.cc
+    log_t.cc
     make_path.cc
     matrix_util.cc
     Mutex.cc

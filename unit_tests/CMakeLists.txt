@@ -9,6 +9,8 @@ ArchitectTest.cc
 ArchitectTest.h
 keymaster_test.cc
 keymaster_test.h
+log_t_test.cc
+log_t_test.h
 matrix_unittest.cc
 ResourceLockTest.cc
 ResourceLockTest.h

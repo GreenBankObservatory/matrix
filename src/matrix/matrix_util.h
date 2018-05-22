@@ -79,21 +79,15 @@ namespace matrix
     };
 };
 
-    namespace mxutils
-    {
-        void do_nanosleep(int seconds, int nanoseconds);
-
-        bool operator<(timeval &lhs, timeval &rhs);
-
-        timeval operator+(timeval lhs, timeval rhs);
-
-        timeval operator+(timeval lhs, double rhs);
-
-        timeval operator-(timeval lhs, timeval rhs);
-
-        std::ostream &operator<<(std::ostream &os, const timeval &t);
-
-        std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
+namespace mxutils
+{
+    void do_nanosleep(int seconds, int nanoseconds);
+    bool operator<(timeval &lhs, timeval &rhs);
+    timeval operator+(timeval lhs, timeval rhs);
+    timeval operator+(timeval lhs, double rhs);
+    timeval operator-(timeval lhs, timeval rhs);
+    std::ostream &operator<<(std::ostream &os, const timeval &t);
+    std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
 
 /**
  * This is a predicate function, intended to return true if a particular
@@ -108,15 +102,15 @@ namespace matrix
  *
  */
 
-        inline bool is_non_numeric_p(char c)
-        {
-            static char cs[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                                'A', 'B', 'C', 'D', 'E', 'F',
-                                'a', 'b', 'c', 'd', 'e', 'f',
-                                '.', '+', '-', 'x'};
-            static std::set<char> syms(cs, cs + sizeof cs);
-            return syms.find(c) == syms.end();
-        }
+    inline bool is_non_numeric_p(char c)
+    {
+        static char cs[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                            'A', 'B', 'C', 'D', 'E', 'F',
+                            'a', 'b', 'c', 'd', 'e', 'f',
+                            '.', '+', '-', 'x'};
+        static std::set<char> syms(cs, cs + sizeof cs);
+        return syms.find(c) == syms.end();
+    }
 
 /**
  * This helper will strip out whatever characters the predicate
@@ -128,12 +122,12 @@ namespace matrix
  *
  */
 
-        inline std::string strip_non_numeric(const std::string &s)
-        {
-            std::string stripped = s;
-            remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
-            return stripped;
-        }
+    inline std::string strip_non_numeric(const std::string &s)
+    {
+        std::string stripped = s;
+        remove_if(stripped.begin(), stripped.end(), is_non_numeric_p);
+        return stripped;
+    }
 
 /**
  * \class fn_string_join is a simple functor that provides a handy way to
@@ -143,23 +137,23 @@ namespace matrix
  *
  */
 
-        struct fn_string_join
+    struct fn_string_join
+    {
+        fn_string_join(std::string delim)
         {
-            fn_string_join(std::string delim)
-            {
-                _delim = delim;
-            }
+            _delim = delim;
+        }
 
-            template<typename T>
-            std::string operator()(T x)
-            {
-                return boost::algorithm::join(x, _delim);
-            }
+        template<typename T>
+        std::string operator()(T x)
+        {
+            return boost::algorithm::join(x, _delim);
+        }
 
-        private:
+    private:
 
-            std::string _delim;
-        };
+        std::string _delim;
+    };
 
 /**
  * \class is_substring_in_p
@@ -173,20 +167,20 @@ namespace matrix
  *
  */
 
-        struct is_substring_in_p
+    struct is_substring_in_p
+    {
+        is_substring_in_p(std::string subs) : _subs(subs)
         {
-            is_substring_in_p(std::string subs) : _subs(subs)
-            {
-            }
+        }
 
-            bool operator()(std::string s)
-            {
-                return s.find(_subs) != std::string::npos;
-            }
+        bool operator()(std::string s)
+        {
+            return s.find(_subs) != std::string::npos;
+        }
 
-        private:
-            std::string _subs;
-        };
+    private:
+        std::string _subs;
+    };
 
 /**
  * Outputs a vector to an ostream
@@ -197,17 +191,17 @@ namespace matrix
  *
  */
 
-        template<typename T>
-        void output_vector(std::vector<T> v, std::ostream &o)
-        {
-            std::ostringstream str;
-            str << "[";
-            std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
-            std::string s = str.str();
-            std::string y(s.begin(), s.end() - 2);
-            y += "]";
-            o << y;
-        }
+    template<typename T>
+    void output_vector(std::vector<T> v, std::ostream &o)
+    {
+        std::ostringstream str;
+        str << "[";
+        std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
+        std::string s = str.str();
+        std::string y(s.begin(), s.end() - 2);
+        y += "]";
+        o << y;
+    }
 
 /**
  * Outputs a map to an ostream
@@ -336,6 +330,84 @@ namespace matrix
         return stof(strip_non_numeric(s));
     }
 
+    // Some iostream extractors, handy for debugging.
+
+    template <typename T>
+    std::ostream & operator << (std::ostream &o, std::vector<T> const &v)
+    {
+        if (v.empty())
+        {
+            o << "[]";
+        }
+        else
+        {
+            std::ostringstream str;
+            str << "[";
+            std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
+            std::string s = str.str();
+            std::string y(s.begin(), s.end() - 2);
+            y += "]";
+            o << y;
+        }
+
+        return o;
+    }
+
+    template <typename T>
+    std::ostream & operator << (std::ostream &o, std::list<T> const &v)
+    {
+        if (v.empty())
+        {
+            o << "()";
+        }
+        else
+        {
+            std::ostringstream str;
+            str << "(";
+            std::copy(v.begin(), v.end(), std::ostream_iterator<T>(str, ", "));
+            std::string s = str.str();
+            std::string y(s.begin(), s.end() - 2);
+            y += ")";
+            o << y;
+        }
+
+        return o;
+    }
+
+/**
+ * Outputs a map to an ostream
+ *
+ * @param m: the map to be output
+ *
+ * @param o: the ostream type
+ *
+ */
+
+    template <typename T, typename Q>
+    std::ostream & operator << (std::ostream &o, std::map<T,Q> const &m)
+    {
+        if (m.empty())
+        {
+            o << "{}";
+        }
+        else
+        {
+            std::ostringstream str;
+            str << "{";
+
+            for (auto x: m)
+            {
+                str << x.first << " : " << x.second << ", ";
+            }
+
+            std::string s = str.str();
+            std::string y(s.begin(), s.end() - 2);
+            y += "}";
+            o << y;
+        }
+
+        return o;
+    }
 };
 
 
