@@ -249,20 +249,24 @@ namespace Time
         clock_nanosleep(clock, TIMER_ABSTIME, &rqtp, 0);
     }
 
-// Output a time to ISO 8601 compliant string
+/// Output a time to ISO 8601 compliant string
     std::string isoDateTime(Time::Time_t t)
     {
         int year, month, day, hour, minute;
         double second;
         std::stringstream ss;
         calendarDate(t, year, month, day, hour, minute, second);
+
+
+
         ss << year << "-" << std::setw(2) << std::setfill('0') << month << "-"
            << std::setw(2) << std::setfill('0') << day
            << "T"
            << std::setw(2) << std::setfill('0')
            << hour << ":"
            << std::setw(2) << std::setfill('0') << minute << ":"
-           << std::fixed << std::setw(6) << std::setfill('0') << std::setprecision(3) << second << "Z";
+           << std::fixed << std::setw(12) << std::setfill('0')
+           << std::setprecision(9) << second;
         return ss.str();
     }
 

@@ -104,7 +104,7 @@ void TimeTest::test_output_to_string()
 {
     int year(2016), month(4), day(7),
         msm((17 * 60 * 60 * 1000) + (12 * 60 * 1000));
-    string target_datetime("2016-04-07T17:12:00.000Z");
+    string target_datetime("2016-04-07T17:12:00.000000000");
 
     auto T = date2Time(year, month, day, msm);
     CPPUNIT_ASSERT(isoDateTime(T) == target_datetime);
