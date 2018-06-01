@@ -147,6 +147,8 @@ Autogen is not well supported; we recommend CMake.
     $ cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..
   
 use `-DCMAKE_BUILD_TYPE=Debug`
+
 use `-DTHIRDPARTYDIR=</your/nonstandard/library/prefix>` for if any
 needed library is not in a standard location.
+
 use `-DBUILD_SHARED_LIBS=1` to build a `.so` shared library.
