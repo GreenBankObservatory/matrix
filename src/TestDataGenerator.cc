@@ -261,7 +261,7 @@ namespace matrix
                 _parse_data_description(i->first, yn.node["standins"][i->first]);
             }
         }
-        catch (YAML::Exception e)
+        catch (YAML::Exception &e)
         {
             ostringstream msg;
             msg << "Unable to convert YAML input " << e.what();
@@ -314,7 +314,7 @@ namespace matrix
             // store the default values
             default_vals [name] = dv;
         }
-        catch (YAML::Exception e)
+        catch (YAML::Exception &e)
         {
             cerr << "TestDataGenerator::_parse_data_description(): YAML::Exception: " << e.what() << endl;
             rval = false;

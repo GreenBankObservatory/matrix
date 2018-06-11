@@ -167,6 +167,7 @@ bool CmdParam::_parse_parameters(vector<string> rawlist)
     _list.clear();
     _list.resize(pieces.size());
     transform(pieces.begin(), pieces.end(), _list.begin(), fn_string_join(" "));
+    return true;
 }
 
 /**

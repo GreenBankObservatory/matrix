@@ -274,7 +274,7 @@ namespace matrix
             // may find us by urn
             _rttransports[urn] = this;
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             throw CreationError(e.what());
         }
@@ -302,7 +302,7 @@ namespace matrix
 
             _impl.reset();
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
         }
     }

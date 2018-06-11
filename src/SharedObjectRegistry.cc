@@ -48,7 +48,7 @@ namespace matrix
         {
             keymaster->del(key);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << "SharedObjectRegistry: No such object to remove"
             << key << endl;

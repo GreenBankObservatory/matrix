@@ -9,7 +9,7 @@
 #include "matrix/Mutex.h"
 #include "matrix/ThreadLock.h"
 #include "matrix/DataInterface.h"
-#include <cfitsio/fitsio.h>
+#include <fitsio.h>
 
 /// A general log data writer which works with the matrix GenericBuffer.
 class FITSLogger

@@ -152,7 +152,7 @@ namespace matrix
                 }
             }
         }
-        catch (YAML::Exception e)
+        catch (YAML::Exception &e)
         {
             cerr << e.what() << endl;
             return false;
@@ -369,7 +369,7 @@ namespace matrix
             {
                 km.put(my_full_instance_name + ".state", p->second.state, true);
             }
-            catch (KeymasterException g)
+            catch (KeymasterException &g)
             {
                 cerr << g.what() << endl;
                 throw g;
@@ -399,7 +399,7 @@ namespace matrix
                                  new KeymasterMemberCB<Architect>(
                                          this, &Architect::connections_changed));
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << __PRETTY_FUNCTION__ << " exception: " << e.what() << endl;
             return false;
@@ -471,7 +471,7 @@ namespace matrix
         {
             keymaster->put(my_full_instance_name + ".command", "do_init", true);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl;
             return false;
@@ -485,7 +485,7 @@ namespace matrix
         {
             keymaster->put(my_full_instance_name + ".command", "get_ready", true);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl;
             return false;
@@ -499,7 +499,7 @@ namespace matrix
         {
             keymaster->put(my_full_instance_name + ".command", "do_standby", true);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl;
             return false;
@@ -513,7 +513,7 @@ namespace matrix
         {
             keymaster->put(my_full_instance_name + ".command", "start", true);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl;
             return false;
@@ -527,7 +527,7 @@ namespace matrix
         {
             keymaster->put(my_full_instance_name + ".command", "stop", true);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl;
             return false;

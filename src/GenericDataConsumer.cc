@@ -87,7 +87,7 @@ namespace matrix
         {
             dd = km.get(my_full_instance_name + ".data_description");
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << e.what() << endl;
             throw_value_error(my_full_instance_name + ".data_description", e.what());

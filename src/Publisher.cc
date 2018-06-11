@@ -286,7 +286,7 @@ void Publisher::PubImpl::server_task()
             }
         }
     }
-    catch (zmq::error_t e)
+    catch (zmq::error_t &e)
     {
         cerr << "Error in publisher thread: " << e.what() << endl
              << "Exiting publishing thread." << endl;
@@ -329,7 +329,7 @@ void Publisher::PubImpl::server_task()
             // Record this key-value pair for late joiners:
             save_val(dp.key, dp.data);
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cerr << "ZMQ exception in publisher thread: "
                  << e.what() << endl;
@@ -399,7 +399,7 @@ void Publisher::PubImpl::state_manager_task()
             _state_service_urls.push_back(inproc_url);
         }
     }
-    catch (zmq::error_t e)
+    catch (zmq::error_t &e)
     {
         cerr << "Error in state manager thread: " << e.what() << endl
              << "Exiting thread." << endl;
@@ -459,7 +459,7 @@ void Publisher::PubImpl::state_manager_task()
 		}
 	    }
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cerr << "State manager task, main loop: " << e.what() << endl;
         }

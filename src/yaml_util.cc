@@ -274,7 +274,7 @@ namespace mxutils
             bool rval = walk_the_nodes(keys, nodes, false);
             return set_yaml_result(keys, nodes, rval);
         }
-        catch (YAML::BadSubscript e)
+        catch (YAML::BadSubscript &e)
         {
             return set_yaml_result(keys, nodes, false, e.what());
         }
@@ -339,7 +339,7 @@ namespace mxutils
 
             return set_yaml_result(keys, nodes, rval);
         }
-        catch (YAML::BadSubscript e)
+        catch (YAML::BadSubscript &e)
         {
             return set_yaml_result(keys, nodes, false, e.what());
         }
@@ -388,7 +388,7 @@ namespace mxutils
 
             return set_yaml_result(keys, nodes, rval);
         }
-        catch (YAML::BadSubscript e)
+        catch (YAML::BadSubscript &e)
         {
             return set_yaml_result(keys, nodes, false, e.what());
         }

@@ -445,7 +445,7 @@ std::string process_zmq_urn(const std::string input)
                 i = atoi(components.back().c_str());
                 return i;
             }
-            catch (zmq::error_t e)
+            catch (zmq::error_t &e)
             {
                 // Didn't work; drop into manual way below.
             }
@@ -492,7 +492,7 @@ std::string process_zmq_urn(const std::string input)
                 {
                     s.bind(url.str().c_str());
                 }
-                catch (zmq::error_t e)
+                catch (zmq::error_t &e)
                 {
                     continue;
                 }

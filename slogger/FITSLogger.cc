@@ -440,6 +440,8 @@ bool FITSLogger::log_data(GenericBuffer &data)
     }
     dbprintf("\n");
     fits_flush_file(fout, &status);
+
+    return true;
 }
 
 

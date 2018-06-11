@@ -237,7 +237,7 @@ namespace matrix
                 }
             }
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cerr << Time::isoDateTime(Time::getUTC())
                  << " -- Error in publisher thread: " << e.what() << endl
@@ -308,7 +308,7 @@ namespace matrix
             z_send(_pub_skt, key, ZMQ_SNDMORE, 0);
             z_send(_pub_skt, (const char *)data, sze, 0, 0);
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             cerr << Time::isoDateTime(Time::getUTC())
                  << " -- ZMQ exception in publisher: "
@@ -336,7 +336,7 @@ namespace matrix
             urns = _impl->get_urls();
             km.put(_transport_key + ".AsConfigured", urns, true);
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             throw CreationError(e.what());
         }
@@ -352,7 +352,7 @@ namespace matrix
             Keymaster km(_km_url);
             km.del(_transport_key + ".AsConfigured");
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             // Just making sure no exception is thrown from destructor. The
             // Keymaster client could throw if the KeymasterServer goes away
@@ -611,7 +611,7 @@ namespace matrix
                     }
                 }
             }
-            catch (zmq::error_t e)
+            catch (zmq::error_t &e)
             {
                 string error = e.what();
                 cerr << Time::isoDateTime(Time::getUTC())

@@ -125,6 +125,7 @@ public:
     bool off_to_on_arc()
     {
         printf("transitioning from off to on\n");
+        return true;
     }
 };
 
@@ -181,7 +182,7 @@ class MyPredicate
 {
 public:
     MyPredicate() : locked(true) {}
-    bool unlock() { locked=false; }
+    void unlock() { locked=false; }
     bool checkOffOn()
     {
         printf("Ok to turn on\n");
@@ -281,14 +282,14 @@ void StateTransitionTest::test_consistency_check()
 class Sequencer
 {
 public:
-    bool do_activating() { cout << "activating" << endl; }
-    bool do_commit() { cout << "arming" << endl; }
-    bool do_start() { cout << "starting" << endl; }
-    bool do_complete() { cout << "to ready" << endl; }
-    bool do_abort() { cout << "aborting" << endl; }
-    bool do_stop() { cout << "stopping" << endl; }
-    bool do_powerfail() { cout << "power failed" << endl; }
-    bool do_system_ok() { cout << "system ok" << endl; }
+    bool do_activating() { cout << "activating" << endl; return true; }
+    bool do_commit() { cout << "arming" << endl; return true; }
+    bool do_start() { cout << "starting" << endl; return true; }
+    bool do_complete() { cout << "to ready" << endl; return true;}
+    bool do_abort() { cout << "aborting" << endl; return true;}
+    bool do_stop() { cout << "stopping" << endl; return true;}
+    bool do_powerfail() { cout << "power failed" << endl; return true;}
+    bool do_system_ok() { cout << "system ok" << endl; return true;}
     
     bool system_ok() { return sys_ok && power_ok; }
     bool start_time_reached() { return t > tstart; }

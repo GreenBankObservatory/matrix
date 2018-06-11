@@ -117,7 +117,7 @@ namespace matrix
                 }
             }
         }
-        catch (YAML::Exception e)
+        catch (YAML::Exception &e)
         {
             cerr << __PRETTY_FUNCTION__ << " " << e.what() << endl;
             return false;
@@ -292,7 +292,7 @@ namespace matrix
                                  new KeymasterMemberCB<Component>(this,
                                                                   &Component::mode_changed));
         }
-        catch (KeymasterException e)
+        catch (KeymasterException &e)
         {
             cerr << __PRETTY_FUNCTION__ << " exception: " << e.what() << endl;
             return false;
@@ -332,7 +332,7 @@ namespace matrix
             {
                 command_fifo.get(command);
             }
-            catch (Exception e)
+            catch (Exception &e)
             {
                 cerr << e.what() << endl;
                 throw e;

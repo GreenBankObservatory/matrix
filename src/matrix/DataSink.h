@@ -660,15 +660,15 @@ namespace matrix
         {
             disconnect();
         }
-        catch (matrix::KeymasterException e)
+        catch (matrix::KeymasterException &e)
         {
             std::cerr << now << e.what() << std::endl;
         }
-        catch (zmq::error_t e)
+        catch (zmq::error_t &e)
         {
             std::cerr << now << e.what() << std::endl;
         }
-        catch (std::exception e)
+        catch (std::exception &e)
         {
             std::cerr << now << e.what() << std::endl;
         }
