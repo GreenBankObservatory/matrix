@@ -9,4 +9,4 @@ hello_world.cc
 )
 
 add_executable(hellow_matrix ${SOURCE_FILES})
-target_link_libraries (hellow_matrix LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib yaml-cpp zmq fftw3 rt boost_regex cfitsio)
+target_link_libraries (hellow_matrix LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib64 -L${THIRDPARTYDIR}/lib yaml-cpp zmq fftw3 rt boost_regex cfitsio)

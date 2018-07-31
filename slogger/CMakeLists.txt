@@ -11,4 +11,4 @@ set(SOURCE_FILES
 )
 
 add_executable(slogger ${SOURCE_FILES})
-target_link_libraries (slogger LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib yaml-cpp zmq rt boost_regex cfitsio)
+target_link_libraries (slogger LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib64 -L${THIRDPARTYDIR}/lib yaml-cpp zmq rt boost_regex cfitsio)

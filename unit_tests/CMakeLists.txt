@@ -27,5 +27,5 @@ utility_test.h
 )
 
 add_executable(matrix_test ${SOURCE_FILES})
-target_link_libraries (matrix_test LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib cppunit yaml-cpp zmq rt boost_regex cfitsio)
+target_link_libraries (matrix_test LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib64 -L${THIRDPARTYDIR}/lib cppunit yaml-cpp zmq rt boost_regex cfitsio)
 

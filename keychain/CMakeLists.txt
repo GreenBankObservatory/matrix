@@ -11,4 +11,4 @@ main.cc
 )
 
 add_executable(keychain ${SOURCE_FILES})
-target_link_libraries (keychain LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib yaml-cpp zmq readline rt boost_regex cfitsio)
+target_link_libraries (keychain LINK_PUBLIC matrix -L${THIRDPARTYDIR}/lib64 -L${THIRDPARTYDIR}/lib yaml-cpp zmq readline rt boost_regex cfitsio)

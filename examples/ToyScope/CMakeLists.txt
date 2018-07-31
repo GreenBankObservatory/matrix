@@ -17,4 +17,4 @@ toy_scope.cc
 )
 
 add_executable(toy_scope ${SOURCE_FILES})
-target_link_libraries (toy_scope LINK_PUBLIC matrix matrix_extra -L${THIRDPARTYDIR}/lib yaml-cpp zmq fftw3 rt boost_regex cfitsio)
+target_link_libraries (toy_scope LINK_PUBLIC matrix matrix_extra -L${THIRDPARTYDIR}/lib64 -L${THIRDPARTYDIR}/lib yaml-cpp zmq fftw3 rt boost_regex cfitsio)
