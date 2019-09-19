@@ -302,7 +302,7 @@ namespace matrix
             {
             }
 
-            virtual void _call(int)
+            virtual void _call(unsigned int)
             {
                 item_placed.signal(true);
             }
