@@ -26,8 +26,8 @@
  *
  *******************************************************************/
 
-#if !defined(_YGOR_TSEMFIFO_H_)
-#define _YGOR_TSEMFIFO_H_
+#if !defined(_MATRIX_TSEMFIFO_H_)
+#define _MATRIX_TSEMFIFO_H_
 
 #include <semaphore.h>
 #include <errno.h>

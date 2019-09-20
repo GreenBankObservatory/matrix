@@ -25,9 +25,8 @@
  *
  *******************************************************************/
 
-#if !defined(_YGOR_LOG_T_H_)
-#define _YGOR_LOG_T_H_
-#if !defined(VXWORKS) // this class uses templates and STL
+#if !defined(_MATRIX_LOG_T_H_)
+#define _MATRIX_LOG_T_H_
 
 #include "matrix/Time.h"
 #include "matrix/Thread.h"
@@ -229,5 +228,4 @@ namespace matrix
     };
 }
 
-#endif
 #endif

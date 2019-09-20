@@ -4,6 +4,7 @@ Keymaster:
         Initial:
           - inproc://matrix.keymaster
           - tcp://*:42000
+    clone_interval: 10000
 
 
 architect:
