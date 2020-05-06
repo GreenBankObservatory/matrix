@@ -1,7 +1,7 @@
 /*******************************************************************
  *  matrix_util.h - Useful odds & ends
  *
- *  Copyright (C) 2015 Associated Universities, Inc. Washington DC, USA.
+ *  Copyright (C) 2020 Associated Universities, Inc. Washington DC, USA.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,18 +95,18 @@ namespace matrix
 
         std::string ToHex(const std::string &s, bool upper_case = false, size_t max_len = 0);
 
-/**
- * This is a predicate function, intended to return true if a particular
- * char 'c' should be stripped out of the string. Here we are stripping
- * out non-numeric characters. The characters needed by the conversion
- * routines below are [0-9], [A-Fa-f], '.+-', (and 'e' for exponent,
- * already covered.) And 'x' in 0x hex designation.
- *
- * @param c: the character
- *
- * @return true if the character should be stripped out.
- *
- */
+        /**
+         * This is a predicate function, intended to return true if a particular
+         * char 'c' should be stripped out of the string. Here we are stripping
+         * out non-numeric characters. The characters needed by the conversion
+         * routines below are [0-9], [A-Fa-f], '.+-', (and 'e' for exponent,
+         * already covered.) And 'x' in 0x hex designation.
+         *
+         * @param c: the character
+         *
+         * @return true if the character should be stripped out.
+         *
+         */
 
         inline bool is_non_numeric_p(char c)
         {
@@ -118,15 +118,15 @@ namespace matrix
             return syms.find(c) == syms.end();
         }
 
-/**
- * This helper will strip out whatever characters the predicate
- * 'strip_p' returns 'true' for (see above).
- *
- * @param s: the string to be stripped
- *
- * @return a new string, which is 's' minus the non-numeric characters.
- *
- */
+        /**
+         * This helper will strip out whatever characters the predicate
+         * 'strip_p' returns 'true' for (see above).
+         *
+         * @param s: the string to be stripped
+         *
+         * @return a new string, which is 's' minus the non-numeric characters.
+         *
+         */
 
         inline std::string strip_non_numeric(const std::string &s)
         {
@@ -135,13 +135,13 @@ namespace matrix
             return stripped;
         }
 
-/**
- * \class fn_string_join is a simple functor that provides a handy way to
- * join strings from a container of strings, using the delimiter
- * provided. It may be used stand-alone, but is most useful with
- * high-level functions like transform, etc.
- *
- */
+        /**
+         * \class fn_string_join is a simple functor that provides a handy way to
+         * join strings from a container of strings, using the delimiter
+         * provided. It may be used stand-alone, but is most useful with
+         * high-level functions like transform, etc.
+         *
+         */
 
         struct fn_string_join
         {
@@ -161,17 +161,17 @@ namespace matrix
             std::string _delim;
         };
 
-/**
- * \class is_substring_in_p
- *
- * A predicate functor which checks a given string for a provided
- * substring and returns true if it exists, false otherwise. The
- * substring to find is provided in the constructor:
- *
- *      is_substring_in_p ssp("fox");
- *      ssp("the quick brown dog jumped over the lazy fox"); // returns true
- *
- */
+        /**
+         * \class is_substring_in_p
+         *
+         * A predicate functor which checks a given string for a provided
+         * substring and returns true if it exists, false otherwise. The
+         * substring to find is provided in the constructor:
+         *
+         *      is_substring_in_p ssp("fox");
+         *      ssp("the quick brown dog jumped over the lazy fox"); // returns true
+         *
+         */
 
         struct is_substring_in_p
         {
@@ -188,14 +188,14 @@ namespace matrix
             std::string _subs;
         };
 
-/**
- * Outputs a vector to an ostream
- *
- * @param v: the vector to be output
- *
- * @param o: the ostream type
- *
- */
+        /**
+         * Outputs a vector to an ostream
+         *
+         * @param v: the vector to be output
+         *
+         * @param o: the ostream type
+         *
+         */
 
         template<typename T>
         void output_vector(std::vector<T> v, std::ostream &o)
@@ -209,134 +209,152 @@ namespace matrix
             o << y;
         }
 
-/**
- * Outputs a map to an ostream
- *
- * @param m: the map to be output
- *
- * @param o: the ostream type
- *
- */
+        /**
+         * Outputs a map to an ostream
+         *
+         * @param m: the map to be output
+         *
+         * @param o: the ostream type
+         *
+         */
 
-    template <typename T, typename Q>
-    void output_map(std::map<T,Q> m, std::ostream &o)
-    {
-        std::ostringstream str;
-        str << "{";
-
-        for (auto x: m)
+        template<typename T, typename Q>
+        void output_map(std::map<T, Q> m, std::ostream &o)
         {
-            str << x.first << ":" << x.second << ", ";
+            std::ostringstream str;
+            str << "{";
+
+            for (auto x: m)
+            {
+                str << x.first << ":" << x.second << ", ";
+            }
+
+            std::string s = str.str();
+            std::string y(s.begin(), s.end() - 2);
+            y += "}";
+            o << y;
         }
 
-        std::string s = str.str();
-        std::string y(s.begin(), s.end() - 2);
-        y += "}";
-        o << y;
-    }
+        /**
+         * These template specializations convert 's' to a value of type T and
+         * return it.
+         *
+         * Add new ones as needed.
+         *
+         * @param const string &s: The std::string representation of the value
+         *
+         * @return The T.
+         *
+         */
 
-/**
- * These template specializations convert 's' to a value of type T and
- * return it.
- *
- * Add new ones as needed.
- *
- * @param const string &s: The std::string representation of the value
- *
- * @return The T.
- *
- */
-
-/* General template */
-    template<typename T>
-    T convert(const std::string &s)
-    {
-        return T(s);
-    }
-
-/* specializations */
-    template<>
-    inline std::string convert<std::string>(const std::string &s)
-    {
-        return s;
-    }
-
-    template<>
-    inline int8_t convert<int8_t>(const std::string &s)
-    {
-        return (int8_t) stoi(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline uint8_t convert<uint8_t>(const std::string &s)
-    {
-        return (uint8_t) stoul(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline int16_t convert<int16_t>(const std::string &s)
-    {
-        return (int16_t) stoi(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline uint16_t convert<uint16_t>(const std::string &s)
-    {
-        return (uint16_t) stoul(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline int32_t convert<int32_t>(const std::string &s)
-    {
-        return (int32_t) stoi(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline uint32_t convert<uint32_t>(const std::string &s)
-    {
-        return (uint32_t) stoul(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline int64_t convert<int64_t>(const std::string &s)
-    {
-        return (int64_t) stol(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline uint64_t convert<uint64_t>(const std::string &s)
-    {
-        return (uint64_t) stoul(strip_non_numeric(s), 0, 0);
-    }
-
-    template<>
-    inline bool convert<bool>(const std::string &s)
-    {
-        bool v = false;
-
-        if (s == "True" or s == "true")
+        /* General template */
+        template<typename T>
+        T convert(const std::string &s)
         {
-            v = true;
+            return T(s);
         }
 
-        return v;
-    }
+        /* specializations */
+        template<>
+        inline std::string convert<std::string>(const std::string &s)
+        {
+            return s;
+        }
 
-    template<>
-    inline double convert<double>(const std::string &s)
-    {
-        // [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
-        return stod(strip_non_numeric(s));
-    }
+        template<>
+        inline int8_t convert<int8_t>(const std::string &s)
+        {
+            return (int8_t) stoi(strip_non_numeric(s), 0, 0);
+        }
 
-    template<>
-    inline float convert<float>(const std::string &s)
-    {
-        // [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
-        return stof(strip_non_numeric(s));
-    }
+        template<>
+        inline uint8_t convert<uint8_t>(const std::string &s)
+        {
+            return (uint8_t) stoul(strip_non_numeric(s), 0, 0);
+        }
 
-};
+        template<>
+        inline int16_t convert<int16_t>(const std::string &s)
+        {
+            return (int16_t) stoi(strip_non_numeric(s), 0, 0);
+        }
+
+        template<>
+        inline uint16_t convert<uint16_t>(const std::string &s)
+        {
+            return (uint16_t) stoul(strip_non_numeric(s), 0, 0);
+        }
+
+        template<>
+        inline int32_t convert<int32_t>(const std::string &s)
+        {
+            return (int32_t) stoi(strip_non_numeric(s), 0, 0);
+        }
+
+        template<>
+        inline uint32_t convert<uint32_t>(const std::string &s)
+        {
+            return (uint32_t) stoul(strip_non_numeric(s), 0, 0);
+        }
+
+        template<>
+        inline int64_t convert<int64_t>(const std::string &s)
+        {
+            return (int64_t) stol(strip_non_numeric(s), 0, 0);
+        }
+
+        template<>
+        inline uint64_t convert<uint64_t>(const std::string &s)
+        {
+            return (uint64_t) stoul(strip_non_numeric(s), 0, 0);
+        }
+
+        template<>
+        inline bool convert<bool>(const std::string &s)
+        {
+            bool v = false;
+
+            if (s == "True" or s == "true")
+            {
+                v = true;
+            }
+
+            return v;
+        }
+
+        template<>
+        inline double convert<double>(const std::string &s)
+        {
+            // [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
+            return stod(strip_non_numeric(s));
+        }
+
+        template<>
+        inline float convert<float>(const std::string &s)
+        {
+            // [-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
+            return stof(strip_non_numeric(s));
+        }
+
+        /// This snippet uses a single unique_ptr to store a stl container of
+        /// raw pointers. Memory management is retained when the container is
+        /// deleted or goes out of scope. The elements of the container are first
+        /// deleted, and then the container itself is deleted.
+        /// This seems to work faster/better than storing unique_ptr's in a
+        /// regular container.
+        template<typename T>
+        struct ContainerElementDeleter
+        {
+            void operator()(T *container)
+            {
+                for (auto *element : *container)
+                    delete element;
+                delete container;
+            }
+        };
+        template<typename T>
+        using UniqueContainer = std::unique_ptr<T, ContainerElementDeleter<T>>;
+    };
 
 
 #endif // _MATRIX_UTIL_H_
