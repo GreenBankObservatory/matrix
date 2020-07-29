@@ -115,7 +115,7 @@ int main(int argc, char **argv)
         }
         else if (arg == "-debug")
         {
-            debuglevel = 1;
+            debuglevel++;
         }
         else if (arg == "-help")
         {

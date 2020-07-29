@@ -330,7 +330,10 @@ bool FITSLogger::log_data(GenericBuffer &data)
                 t = get_data_buffer_value<Time::Time_t>(data.data(), z->offset);
                 dmjd = Time::DMJD(t);
                 fits_write_col_dbl(fout, columnNum, (LONGLONG)cur_row, 1LL, 1LL, &dmjd, &status);
-                dbprintf("%lu %.15f ", t, dmjd);
+                if (debug > 1)
+                    printf("%lu %.15f ", t, dmjd);
+                else if(debug > 0)
+                    printf("%.15f ", dmjd);
                 break;
             }
 
