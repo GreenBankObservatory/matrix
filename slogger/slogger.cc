@@ -128,14 +128,12 @@ int main(int argc, char **argv)
             arg = argv[i];
             double tmo = std::strtod(arg.c_str(), nullptr);
             time_out = static_cast<Time::Time_t>(tmo * Time::TM_ONE_SEC);
-            return -1;
         }
         else if (arg == "-maxrows")
         {
             ++i;
             arg = argv[i];
             max_rows_per_file = std::strtol(arg.c_str(), nullptr, 0);
-            return -1;
         }
         else
         {
