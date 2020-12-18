@@ -275,13 +275,9 @@ void KeymasterServer::KmImpl::terminate()
 {
     _running = false;
 
-    if (_state_manager_thread.running())
+    if (_heartbeat_thread.running())
     {
-        zmq::socket_t sock(ZMQContext::Instance()->get_context(), ZMQ_PAIR);
-        sock.connect(_state_task_url.c_str());
-        z_send(sock, _state_task_quit, 0);
-        sock.close();
-        _state_manager_thread.stop_without_cancel();
+        _heartbeat_thread.stop_without_cancel();
     }
 
     if (_server_thread.running())
@@ -290,9 +286,13 @@ void KeymasterServer::KmImpl::terminate()
         _server_thread.stop_without_cancel();
     }
 
-    if (_heartbeat_thread.running())
+    if (_state_manager_thread.running())
     {
-        _heartbeat_thread.stop_without_cancel();
+        zmq::socket_t sock(ZMQContext::Instance()->get_context(), ZMQ_PAIR);
+        sock.connect(_state_task_url.c_str());
+        z_send(sock, _state_task_quit, 0);
+        sock.close();
+        _state_manager_thread.stop_without_cancel();
     }
 }
 
@@ -468,6 +468,12 @@ void KeymasterServer::KmImpl::server_task()
         {
             cerr << Time::isoDateTime(Time::getUTC())
                  << " -- ZMQ exception in publisher thread: "
+                 << e.what() << endl;
+        }
+        catch (matrix::MatrixException &e)
+        {
+            cerr << Time::isoDateTime(Time::getUTC())
+                 << " -- MatrixException in publisher thread: "
                  << e.what() << endl;
         }
     }
@@ -767,6 +773,10 @@ void KeymasterServer::KmImpl::heartbeat_task()
             z_send(sock, flag, 0, KM_TIMEOUT);
             z_recv(sock, response, KM_TIMEOUT);
         }
+
+        int zero = 0;
+        sock.setsockopt(ZMQ_LINGER, &zero, sizeof zero);
+        sock.close();
     }
 }
 
